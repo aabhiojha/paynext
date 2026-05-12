@@ -1,0 +1,24 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: core-monolith
+  datasource:
+    url: jdbc:postgresql://localhost:5432/land-registry-db
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    show-sql: true
+    hibernate:
+      ddl-auto: validate
+
+app:
+  jwt:
+    secret: 60000e7866de30227c7ca77a72f62352e3bc26409cfdc55524cd49e791dbb65c
+    expiration-seconds: 840000
