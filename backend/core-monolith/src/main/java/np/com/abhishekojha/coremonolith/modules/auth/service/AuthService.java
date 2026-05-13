@@ -38,31 +38,6 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
-    public AuthResponse register(RegisterRequest req) {
-        if (tenantRepository.existsBySlug(req.tenantSlug())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tenant slug already taken");
-        }
-        if (userRepository.existsByEmail(req.email())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already in use");
-        }
-
-        TenantEntity tenant = new TenantEntity();
-        tenant.setName(req.tenantName());
-        tenant.setSlug(req.tenantSlug());
-        tenant.setCompanyEmail(req.companyEmail());
-        tenant.setTimezone(req.timezone());
-        tenantRepository.save(tenant);
-
-        UserEntity user = new UserEntity();
-        user.setEmail(req.email());
-        user.setPasswordHash(passwordEncoder.encode(req.password()));
-        user.setRole(UserRole.TENANT_ADMIN);
-        user.setStatus(UserStatus.ACTIVE);
-        user = userRepository.save(user);
-
-        return buildSession(user);
-    }
-
     public AuthResponse login(LoginRequest req) {
         UserEntity user = userRepository.findByEmailAndDeletedAtIsNull(req.email())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));

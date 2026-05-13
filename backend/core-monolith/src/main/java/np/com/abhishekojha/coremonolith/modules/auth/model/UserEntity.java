@@ -17,6 +17,7 @@ import lombok.Setter;
 import np.com.abhishekojha.coremonolith.common.enums.UserRole;
 import np.com.abhishekojha.coremonolith.common.enums.UserStatus;
 import np.com.abhishekojha.coremonolith.modules.audit.model.BaseAuditEntity;
+import np.com.abhishekojha.coremonolith.modules.tenant.model.TenantEntity;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -32,6 +33,10 @@ public class UserEntity extends BaseAuditEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tenant_id")
+    private TenantEntity tenant;
 
     @Column(nullable = false, unique = true)
     private String email;
