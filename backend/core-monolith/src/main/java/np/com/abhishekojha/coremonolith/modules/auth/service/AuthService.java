@@ -10,6 +10,7 @@ import np.com.abhishekojha.coremonolith.modules.auth.model.UserEntity;
 import np.com.abhishekojha.coremonolith.modules.auth.model.UserSessionEntity;
 import np.com.abhishekojha.coremonolith.modules.auth.repository.UserRepository;
 import np.com.abhishekojha.coremonolith.modules.auth.repository.UserSessionRepository;
+import np.com.abhishekojha.coremonolith.modules.tenant.model.TenantEntity;
 import np.com.abhishekojha.coremonolith.modules.tenant.repository.TenantRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -44,6 +45,13 @@ public class AuthService {
         if (userRepository.existsByEmail(req.email())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already in use");
         }
+
+        TenantEntity tenant = new TenantEntity();
+        tenant.setName(req.tenantName());
+        tenant.setSlug(req.tenantSlug());
+        tenant.setCompanyEmail(req.companyEmail());
+        tenant.setTimezone(req.timezone());
+        tenantRepository.save(tenant);
 
         UserEntity user = new UserEntity();
         user.setEmail(req.email());
