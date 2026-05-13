@@ -3,9 +3,6 @@ package np.com.abhishekojha.coremonolith.modules.tenant.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import np.com.abhishekojha.coremonolith.common.enums.TenantStatus;
-import np.com.abhishekojha.coremonolith.modules.invitation.dto.InviteAdminRequest;
-import np.com.abhishekojha.coremonolith.modules.invitation.dto.InvitationResponse;
-import np.com.abhishekojha.coremonolith.modules.invitation.service.InvitationService;
 import np.com.abhishekojha.coremonolith.modules.tenant.dto.CreateTenantRequest;
 import np.com.abhishekojha.coremonolith.modules.tenant.dto.TenantResponse;
 import np.com.abhishekojha.coremonolith.modules.tenant.dto.UpdateTenantRequest;
@@ -32,7 +29,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class TenantController {
 
     private final TenantSuperAdminService tenantSuperAdminService;
-    private final InvitationService invitationService;
 
     @PostMapping
     public ResponseEntity<TenantResponse> createTenant(@Valid @RequestBody CreateTenantRequest req) {
@@ -68,10 +64,4 @@ public class TenantController {
         return ResponseEntity.ok(tenantSuperAdminService.archive(tenantId));
     }
 
-    @PostMapping("/{tenantId}/invite-admin")
-    public ResponseEntity<InvitationResponse> inviteAdmin(
-            @PathVariable Long tenantId,
-            @Valid @RequestBody InviteAdminRequest req) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(invitationService.inviteAdmin(tenantId, req));
-    }
 }

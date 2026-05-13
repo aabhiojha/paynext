@@ -23,12 +23,21 @@ spring:
     jpa:
       repositories:
         bootstrap-mode: deferred
+  mvc:
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      add-mappings: false
 
 logging:
   level:
     root: INFO
     org.springframework: INFO
     org.hibernate.SQL: WARN
+
+notification:
+  service:
+    base-url: ${NOTIFICATION_SERVICE_URL}
 
 app:
   jwt:
