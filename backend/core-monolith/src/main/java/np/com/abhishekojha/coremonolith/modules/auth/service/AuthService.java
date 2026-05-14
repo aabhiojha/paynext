@@ -1,10 +1,12 @@
 package np.com.abhishekojha.coremonolith.modules.auth.service;
 
 import lombok.RequiredArgsConstructor;
+import np.com.abhishekojha.coremonolith.common.enums.AuditAction;
 import np.com.abhishekojha.coremonolith.common.enums.InvitationRole;
 import np.com.abhishekojha.coremonolith.common.enums.InvitationStatus;
 import np.com.abhishekojha.coremonolith.common.enums.UserRole;
 import np.com.abhishekojha.coremonolith.common.enums.UserStatus;
+import np.com.abhishekojha.coremonolith.modules.audit.service.AuditService;
 import np.com.abhishekojha.coremonolith.modules.auth.dto.AcceptInviteRequest;
 import np.com.abhishekojha.coremonolith.modules.auth.dto.AuthResponse;
 import np.com.abhishekojha.coremonolith.modules.auth.dto.LoginRequest;
@@ -28,6 +30,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -43,6 +46,7 @@ public class AuthService {
     private final InvitationRepository invitationRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final AuditService auditService;
 
     public AuthResponse login(LoginRequest req) {
         UserEntity user = userRepository.findByEmailAndDeletedAtIsNull(req.email())
@@ -56,6 +60,7 @@ public class AuthService {
         }
 
         user.setLastLoginAt(Instant.now());
+        auditService.log(user, AuditAction.LOGIN, "USER", user.getId(), null, null);
 
         return buildSession(user);
     }
@@ -78,6 +83,7 @@ public class AuthService {
         String tokenHash = sha256Hex(rawRefreshToken);
         userSessionRepository.findByRefreshTokenHash(tokenHash).ifPresent(session -> {
             session.setRevokedAt(Instant.now());
+            auditService.log(session.getUser(), AuditAction.LOGOUT, "USER", session.getUser().getId(), null, null);
         });
     }
 
@@ -109,6 +115,10 @@ public class AuthService {
 
         inv.setStatus(InvitationStatus.ACCEPTED);
         inv.setAcceptedAt(Instant.now());
+
+        auditService.log(user, AuditAction.CREATE, "USER", user.getId(), null,
+                Map.of("email", user.getEmail(), "role", user.getRole().name(),
+                        "tenantId", inv.getTenant().getId()));
 
         return buildSession(user);
     }
