@@ -3,10 +3,12 @@ package np.com.abhishekojha.coremonolith.modules.invitation.service;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import np.com.abhishekojha.coremonolith.common.enums.AuditAction;
 import np.com.abhishekojha.coremonolith.common.enums.InvitationRole;
 import np.com.abhishekojha.coremonolith.common.enums.InvitationStatus;
 import np.com.abhishekojha.coremonolith.common.enums.TenantStatus;
 import np.com.abhishekojha.coremonolith.config.TenantAccessGuard;
+import np.com.abhishekojha.coremonolith.modules.audit.service.AuditService;
 import np.com.abhishekojha.coremonolith.modules.invitation.client.InviteNotificationPayload;
 import np.com.abhishekojha.coremonolith.modules.invitation.client.NotificationClient;
 import np.com.abhishekojha.coremonolith.modules.invitation.dto.InviteRequest;
@@ -22,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Map;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -42,6 +45,7 @@ public class InvitationService {
     private final TenantRepository tenantRepository;
     private final NotificationClient notificationClient;
     private final TenantAccessGuard guard;
+    private final AuditService auditService;
 
     public InvitationResponse inviteAdmin(Long tenantId, InviteRequest req) {
         TenantEntity tenant = activeTenant(tenantId);
@@ -67,6 +71,8 @@ public class InvitationService {
         UserInvitationEntity inv = findInvitation(tenantId, invitationId);
         requirePending(inv);
         inv.setStatus(InvitationStatus.REVOKED);
+        auditService.log(AuditAction.STATUS_CHANGE, "INVITATION", invitationId,
+                Map.of("status", "PENDING"), Map.of("status", "REVOKED"));
     }
 
     public InvitationResponse resendInvitation(Long tenantId, Long invitationId) {
@@ -101,6 +107,8 @@ public class InvitationService {
         invitation.setExpiresAt(now.plus(INVITE_TTL_DAYS, ChronoUnit.DAYS));
         invitation.setCreatedAt(now);
         invitationRepository.save(invitation);
+        auditService.log(AuditAction.CREATE, "INVITATION", invitation.getId(),
+                null, Map.of("email", email, "role", role.name(), "tenantId", tenant.getId()));
 
         InviteNotificationPayload payload = new InviteNotificationPayload(
                 tenant.getId(), tenant.getName(), email, role.name(), rawToken, invitation.getExpiresAt()
