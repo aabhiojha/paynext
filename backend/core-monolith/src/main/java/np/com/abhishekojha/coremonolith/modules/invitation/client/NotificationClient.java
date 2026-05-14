@@ -21,15 +21,23 @@ public class NotificationClient {
     }
 
     public void sendInvitation(InviteNotificationPayload payload) {
+        dispatch("/internal/notify/invitation-user", payload);
+    }
+
+    public void sendAdminInvitation(InviteNotificationPayload payload) {
+        dispatch("/internal/notify/invitation-admin", payload);
+    }
+
+    private void dispatch(String uri, InviteNotificationPayload payload) {
         try {
             restClient.post()
-                    .uri("/internal/notify/invitation")
+                    .uri(uri)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(payload)
                     .retrieve()
                     .toBodilessEntity();
         } catch (Exception e) {
-            log.warn("Failed to dispatch invitation email to {}: {}", payload.recipientEmail(), e.getMessage());
+            log.warn("Failed to dispatch email to {} [{}]: {}", payload.recipientEmail(), uri, e.getMessage());
         }
     }
 }
