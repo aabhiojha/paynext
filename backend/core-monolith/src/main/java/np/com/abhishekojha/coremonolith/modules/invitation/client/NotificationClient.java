@@ -2,8 +2,7 @@ package np.com.abhishekojha.coremonolith.modules.invitation.client;
 
 import lombok.extern.slf4j.Slf4j;
 import np.com.abhishekojha.coremonolith.config.NotificationProperties;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import np.com.abhishekojha.coremonolith.modules.reminder.client.ReminderNotificationPayload;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -21,23 +20,27 @@ public class NotificationClient {
     }
 
     public void sendInvitation(InviteNotificationPayload payload) {
-        dispatch("/internal/notify/invitation-user", payload);
+        dispatch("/internal/notify/invitation-user", payload, payload.recipientEmail());
     }
 
     public void sendAdminInvitation(InviteNotificationPayload payload) {
-        dispatch("/internal/notify/invitation-admin", payload);
+        dispatch("/internal/notify/invitation-admin", payload, payload.recipientEmail());
     }
 
-    private void dispatch(String uri, InviteNotificationPayload payload) {
+    public void sendReminder(ReminderNotificationPayload payload) {
+        dispatch("/internal/notify/reminder", payload, payload.customerEmail());
+    }
+
+    private void dispatch(String uri, Object body, String recipientEmail) {
         try {
             restClient.post()
                     .uri(uri)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(payload)
+                    .body(body)
                     .retrieve()
                     .toBodilessEntity();
         } catch (Exception e) {
-            log.warn("Failed to dispatch email to {} [{}]: {}", payload.recipientEmail(), uri, e.getMessage());
+            log.warn("Failed to dispatch email to {} [{}]: {}", recipientEmail, uri, e.getMessage());
         }
     }
 }
