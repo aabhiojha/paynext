@@ -1,0 +1,137 @@
+package np.com.abhishekojha.coremonolith.modules.dashboard.service;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import np.com.abhishekojha.coremonolith.common.enums.CustomerProductStatus;
+import np.com.abhishekojha.coremonolith.common.enums.ReminderStatus;
+import np.com.abhishekojha.coremonolith.common.enums.TenantStatus;
+import np.com.abhishekojha.coremonolith.config.TenantAccessGuard;
+import np.com.abhishekojha.coremonolith.modules.audit.dto.AuditLogResponse;
+import np.com.abhishekojha.coremonolith.modules.audit.repository.AuditLogRepository;
+import np.com.abhishekojha.coremonolith.modules.auth.repository.UserRepository;
+import np.com.abhishekojha.coremonolith.modules.customer.repository.CustomerRepository;
+import np.com.abhishekojha.coremonolith.modules.customerproduct.repository.CustomerProductRepository;
+import np.com.abhishekojha.coremonolith.modules.dashboard.dto.AdminSummaryResponse;
+import np.com.abhishekojha.coremonolith.modules.dashboard.dto.OverduePlanResponse;
+import np.com.abhishekojha.coremonolith.modules.dashboard.dto.ReminderStatsResponse;
+import np.com.abhishekojha.coremonolith.modules.dashboard.dto.RevenueByCurrencyResponse;
+import np.com.abhishekojha.coremonolith.modules.dashboard.dto.TenantSummaryResponse;
+import np.com.abhishekojha.coremonolith.modules.dashboard.dto.UpcomingReminderResponse;
+import np.com.abhishekojha.coremonolith.modules.product.repository.ProductRepository;
+import np.com.abhishekojha.coremonolith.modules.reminder.repository.ReminderRepository;
+import np.com.abhishekojha.coremonolith.modules.tenant.repository.TenantRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+
+@Service
+@Transactional(readOnly = true)
+@RequiredArgsConstructor
+@Slf4j
+public class DashboardService {
+
+    private static final int UPCOMING_WINDOW_DAYS = 7;
+    private static final int DEFAULT_STATS_RANGE_DAYS = 30;
+
+    private final CustomerRepository customerRepository;
+    private final ProductRepository productRepository;
+    private final CustomerProductRepository customerProductRepository;
+    private final ReminderRepository reminderRepository;
+    private final AuditLogRepository auditLogRepository;
+    private final TenantRepository tenantRepository;
+    private final UserRepository userRepository;
+    private final TenantAccessGuard guard;
+
+    public TenantSummaryResponse getSummary(Long tenantId) {
+        guard.requireTenantAccess(tenantId);
+        log.info("Fetching dashboard summary for tenant={}", tenantId);
+        return new TenantSummaryResponse(
+                customerRepository.countByTenantIdAndDeletedAtIsNull(tenantId),
+                productRepository.countByTenantIdAndDeletedAtIsNull(tenantId),
+                customerProductRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, CustomerProductStatus.ACTIVE),
+                customerProductRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, CustomerProductStatus.PAUSED),
+                customerProductRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, CustomerProductStatus.CANCELLED)
+        );
+    }
+
+    public RevenueByCurrencyResponse getRevenue(Long tenantId) {
+        guard.requireTenantAccess(tenantId);
+        log.info("Fetching revenue overview for tenant={}", tenantId);
+        List<Object[]> rows = customerProductRepository.sumRevenueByTenantGroupedByCurrency(tenantId);
+        List<RevenueByCurrencyResponse.CurrencyTotal> totals = rows.stream()
+                .map(row -> new RevenueByCurrencyResponse.CurrencyTotal(
+                        (String) row[0],
+                        (BigDecimal) row[1],
+                        (Long) row[2]
+                ))
+                .toList();
+        return new RevenueByCurrencyResponse(totals);
+    }
+
+    public ReminderStatsResponse getReminderStats(Long tenantId, LocalDate from, LocalDate to) {
+        guard.requireTenantAccess(tenantId);
+
+        if (to == null) to = LocalDate.now();
+        if (from == null) from = to.minusDays(DEFAULT_STATS_RANGE_DAYS);
+
+        log.info("Fetching reminder stats for tenant={} from={} to={}", tenantId, from, to);
+        Instant fromInstant = from.atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant toInstant = to.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+
+        long sent = reminderRepository.countByTenantIdAndStatusAndCreatedAtBetween(tenantId, ReminderStatus.SENT, fromInstant, toInstant);
+        long failed = reminderRepository.countByTenantIdAndStatusAndCreatedAtBetween(tenantId, ReminderStatus.FAILED, fromInstant, toInstant);
+        long skipped = reminderRepository.countByTenantIdAndStatusAndCreatedAtBetween(tenantId, ReminderStatus.SKIPPED, fromInstant, toInstant);
+
+        return new ReminderStatsResponse(from, to, sent, failed, skipped, sent + failed + skipped);
+    }
+
+    public List<UpcomingReminderResponse> getUpcomingReminders(Long tenantId) {
+        guard.requireTenantAccess(tenantId);
+        log.info("Fetching upcoming reminders for tenant={}", tenantId);
+        Instant now = Instant.now();
+        Instant windowEnd = now.plus(UPCOMING_WINDOW_DAYS, ChronoUnit.DAYS);
+        return customerProductRepository
+                .findAllByTenantIdAndStatusAndDeletedAtIsNullAndEndsAtBetween(tenantId, CustomerProductStatus.ACTIVE, now, windowEnd)
+                .stream()
+                .map(UpcomingReminderResponse::from)
+                .toList();
+    }
+
+    public List<OverduePlanResponse> getOverduePlans(Long tenantId) {
+        guard.requireTenantAccess(tenantId);
+        log.info("Fetching overdue plans for tenant={}", tenantId);
+        return customerProductRepository
+                .findAllByTenantIdAndStatusAndDeletedAtIsNullAndEndsAtBefore(tenantId, CustomerProductStatus.ACTIVE, Instant.now())
+                .stream()
+                .map(OverduePlanResponse::from)
+                .toList();
+    }
+
+    public List<AuditLogResponse> getRecentActivity(Long tenantId) {
+        guard.requireTenantAccess(tenantId);
+        log.info("Fetching recent activity for tenant={}", tenantId);
+        return auditLogRepository.findTop10ByTenantId(tenantId)
+                .stream()
+                .map(AuditLogResponse::from)
+                .toList();
+    }
+
+    public AdminSummaryResponse getAdminSummary() {
+        log.info("Fetching platform-wide admin dashboard");
+        return new AdminSummaryResponse(
+                tenantRepository.countByStatusAndDeletedAtIsNull(TenantStatus.ACTIVE),
+                tenantRepository.countByStatusAndDeletedAtIsNull(TenantStatus.SUSPENDED),
+                tenantRepository.countByStatusAndDeletedAtIsNull(TenantStatus.ARCHIVED),
+                userRepository.countByDeletedAtIsNull(),
+                reminderRepository.countByStatus(ReminderStatus.SENT),
+                reminderRepository.countByStatus(ReminderStatus.FAILED),
+                reminderRepository.countByStatus(ReminderStatus.SKIPPED)
+        );
+    }
+}

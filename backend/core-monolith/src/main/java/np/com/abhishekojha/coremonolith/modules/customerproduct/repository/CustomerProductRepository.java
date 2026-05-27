@@ -6,6 +6,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -22,4 +25,19 @@ public interface CustomerProductRepository extends JpaRepository<CustomerProduct
 
     List<CustomerProductEntity> findAllByTenantIdAndStatusAndDeletedAtIsNullAndEndsAtBetween(
             Long tenantId, CustomerProductStatus status, Instant from, Instant to);
+
+    long countByTenantIdAndStatusAndDeletedAtIsNull(Long tenantId, CustomerProductStatus status);
+
+    @Query("""
+            SELECT cp.product.currency, SUM(cp.product.price), COUNT(cp)
+            FROM CustomerProductEntity cp
+            WHERE cp.tenant.id = :tenantId
+              AND cp.status = 'ACTIVE'
+              AND cp.deletedAt IS NULL
+            GROUP BY cp.product.currency
+            """)
+    List<Object[]> sumRevenueByTenantGroupedByCurrency(@Param("tenantId") Long tenantId);
+
+    List<CustomerProductEntity> findAllByTenantIdAndStatusAndDeletedAtIsNullAndEndsAtBefore(
+            Long tenantId, CustomerProductStatus status, Instant before);
 }

@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+
 public interface AuditLogRepository extends JpaRepository<AuditLogEntity, Long> {
 
     @Query("""
@@ -25,4 +27,12 @@ public interface AuditLogRepository extends JpaRepository<AuditLogEntity, Long> 
             @Param("resourceId") Long resourceId,
             Pageable pageable
     );
+
+    @Query("""
+            SELECT a FROM AuditLogEntity a
+            WHERE a.actor.tenant.id = :tenantId
+            ORDER BY a.createdAt DESC
+            LIMIT 10
+            """)
+    List<AuditLogEntity> findTop10ByTenantId(@Param("tenantId") Long tenantId);
 }

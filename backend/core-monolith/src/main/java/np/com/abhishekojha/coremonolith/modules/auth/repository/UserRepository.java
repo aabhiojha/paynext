@@ -16,4 +16,6 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
     Page<UserEntity> findAllByTenantIdAndDeletedAtIsNull(Long tenantId, Pageable pageable);
 
     Optional<UserEntity> findByIdAndTenantIdAndDeletedAtIsNull(Long id, Long tenantId);
+
+    long countByDeletedAtIsNull();
 }
