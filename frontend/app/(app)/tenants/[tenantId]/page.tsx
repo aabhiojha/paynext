@@ -102,6 +102,21 @@ export default function TenantDetailPage({
   const summary = useQuery({ queryKey: ["dashboard-summary", tenantId], queryFn: () => dashboardApi.summary(tenantId) })
   const rs = useQuery({ queryKey: ["dashboard-reminder-stats", tenantId], queryFn: () => dashboardApi.reminderStats(tenantId) })
 
+  // Preview queries — always loaded for the default view
+  const previewCustomers = useQuery({
+    queryKey: ["preview-customers", tenantId],
+    queryFn: () => customersApi.list(tenantId, 0, 5),
+  })
+  const previewProducts = useQuery({
+    queryKey: ["preview-products", tenantId],
+    queryFn: () => productsApi.list(tenantId, 0, 5),
+  })
+  const previewPlans = useQuery({
+    queryKey: ["preview-plans", tenantId],
+    queryFn: () => plansApi.listAll(tenantId, 0, 5),
+  })
+
+  // Full queries — lazy, only when a section is expanded
   const customers = useQuery({
     queryKey: ["tenantpage-customers", tenantId],
     queryFn: () => customersApi.list(tenantId, 0, 20),
@@ -268,6 +283,100 @@ export default function TenantDetailPage({
               )
             })}
           </div>
+
+          {/* ── Default view: preview cards ────────────────────── */}
+          {!activeSection && (
+            <div className="grid gap-6 lg:grid-cols-2 animate-fade-in">
+              {/* Recent customers */}
+              <Card>
+                <CardHeader className="flex-row items-center justify-between pb-3">
+                  <CardTitle className="text-base">Recent customers</CardTitle>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toggleSection("customers")}>
+                    View all
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-0.5">
+                  {previewCustomers.isLoading && <ListSkeleton count={3} />}
+                  {previewCustomers.data?.content.length === 0 && <Empty label="customers" />}
+                  {previewCustomers.data?.content.slice(0, 5).map((c) => (
+                    <div
+                      key={c.id}
+                      className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-secondary"
+                    >
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="text-[10px]">{initials(c.name)}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{c.name}</p>
+                        <p className="truncate text-[11px] text-muted-foreground">{c.email}</p>
+                      </div>
+                      <StatusBadge status={c.status} className="scale-90" />
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Recent products */}
+              <Card>
+                <CardHeader className="flex-row items-center justify-between pb-3">
+                  <CardTitle className="text-base">Recent products</CardTitle>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toggleSection("products")}>
+                    View all
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-0.5">
+                  {previewProducts.isLoading && <ListSkeleton count={3} />}
+                  {previewProducts.data?.content.length === 0 && <Empty label="products" />}
+                  {previewProducts.data?.content.slice(0, 5).map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex items-center justify-between rounded-lg px-2.5 py-2 transition-colors hover:bg-secondary"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{p.name}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {p.billingCadence.toLowerCase()} · {formatCurrency(p.price, p.currency)}
+                        </p>
+                      </div>
+                      <StatusBadge status={p.status} className="scale-90" />
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Recent plans — full width */}
+              <Card className="lg:col-span-2">
+                <CardHeader className="flex-row items-center justify-between pb-3">
+                  <CardTitle className="text-base">Recent plans</CardTitle>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toggleSection("plans")}>
+                    View all
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-0.5">
+                  {previewPlans.isLoading && <ListSkeleton count={3} />}
+                  {previewPlans.data?.content.length === 0 && <Empty label="plans" />}
+                  {previewPlans.data?.content.slice(0, 5).map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex items-center gap-3 rounded-lg px-2.5 py-2.5 transition-colors hover:bg-secondary"
+                    >
+                      <Avatar className="h-8 w-8 shrink-0">
+                        <AvatarFallback className="text-[10px]">{initials(p.customerName)}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{p.customerName}</p>
+                        <p className="truncate text-[11px] text-muted-foreground">{p.productName} · {timeAgo(p.createdAt)}</p>
+                      </div>
+                      {p.endsAt && (
+                        <Badge variant="outline" className="text-[10px] shrink-0">Due {formatDate(p.endsAt)}</Badge>
+                      )}
+                      <StatusBadge status={p.status} className="scale-90 shrink-0" />
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           {/* ── Expanded section ───────────────────────────────── */}
           {activeSection && (
@@ -487,10 +596,10 @@ export default function TenantDetailPage({
   )
 }
 
-function ListSkeleton() {
+function ListSkeleton({ count = 5 }: { count?: number }) {
   return (
     <div className="space-y-2">
-      {Array.from({ length: 5 }).map((_, i) => (
+      {Array.from({ length: count }).map((_, i) => (
         <Skeleton key={i} className="h-11" />
       ))}
     </div>
