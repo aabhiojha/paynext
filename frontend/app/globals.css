@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 30% 98.5%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 244 75% 57%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 244 100% 97%;
+    --accent-foreground: 244 75% 35%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 65% 38%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 36 50% 14%;
+
+    --info: 212 92% 45%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 244 75% 57%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 224 32% 7%;
+    --foreground: 210 40% 96%;
+
+    --card: 224 32% 9%;
+    --card-foreground: 210 40% 96%;
+
+    --popover: 224 32% 9%;
+    --popover-foreground: 210 40% 96%;
+
+    --primary: 244 90% 70%;
+    --primary-foreground: 222 47% 11%;
+
+    --secondary: 217 30% 14%;
+    --secondary-foreground: 210 40% 96%;
+
+    --muted: 217 30% 14%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 244 75% 22%;
+    --accent-foreground: 244 95% 85%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 55% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 55%;
+    --warning-foreground: 36 50% 14%;
+
+    --info: 212 92% 55%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 217 30% 18%;
+    --input: 217 30% 18%;
+    --ring: 244 90% 70%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1, "cv11" 1;
+    -webkit-font-smoothing: antialiased;
+  }
+  html, body, #__next {
+    height: 100%;
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: hsl(var(--card) / 0.6);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+  }
+  .shadow-soft {
+    box-shadow:
+      0 1px 0 0 hsl(var(--border) / 0.6),
+      0 1px 2px -1px hsl(var(--foreground) / 0.04),
+      0 4px 12px -4px hsl(var(--foreground) / 0.06);
+  }
+  .shadow-pop {
+    box-shadow:
+      0 1px 0 0 hsl(var(--border) / 0.6),
+      0 6px 16px -6px hsl(var(--foreground) / 0.12),
+      0 16px 32px -12px hsl(var(--foreground) / 0.10);
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 999px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.4);
+  }
+}
