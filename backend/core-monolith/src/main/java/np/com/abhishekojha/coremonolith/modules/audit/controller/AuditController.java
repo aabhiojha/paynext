@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/audit-logs")
 @RequiredArgsConstructor
@@ -27,16 +29,17 @@ public class AuditController {
 
     private final AuditLogRepository auditLogRepository;
 
-    @Operation(summary = "List audit logs", description = "All filters are optional and combinable")
+    @Operation(summary = "List audit logs", description = "All filters are optional and combinable. actions and resourceTypes accept multiple comma-separated values.")
     @GetMapping
     public ResponseEntity<Page<AuditLogResponse>> list(
             @RequestParam(required = false) Long actorId,
-            @RequestParam(required = false) String action,
-            @RequestParam(required = false) String resourceType,
+            @RequestParam(required = false) List<String> actions,
+            @RequestParam(required = false) List<String> resourceTypes,
             @RequestParam(required = false) Long resourceId,
+            @RequestParam(required = false) String actorEmail,
             @ParameterObject @PageableDefault(size = 50) Pageable pageable) {
         return ResponseEntity.ok(
-                auditLogRepository.findFiltered(actorId, action, resourceType, resourceId, pageable)
+                auditLogRepository.findFiltered(actorId, actions, resourceTypes, resourceId, actorEmail, pageable)
                         .map(AuditLogResponse::from)
         );
     }
