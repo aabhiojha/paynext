@@ -38,6 +38,7 @@ import { Input } from "@/components/ui/input"
 import { auditApi, type AuditFilter } from "@/lib/api/audit"
 import { cn, formatDateTime, titleCase } from "@/lib/utils"
 import { useRole } from "@/hooks/useRole"
+import { useAuthStore } from "@/store/authStore"
 
 const ACTION_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   CREATE: FilePlus2,
@@ -78,6 +79,7 @@ function toggleInSet(set: string[], value: string): string[] {
 export default function AuditLogsPage() {
   const router = useRouter()
   const { isSuperAdmin } = useRole()
+  const accessToken = useAuthStore((s) => s.accessToken)
   const [page, setPage] = useState(0)
   const [size] = useState(25)
 
@@ -128,7 +130,7 @@ export default function AuditLogsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["audit-logs", page, size, selectedActions, selectedResources, resourceIdInput, actorSearch],
     queryFn: () => auditApi.list(page, size, filter),
-    enabled: isSuperAdmin,
+    enabled: isSuperAdmin && !!accessToken,
   })
 
   if (!isSuperAdmin) return null
