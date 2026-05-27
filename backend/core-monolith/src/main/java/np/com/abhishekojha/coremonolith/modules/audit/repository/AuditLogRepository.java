@@ -12,22 +12,14 @@ import java.util.List;
 
 public interface AuditLogRepository extends JpaRepository<AuditLogEntity, Long> {
 
-    @Query(value = """
-            SELECT a.* FROM audit_logs a
-            WHERE (:actorId IS NULL OR a.actor_id = :actorId)
-              AND (CAST(:action AS audit_action) IS NULL OR a.action = CAST(:action AS audit_action))
-              AND (:resourceType IS NULL OR a.resource_type = :resourceType)
-              AND (:resourceId IS NULL OR a.resource_id = :resourceId)
-            ORDER BY a.created_at DESC
-            """,
-            countQuery = """
-            SELECT COUNT(*) FROM audit_logs a
-            WHERE (:actorId IS NULL OR a.actor_id = :actorId)
-              AND (CAST(:action AS audit_action) IS NULL OR a.action = CAST(:action AS audit_action))
-              AND (:resourceType IS NULL OR a.resource_type = :resourceType)
-              AND (:resourceId IS NULL OR a.resource_id = :resourceId)
-            """,
-            nativeQuery = true)
+    @Query("""
+            SELECT a FROM AuditLogEntity a JOIN FETCH a.actor
+            WHERE (:actorId IS NULL OR a.actor.id = :actorId)
+              AND (:action IS NULL OR CAST(a.action AS string) = :action)
+              AND (:resourceType IS NULL OR a.resourceType = :resourceType)
+              AND (:resourceId IS NULL OR a.resourceId = :resourceId)
+            ORDER BY a.createdAt DESC
+            """)
     Page<AuditLogEntity> findFiltered(
             @Param("actorId") Long actorId,
             @Param("action") String action,
@@ -37,7 +29,7 @@ public interface AuditLogRepository extends JpaRepository<AuditLogEntity, Long> 
     );
 
     @Query("""
-            SELECT a FROM AuditLogEntity a
+            SELECT a FROM AuditLogEntity a JOIN FETCH a.actor
             WHERE a.actor.tenant.id = :tenantId
             ORDER BY a.createdAt DESC
             """)
