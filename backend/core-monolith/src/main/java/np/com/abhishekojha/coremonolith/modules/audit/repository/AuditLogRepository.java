@@ -18,7 +18,7 @@ public interface AuditLogRepository extends JpaRepository<AuditLogEntity, Long> 
               AND (:#{#actions.isEmpty()} = true OR CAST(a.action AS string) IN :actions)
               AND (:#{#resourceTypes.isEmpty()} = true OR a.resourceType IN :resourceTypes)
               AND (:resourceId IS NULL OR a.resourceId = :resourceId)
-              AND (:actorEmail IS NULL OR LOWER(a.actor.email) LIKE LOWER(CONCAT('%', :actorEmail, '%')))
+              AND (:actorEmail IS NULL OR a.actor.email LIKE CONCAT('%', CAST(:actorEmail AS string), '%'))
             ORDER BY a.createdAt DESC
             """)
     Page<AuditLogEntity> findFiltered(
