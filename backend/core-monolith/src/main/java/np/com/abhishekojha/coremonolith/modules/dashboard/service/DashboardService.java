@@ -20,6 +20,7 @@ import np.com.abhishekojha.coremonolith.modules.dashboard.dto.UpcomingReminderRe
 import np.com.abhishekojha.coremonolith.modules.product.repository.ProductRepository;
 import np.com.abhishekojha.coremonolith.modules.reminder.repository.ReminderRepository;
 import np.com.abhishekojha.coremonolith.modules.tenant.repository.TenantRepository;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -116,7 +117,7 @@ public class DashboardService {
     public List<AuditLogResponse> getRecentActivity(Long tenantId) {
         guard.requireTenantAccess(tenantId);
         log.info("Fetching recent activity for tenant={}", tenantId);
-        return auditLogRepository.findTop10ByTenantId(tenantId)
+        return auditLogRepository.findTop10ByTenantId(tenantId, PageRequest.of(0, 10))
                 .stream()
                 .map(AuditLogResponse::from)
                 .toList();

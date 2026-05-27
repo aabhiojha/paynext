@@ -4,7 +4,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import np.com.abhishekojha.coremonolith.common.enums.AuditAction;
 import np.com.abhishekojha.coremonolith.modules.audit.dto.AuditLogResponse;
 import np.com.abhishekojha.coremonolith.modules.audit.repository.AuditLogRepository;
 import org.springdoc.core.annotations.ParameterObject;
@@ -32,7 +31,7 @@ public class AuditController {
     @GetMapping
     public ResponseEntity<Page<AuditLogResponse>> list(
             @RequestParam(required = false) Long actorId,
-            @RequestParam(required = false) AuditAction action,
+            @RequestParam(required = false) String action,
             @RequestParam(required = false) String resourceType,
             @RequestParam(required = false) Long resourceId,
             @ParameterObject @PageableDefault(size = 50) Pageable pageable) {
