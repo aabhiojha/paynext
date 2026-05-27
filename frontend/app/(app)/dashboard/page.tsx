@@ -117,9 +117,11 @@ function DashboardSkeleton() {
 /* ------------------------------------------------------------------ */
 
 function AdminDashboard() {
+  const accessToken = useAuthStore((s) => s.accessToken)
   const admin = useQuery({
     queryKey: ["admin-dashboard"],
     queryFn: () => dashboardApi.adminSummary(),
+    enabled: !!accessToken,
   })
 
   if (admin.isLoading) return <DashboardSkeleton />
@@ -215,25 +217,33 @@ function AdminDashboard() {
 /* ------------------------------------------------------------------ */
 
 function TenantDashboard({ tenantId }: { tenantId: number }) {
+  const accessToken = useAuthStore((s) => s.accessToken)
+  const ready = !!accessToken
+
   const summary = useQuery({
     queryKey: ["dashboard-summary", tenantId],
     queryFn: () => dashboardApi.summary(tenantId),
+    enabled: ready,
   })
   const revenue = useQuery({
     queryKey: ["dashboard-revenue", tenantId],
     queryFn: () => dashboardApi.revenue(tenantId),
+    enabled: ready,
   })
   const reminderStats = useQuery({
     queryKey: ["dashboard-reminder-stats", tenantId],
     queryFn: () => dashboardApi.reminderStats(tenantId),
+    enabled: ready,
   })
   const upcoming = useQuery({
     queryKey: ["dashboard-upcoming", tenantId],
     queryFn: () => dashboardApi.upcomingReminders(tenantId),
+    enabled: ready,
   })
   const overdue = useQuery({
     queryKey: ["dashboard-overdue", tenantId],
     queryFn: () => dashboardApi.overduePlans(tenantId),
+    enabled: ready,
   })
 
   const { isAtLeast } = useRole()
@@ -241,7 +251,7 @@ function TenantDashboard({ tenantId }: { tenantId: number }) {
   const activity = useQuery({
     queryKey: ["dashboard-activity", tenantId],
     queryFn: () => dashboardApi.recentActivity(tenantId),
-    enabled: showActivity,
+    enabled: ready && showActivity,
   })
 
   const isLoading = summary.isLoading
