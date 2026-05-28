@@ -5,3 +5,7 @@ sendgrid:
   api-key: ${SENDGRID_API_KEY}
   from-email: ${SENDGRID_FROM_EMAIL}
   from-name: ${SENDGRID_FROM_NAME}
+
+frontend:
+  base-url: ${FRONTEND_BASE_URL}
+  accept-invite-path: ${FRONTEND_ACCEPT_INVITE_PATH:/accept-invite}

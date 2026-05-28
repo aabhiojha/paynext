@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableConfigurationProperties(EmailProperties.class)
+@EnableConfigurationProperties({EmailProperties.class, FrontendProperties.class})
 public class EmailConfig {
 
     @Bean
