@@ -128,6 +128,16 @@ public class CustomerProductService {
                 .map(CustomerProductResponse::from);
     }
 
+    @Transactional(readOnly = true)
+    public Page<CustomerProductResponse> listByProduct(Long tenantId, Long productId, Pageable pageable) {
+        guard.requireTenantAccess(tenantId);
+        productRepository.findByIdAndTenantIdAndDeletedAtIsNull(productId, tenantId)
+                .orElseThrow(() -> new EntityNotFoundException("Product not found: " + productId));
+        return customerProductRepository
+                .findAllByTenantIdAndProductIdAndDeletedAtIsNull(tenantId, productId, pageable)
+                .map(CustomerProductResponse::from);
+    }
+
     private CustomerProductEntity findCp(Long tenantId, Long customerId, Long cpId) {
         return customerProductRepository
                 .findByIdAndTenantIdAndCustomerIdAndDeletedAtIsNull(cpId, tenantId, customerId)

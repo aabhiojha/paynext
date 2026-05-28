@@ -28,6 +28,19 @@ export const plansApi = {
       )
       .then((r) => normalizePage<CustomerProductResponse>(r.data)),
 
+  listForProduct: (
+    tenantId: number,
+    productId: number,
+    page = 0,
+    size = 50
+  ) =>
+    api
+      .get<RawPage<CustomerProductResponse>>(
+        `/tenants/${tenantId}/products/${productId}/customers`,
+        { params: { page, size } }
+      )
+      .then((r) => normalizePage<CustomerProductResponse>(r.data)),
+
   get: (tenantId: number, customerId: number, cpId: number) =>
     api
       .get<CustomerProductResponse>(

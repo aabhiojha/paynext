@@ -3,20 +3,83 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { toast } from "sonner"
-import { ArrowLeft, Calendar, Package, Power, Trash2 } from "lucide-react"
+import {
+  ArrowLeft,
+  Ban,
+  Calendar,
+  CircleDollarSign,
+  Clock,
+  MoreHorizontal,
+  Package,
+  PauseCircle,
+  Play,
+  Power,
+  Repeat,
+  Trash2,
+  Users,
+} from "lucide-react"
 
 import { PageHeader } from "@/components/shared/PageHeader"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
+import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
+import { TableSkeleton } from "@/components/shared/TableSkeleton"
+
 import { productsApi } from "@/lib/api/products"
+import { plansApi } from "@/lib/api/plans"
 import { friendlyError } from "@/lib/axios"
-import { formatCurrency, formatDate, titleCase } from "@/lib/utils"
+import { cn, formatCurrency, formatDate, initials, titleCase } from "@/lib/utils"
 import { useRole } from "@/hooks/useRole"
+
+const CADENCE_LABEL: Record<string, string> = {
+  WEEKLY: "Weekly",
+  MONTHLY: "Monthly",
+  QUARTERLY: "Quarterly",
+  ANNUALLY: "Annual",
+}
+
+const CADENCE_NOUN: Record<string, string> = {
+  WEEKLY: "week",
+  MONTHLY: "month",
+  QUARTERLY: "quarter",
+  ANNUALLY: "year",
+}
+
+type PlanStatus = "ACTIVE" | "PAUSED" | "CANCELLED"
+const PLAN_FILTERS: { label: string; value: "ALL" | PlanStatus }[] = [
+  { label: "All", value: "ALL" },
+  { label: "Active", value: "ACTIVE" },
+  { label: "Paused", value: "PAUSED" },
+  { label: "Cancelled", value: "CANCELLED" },
+]
 
 export default function ProductDetailPage({
   params,
@@ -28,11 +91,18 @@ export default function ProductDetailPage({
   const router = useRouter()
   const qc = useQueryClient()
   const { isAtLeast } = useRole()
+  const canDelete = isAtLeast("TENANT_ADMIN")
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [filter, setFilter] = useState<"ALL" | PlanStatus>("ALL")
 
   const product = useQuery({
     queryKey: ["products", tenantId, productId],
     queryFn: () => productsApi.get(tenantId, productId),
+  })
+
+  const assignments = useQuery({
+    queryKey: ["products", tenantId, productId, "customers"],
+    queryFn: () => plansApi.listForProduct(tenantId, productId, 0, 100),
   })
 
   const toggle = useMutation({
@@ -57,7 +127,57 @@ export default function ProductDetailPage({
     onError: (e) => toast.error(friendlyError(e)),
   })
 
+  const planStatusMut = useMutation({
+    mutationFn: ({
+      customerId,
+      cpId,
+      status,
+    }: {
+      customerId: number
+      cpId: number
+      status: PlanStatus
+    }) => plansApi.setStatus(tenantId, customerId, cpId, status),
+    onSuccess: () => {
+      qc.invalidateQueries({
+        queryKey: ["products", tenantId, productId, "customers"],
+      })
+      qc.invalidateQueries({ queryKey: ["plans", tenantId] })
+      toast.success("Plan updated")
+    },
+    onError: (e) => toast.error(friendlyError(e)),
+  })
+
   const p = product.data
+  const planRows = assignments.data?.content ?? []
+  const filteredPlans = useMemo(
+    () =>
+      filter === "ALL"
+        ? planRows
+        : planRows.filter((plan) => plan.status === filter),
+    [filter, planRows]
+  )
+
+  const stats = useMemo(() => {
+    const counts = { ACTIVE: 0, PAUSED: 0, CANCELLED: 0 } as Record<
+      PlanStatus,
+      number
+    >
+    let mrrCents = 0 // recurring per-period revenue from active plans
+    for (const plan of planRows) {
+      counts[plan.status as PlanStatus] =
+        (counts[plan.status as PlanStatus] ?? 0) + 1
+    }
+    if (p) {
+      mrrCents = counts.ACTIVE * Number(p.price)
+    }
+    return {
+      total: planRows.length,
+      active: counts.ACTIVE ?? 0,
+      paused: counts.PAUSED ?? 0,
+      cancelled: counts.CANCELLED ?? 0,
+      recurring: mrrCents,
+    }
+  }, [planRows, p])
 
   return (
     <div className="space-y-6">
@@ -73,8 +193,7 @@ export default function ProductDetailPage({
         title={p?.name ?? "Loading…"}
         description={p?.description ?? undefined}
         actions={
-          p &&
-          isAtLeast("TENANT_USER") && (
+          p && (
             <>
               <Button
                 variant="outline"
@@ -84,7 +203,7 @@ export default function ProductDetailPage({
                 <Power className="h-4 w-4" />
                 {p.status === "ACTIVE" ? "Deactivate" : "Activate"}
               </Button>
-              {isAtLeast("TENANT_ADMIN") && (
+              {canDelete && (
                 <Button
                   variant="outline"
                   className="text-destructive"
@@ -98,63 +217,260 @@ export default function ProductDetailPage({
         }
       />
 
-      {!p && <Skeleton className="h-72" />}
+      {!p && <ProductDetailSkeleton />}
 
       {p && (
-        <div className="grid gap-6 lg:grid-cols-3">
-          <Card className="lg:col-span-2">
-            <CardHeader className="flex-row items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[hsl(280_85%_60%)] text-primary-foreground">
-                <Package className="h-5 w-5" />
-              </div>
-              <div className="space-y-1">
-                <CardTitle>{p.name}</CardTitle>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <StatusBadge status={p.status} />
-                  <span>· {titleCase(p.billingCadence)} billing</span>
+        <>
+          {/* Hero card */}
+          <Card className="relative overflow-hidden">
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-[hsl(265_85%_65%)] to-[hsl(290_85%_60%)]" />
+            <CardContent className="p-6 sm:p-8">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-[hsl(280_85%_60%)] text-primary-foreground shadow-pop">
+                    <Package className="h-6 w-6" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="font-display text-2xl font-semibold tracking-tight">
+                        {p.name}
+                      </h2>
+                      <StatusBadge status={p.status} />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {p.description || "No description provided."}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-1 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Repeat className="h-3.5 w-3.5" />
+                        {CADENCE_LABEL[p.billingCadence] ??
+                          titleCase(p.billingCadence)}{" "}
+                        billing
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Calendar className="h-3.5 w-3.5" />
+                        Created {formatDate(p.createdAt)}
+                      </span>
+                      {p.updatedAt && p.updatedAt !== p.createdAt && (
+                        <span className="inline-flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5" />
+                          Updated {formatDate(p.updatedAt)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <dl className="grid gap-4 sm:grid-cols-2">
-                <Stat label="Price">
-                  <span className="font-display text-2xl font-semibold tracking-tight">
+                <div className="rounded-2xl border border-border bg-card/60 px-6 py-5 text-right shadow-sm lg:min-w-[220px]">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                    Price
+                  </p>
+                  <p className="mt-1 font-display text-3xl font-semibold tracking-tight">
                     {formatCurrency(p.price, p.currency)}
-                  </span>
-                </Stat>
-                <Stat label="Currency">{p.currency}</Stat>
-                <Stat label="Cadence">{titleCase(p.billingCadence)}</Stat>
-                <Stat label="Created">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                    {formatDate(p.createdAt)}
-                  </span>
-                </Stat>
-              </dl>
-              {p.description && (
-                <div className="mt-6 rounded-xl border border-border bg-card/50 p-4 text-sm whitespace-pre-wrap">
-                  {p.description}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    per {CADENCE_NOUN[p.billingCadence] ?? "cycle"} ·{" "}
+                    {p.currency}
+                  </p>
                 </div>
-              )}
+              </div>
             </CardContent>
           </Card>
 
+          {/* Key stats */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Stat
+              icon={Users}
+              label="Customers on this plan"
+              value={String(stats.total)}
+              hint={
+                stats.total === 0 ? "Nobody yet" : `${stats.active} currently active`
+              }
+            />
+            <Stat
+              icon={Play}
+              label="Active subscriptions"
+              value={String(stats.active)}
+              tone="emerald"
+            />
+            <Stat
+              icon={PauseCircle}
+              label="Paused"
+              value={String(stats.paused)}
+              tone="amber"
+              hint={stats.cancelled > 0 ? `${stats.cancelled} cancelled` : undefined}
+            />
+            <Stat
+              icon={CircleDollarSign}
+              label={`Recurring (${
+                CADENCE_NOUN[p.billingCadence] ?? "cycle"
+              })`}
+              value={formatCurrency(stats.recurring, p.currency)}
+              hint="From active plans"
+            />
+          </div>
+
+          {/* Assigned customers */}
           <Card>
-            <CardHeader>
-              <CardTitle>What happens next?</CardTitle>
+            <CardHeader className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle className="text-base">Assigned customers</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Everyone currently subscribed to this product and the plan
+                  they hold.
+                </p>
+              </div>
+              <Select
+                value={filter}
+                onValueChange={(v) => setFilter(v as typeof filter)}
+              >
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PLAN_FILTERS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </CardHeader>
-            <CardContent className="space-y-3 text-sm text-muted-foreground">
-              <p>
-                Assign this product to customers from their detail page to
-                start a billing cycle.
-              </p>
-              <p>
-                Reminders run automatically based on the cadence you've
-                configured.
-              </p>
-            </CardContent>
+            {assignments.isLoading ? (
+              <TableSkeleton rows={4} cols={5} />
+            ) : filteredPlans.length === 0 ? (
+              <EmptyState
+                icon={Users}
+                title={
+                  planRows.length === 0
+                    ? "No customers yet"
+                    : "No plans match this filter"
+                }
+                description={
+                  planRows.length === 0
+                    ? "Once you assign this product to a customer, their plan will show up here."
+                    : "Try selecting a different status above."
+                }
+              />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Plan period</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Started</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredPlans.map((plan) => (
+                    <TableRow key={plan.id}>
+                      <TableCell>
+                        <Link
+                          href={`/${tenantId}/customers/${plan.customerId}`}
+                          className="flex items-center gap-3 hover:opacity-90"
+                        >
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="text-[10px]">
+                              {initials(plan.customerName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="truncate font-medium text-foreground">
+                              {plan.customerName}
+                            </p>
+                            {plan.notes && (
+                              <p className="truncate text-xs text-muted-foreground">
+                                {plan.notes}
+                              </p>
+                            )}
+                          </div>
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        <div>
+                          {formatDate(plan.startsAt)} →{" "}
+                          {plan.endsAt ? formatDate(plan.endsAt) : "Open-ended"}
+                        </div>
+                        <p className="text-xs">
+                          {formatCurrency(p.price, p.currency)} /{" "}
+                          {CADENCE_NOUN[p.billingCadence] ?? "cycle"}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={plan.status} />
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDate(plan.createdAt)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link
+                                href={`/${tenantId}/customers/${plan.customerId}`}
+                              >
+                                <Users className="h-4 w-4" /> View customer
+                              </Link>
+                            </DropdownMenuItem>
+                            {plan.status === "ACTIVE" && (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  planStatusMut.mutate({
+                                    customerId: plan.customerId,
+                                    cpId: plan.id,
+                                    status: "PAUSED",
+                                  })
+                                }
+                              >
+                                <PauseCircle className="h-4 w-4" /> Pause plan
+                              </DropdownMenuItem>
+                            )}
+                            {plan.status === "PAUSED" && (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  planStatusMut.mutate({
+                                    customerId: plan.customerId,
+                                    cpId: plan.id,
+                                    status: "ACTIVE",
+                                  })
+                                }
+                              >
+                                <Play className="h-4 w-4" /> Resume plan
+                              </DropdownMenuItem>
+                            )}
+                            {plan.status !== "CANCELLED" && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  destructive
+                                  onClick={() =>
+                                    planStatusMut.mutate({
+                                      customerId: plan.customerId,
+                                      cpId: plan.id,
+                                      status: "CANCELLED",
+                                    })
+                                  }
+                                >
+                                  <Ban className="h-4 w-4" /> Cancel plan
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </Card>
-        </div>
+        </>
       )}
 
       <ConfirmDialog
@@ -171,19 +487,112 @@ export default function ProductDetailPage({
   )
 }
 
+type StatTone = "default" | "emerald" | "amber"
+
 function Stat({
+  icon: Icon,
   label,
-  children,
+  value,
+  hint,
+  tone = "default",
 }: {
+  icon: React.ComponentType<{ className?: string }>
   label: string
-  children: React.ReactNode
+  value: string
+  hint?: string
+  tone?: StatTone
 }) {
+  const toneClasses: Record<StatTone, string> = {
+    default: "bg-secondary text-foreground",
+    emerald: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    amber: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  }
   return (
-    <div className="rounded-xl border border-border bg-card/50 p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <div className="mt-1 text-sm text-foreground">{children}</div>
+    <Card className="p-5">
+      <div className="flex items-start gap-3">
+        <div
+          className={cn(
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+            toneClasses[tone]
+          )}
+        >
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 space-y-1">
+          <p className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {label}
+          </p>
+          <p className="font-display text-xl font-semibold tracking-tight">
+            {value}
+          </p>
+          {hint && (
+            <p className="truncate text-xs text-muted-foreground">{hint}</p>
+          )}
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+function ProductDetailSkeleton() {
+  return (
+    <div className="space-y-6">
+      {/* Hero card skeleton */}
+      <Card className="relative overflow-hidden">
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/40 via-[hsl(265_85%_65%)]/40 to-[hsl(290_85%_60%)]/40" />
+        <CardContent className="p-6 sm:p-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex items-start gap-4">
+              <Skeleton className="h-14 w-14 rounded-2xl" />
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-6 w-48" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+                <Skeleton className="h-4 w-72" />
+                <Skeleton className="h-4 w-56" />
+                <div className="flex gap-4 pt-1">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-3 w-28" />
+                </div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border bg-card/60 px-6 py-5 lg:min-w-[220px]">
+              <Skeleton className="ml-auto h-3 w-12" />
+              <Skeleton className="ml-auto mt-2 h-8 w-32" />
+              <Skeleton className="ml-auto mt-2 h-3 w-24" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Stat tiles skeleton */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i} className="p-5">
+            <div className="flex items-start gap-3">
+              <Skeleton className="h-9 w-9 rounded-lg" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-6 w-16" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Assigned-customers table skeleton */}
+      <Card>
+        <CardHeader className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-5 w-44" />
+            <Skeleton className="h-3 w-72" />
+          </div>
+          <Skeleton className="h-9 w-[150px]" />
+        </CardHeader>
+        <TableSkeleton rows={4} cols={5} />
+      </Card>
     </div>
   )
 }

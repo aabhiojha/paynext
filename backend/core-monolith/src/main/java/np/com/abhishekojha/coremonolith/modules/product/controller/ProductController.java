@@ -9,6 +9,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import np.com.abhishekojha.coremonolith.common.enums.ProductStatus;
+import np.com.abhishekojha.coremonolith.modules.customerproduct.dto.CustomerProductResponse;
+import np.com.abhishekojha.coremonolith.modules.customerproduct.service.CustomerProductService;
 import np.com.abhishekojha.coremonolith.modules.product.dto.CreateProductRequest;
 import np.com.abhishekojha.coremonolith.modules.product.dto.ProductResponse;
 import np.com.abhishekojha.coremonolith.modules.product.dto.UpdateProductRequest;
@@ -35,10 +37,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @Tag(name = "Products", description = "Product catalogue management")
 @SecurityRequirement(name = "bearerAuth")
-@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN', 'TENANT_USER')")
 public class ProductController {
 
     private final ProductService productService;
+    private final CustomerProductService customerProductService;
 
     @Operation(summary = "Create product")
     @ApiResponses({
@@ -46,6 +48,7 @@ public class ProductController {
             @ApiResponse(responseCode = "400", description = "Validation error")
     })
     @PostMapping
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN', 'TENANT_USER')")
     public ResponseEntity<ProductResponse> create(
             @PathVariable Long tenantId,
             @Valid @RequestBody CreateProductRequest req) {
@@ -55,6 +58,7 @@ public class ProductController {
     @Operation(summary = "List products")
     @ApiResponse(responseCode = "200", description = "OK")
     @GetMapping
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN', 'TENANT_USER')")
     public ResponseEntity<Page<ProductResponse>> list(
             @PathVariable Long tenantId,
             @Parameter(description = "Filter by status") @RequestParam(required = false) ProductStatus status,
@@ -68,6 +72,7 @@ public class ProductController {
             @ApiResponse(responseCode = "404", description = "Product not found")
     })
     @GetMapping("/{productId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN', 'TENANT_USER')")
     public ResponseEntity<ProductResponse> get(
             @PathVariable Long tenantId,
             @PathVariable Long productId) {
@@ -80,11 +85,23 @@ public class ProductController {
             @ApiResponse(responseCode = "404", description = "Product not found")
     })
     @PatchMapping("/{productId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN', 'TENANT_USER')")
     public ResponseEntity<ProductResponse> update(
             @PathVariable Long tenantId,
             @PathVariable Long productId,
             @Valid @RequestBody UpdateProductRequest req) {
         return ResponseEntity.ok(productService.update(tenantId, productId, req));
+    }
+
+    @Operation(summary = "List customers assigned to this product", description = "Returns customer-product plans linked to the given product")
+    @ApiResponse(responseCode = "200", description = "OK")
+    @GetMapping("/{productId}/customers")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN', 'TENANT_USER')")
+    public ResponseEntity<Page<CustomerProductResponse>> listCustomers(
+            @PathVariable Long tenantId,
+            @PathVariable Long productId,
+            @ParameterObject @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
+        return ResponseEntity.ok(customerProductService.listByProduct(tenantId, productId, pageable));
     }
 
     @Operation(summary = "Delete product", description = "Soft delete — sets status to DELETED")
@@ -93,6 +110,7 @@ public class ProductController {
             @ApiResponse(responseCode = "404", description = "Product not found")
     })
     @DeleteMapping("/{productId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN')")
     public ResponseEntity<Void> delete(
             @PathVariable Long tenantId,
             @PathVariable Long productId) {
