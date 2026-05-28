@@ -70,7 +70,6 @@ function buildNav(tenantId: number | null): {
               href: `${tenantBase}/invitations`,
               label: "Invitations",
               icon: Mailbox,
-              minRole: "TENANT_ADMIN" as const,
             },
           ]
         : []),

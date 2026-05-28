@@ -81,7 +81,10 @@ export default function RemindersPage({
                 <SelectItem value="SKIPPED">Skipped</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={() => trigger.mutate()} loading={trigger.isPending}>
+            <Button
+              onClick={() => trigger.mutate()}
+              loading={trigger.isPending}
+            >
               <Zap className="h-4 w-4" /> Trigger now
             </Button>
           </>
@@ -97,7 +100,10 @@ export default function RemindersPage({
             title="No reminders yet"
             description="Run a dispatch manually or wait for the scheduled batch to fire."
             action={
-              <Button onClick={() => trigger.mutate()} loading={trigger.isPending}>
+              <Button
+                onClick={() => trigger.mutate()}
+                loading={trigger.isPending}
+              >
                 <Zap className="h-4 w-4" /> Trigger reminders
               </Button>
             }

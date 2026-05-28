@@ -40,6 +40,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
+import { Skeleton } from "@/components/ui/skeleton"
+import { TableSkeleton } from "@/components/shared/TableSkeleton"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -118,8 +120,7 @@ export default function CustomerDetailPage({
         title={c?.name ?? "Loading…"}
         description={c?.email}
         actions={
-          c &&
-          isAtLeast("TENANT_ADMIN") && (
+          c && (
             <>
               <Button variant="outline" asChild>
                 <Link
@@ -129,18 +130,22 @@ export default function CustomerDetailPage({
                   Assign product
                 </Link>
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => setConfirmDelete(true)}
-                className="text-destructive"
-              >
-                <Trash2 className="h-4 w-4" />
-                Delete
-              </Button>
+              {isAtLeast("TENANT_ADMIN") && (
+                <Button
+                  variant="outline"
+                  onClick={() => setConfirmDelete(true)}
+                  className="text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+              )}
             </>
           )
         }
       />
+
+      {!c && <CustomerDetailSkeleton />}
 
       {c && (
         <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
@@ -233,13 +238,16 @@ export default function CustomerDetailPage({
         </div>
       )}
 
+      {c && (
       <Tabs defaultValue="plans">
         <TabsList>
           <TabsTrigger value="plans">Assigned plans</TabsTrigger>
         </TabsList>
         <TabsContent value="plans">
           <Card>
-            {plans.data && plans.data.content.length === 0 ? (
+            {plans.isLoading ? (
+              <TableSkeleton rows={4} cols={4} />
+            ) : plans.data && plans.data.content.length === 0 ? (
               <EmptyState
                 icon={Plus}
                 title="No plans assigned"
@@ -340,6 +348,7 @@ export default function CustomerDetailPage({
           </Card>
         </TabsContent>
       </Tabs>
+      )}
 
       <ConfirmDialog
         open={confirmDelete}
@@ -351,6 +360,69 @@ export default function CustomerDetailPage({
         loading={del.isPending}
         onConfirm={() => del.mutate()}
       />
+    </div>
+  )
+}
+
+function CustomerDetailSkeleton() {
+  return (
+    <div className="space-y-6">
+      {/* Info card + summary skeleton */}
+      <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
+        <Card>
+          <CardHeader className="flex-row items-center gap-4">
+            <Skeleton className="h-14 w-14 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-5 w-44" />
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-5 w-16 rounded-full" />
+                <Skeleton className="h-3 w-28" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="rounded-xl border border-border bg-card/50 p-4"
+                >
+                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="mt-2 h-4 w-40" />
+                </div>
+              ))}
+              <div className="rounded-xl border border-border bg-card/50 p-4 sm:col-span-2">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="mt-2 h-4 w-60" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-5 w-24" />
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <li key={i} className="flex items-center justify-between">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-4 w-8" />
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Assigned plans table skeleton */}
+      <div className="space-y-3">
+        <Skeleton className="h-9 w-40 rounded-md" />
+        <Card>
+          <TableSkeleton rows={4} cols={4} />
+        </Card>
+      </div>
     </div>
   )
 }

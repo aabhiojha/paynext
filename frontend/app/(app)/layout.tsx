@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
+import { Loader2 } from "lucide-react"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { MobileNav } from "@/components/layout/MobileNav"
@@ -10,22 +11,34 @@ import { useAuthStore } from "@/store/authStore"
 import { authApi } from "@/lib/api/auth"
 import type { Role } from "@/types/api"
 
+function useAuthHydrated() {
+  const [hydrated, setHydrated] = useState(false)
+  useEffect(() => {
+    if (useAuthStore.persist.hasHydrated()) {
+      setHydrated(true)
+      return
+    }
+    const unsub = useAuthStore.persist.onFinishHydration(() =>
+      setHydrated(true)
+    )
+    return unsub
+  }, [])
+  return hydrated
+}
+
 export default function AppLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   const router = useRouter()
+  const hydrated = useAuthHydrated()
   const user = useAuthStore((s) => s.user)
   const accessToken = useAuthStore((s) => s.accessToken)
   const setAuth = useAuthStore((s) => s.setAuth)
 
-  // The login response omits tenantId, so we resolve it via /me whenever we're
-  // authenticated but missing tenant context. SUPER_ADMIN legitimately has no
-  // tenant, so skip them. The axios interceptor handles token refresh if
-  // accessToken was lost on reload.
-  const needsHydration =
-    !!user && user.role !== "SUPER_ADMIN" && user.tenantId == null
+  const needsTenantHydration =
+    hydrated && !!user && user.role !== "SUPER_ADMIN" && user.tenantId == null
 
   useQuery({
     queryKey: ["me", user?.userId],
@@ -42,19 +55,31 @@ export default function AppLayout({
       }
       return me
     },
-    enabled: needsHydration,
+    enabled: needsTenantHydration && !!accessToken,
     staleTime: 60_000,
     retry: 0,
   })
 
   useEffect(() => {
-    const hasHint =
-      typeof document !== "undefined" &&
-      document.cookie.includes("session_hint")
-    if (!hasHint && !user) {
+    if (!hydrated) return
+    if (!user) {
+      // Auth store has nothing (e.g. fresh tab — sessionStorage is per-tab).
+      // Clear any stale session_hint cookie so middleware doesn't bounce us
+      // back here from /login.
+      if (typeof document !== "undefined") {
+        document.cookie = "session_hint=; max-age=0; path=/"
+      }
       router.replace("/login")
     }
-  }, [user, router])
+  }, [hydrated, user, router])
+
+  if (!hydrated) {
+    return <AuthBootstrap label="Loading workspace…" />
+  }
+
+  if (!user) {
+    return <AuthBootstrap label="Redirecting…" />
+  }
 
   return (
     <div className="flex min-h-screen w-full bg-background">
@@ -67,6 +92,17 @@ export default function AppLayout({
             {children}
           </div>
         </main>
+      </div>
+    </div>
+  )
+}
+
+function AuthBootstrap({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-3 text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        <p className="text-sm">{label}</p>
       </div>
     </div>
   )
