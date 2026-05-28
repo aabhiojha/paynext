@@ -1,19 +1,29 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
 import { useQuery } from "@tanstack/react-query"
 import { Package, Plus } from "lucide-react"
 
 import { PageHeader } from "@/components/shared/PageHeader"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { SearchInput } from "@/components/shared/SearchInput"
+import { Pagination } from "@/components/shared/Pagination"
 import { StatusBadge } from "@/components/shared/StatusBadge"
+import { TableSkeleton } from "@/components/shared/TableSkeleton"
 import { EmptyState } from "@/components/shared/EmptyState"
-import { Skeleton } from "@/components/ui/skeleton"
 
 import { productsApi } from "@/lib/api/products"
-import { formatCurrency, titleCase } from "@/lib/utils"
+import { formatCurrency, formatDate, titleCase } from "@/lib/utils"
 
 const CADENCE_LABEL: Record<string, string> = {
   WEEKLY: "Weekly",
@@ -28,12 +38,25 @@ export default function ProductsPage({
   params: { tenantId: string }
 }) {
   const tenantId = Number(params.tenantId)
-  const [page] = useState(0)
+  const [page, setPage] = useState(0)
+  const [size] = useState(20)
+  const [q, setQ] = useState("")
 
   const { data, isLoading } = useQuery({
-    queryKey: ["products", tenantId, page, 50],
-    queryFn: () => productsApi.list(tenantId, page, 50),
+    queryKey: ["products", tenantId, page, size],
+    queryFn: () => productsApi.list(tenantId, page, size),
   })
+
+  const rows = useMemo(() => {
+    const list = data?.content ?? []
+    if (!q) return list
+    const needle = q.toLowerCase()
+    return list.filter(
+      (p) =>
+        p.name.toLowerCase().includes(needle) ||
+        (p.description ?? "").toLowerCase().includes(needle)
+    )
+  }, [data, q])
 
   return (
     <div className="space-y-6">
@@ -49,14 +72,21 @@ export default function ProductsPage({
         }
       />
 
-      {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-40" />
-          ))}
+      <Card>
+        <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
+          <SearchInput
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search by name or description…"
+          />
+          <p className="text-xs text-muted-foreground">
+            {data?.totalElements ?? 0} total
+          </p>
         </div>
-      ) : data && data.content.length === 0 ? (
-        <Card>
+
+        {isLoading ? (
+          <TableSkeleton rows={6} cols={6} />
+        ) : rows.length === 0 ? (
           <EmptyState
             icon={Package}
             title="No products yet"
@@ -69,53 +99,83 @@ export default function ProductsPage({
               </Button>
             }
           />
-        </Card>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data?.content.map((p) => (
-            <Link
-              key={p.id}
-              href={`/${tenantId}/products/${p.id}`}
-              className="group block"
-            >
-              <Card className="relative h-full overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-pop">
-                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-[hsl(280_85%_60%)] opacity-80" />
-                <CardContent className="space-y-4 p-6">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-display text-lg font-semibold tracking-tight">
-                        {p.name}
-                      </p>
-                      <p className="mt-0.5 text-xs uppercase tracking-wider text-muted-foreground">
-                        {CADENCE_LABEL[p.billingCadence] ?? titleCase(p.billingCadence)}
-                      </p>
-                    </div>
-                    <StatusBadge status={p.status} />
-                  </div>
-                  {p.description && (
-                    <p className="line-clamp-2 text-sm text-muted-foreground">
-                      {p.description}
-                    </p>
-                  )}
-                  <div className="flex items-end justify-between pt-2">
-                    <div>
-                      <p className="font-display text-2xl font-semibold tracking-tight">
+        ) : (
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Cadence</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Added</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell>
+                      <Link
+                        href={`/${tenantId}/products/${p.id}`}
+                        className="flex items-center gap-3 hover:opacity-90"
+                      >
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-[hsl(280_85%_60%)] text-primary-foreground">
+                          <Package className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-foreground">
+                            {p.name}
+                          </p>
+                          {p.description && (
+                            <p className="truncate text-xs text-muted-foreground">
+                              {p.description}
+                            </p>
+                          )}
+                        </div>
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium">
                         {formatCurrency(p.price, p.currency)}
-                      </p>
+                      </div>
                       <p className="text-xs text-muted-foreground">
-                        per {p.billingCadence.toLowerCase().replace("ly", "")}
+                        {p.currency}
                       </p>
-                    </div>
-                    <span className="text-xs font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
-                      View →
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {CADENCE_LABEL[p.billingCadence] ??
+                        titleCase(p.billingCadence)}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={p.status} />
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDate(p.createdAt)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href={`/${tenantId}/products/${p.id}`}>
+                          View
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <div className="border-t border-border">
+              <Pagination
+                page={page}
+                totalPages={data?.totalPages ?? 0}
+                totalElements={data?.totalElements}
+                pageSize={size}
+                onPageChange={setPage}
+              />
+            </div>
+          </>
+        )}
+      </Card>
     </div>
   )
 }

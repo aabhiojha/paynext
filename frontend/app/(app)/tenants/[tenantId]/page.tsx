@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -20,6 +20,7 @@ import {
   Package,
   PauseCircle,
   PauseOctagon,
+  Pencil,
   Phone,
   PlayCircle,
   Plus,
@@ -43,6 +44,23 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
@@ -65,10 +83,15 @@ import {
   titleCase,
 } from "@/lib/utils"
 import type {
+  BillingCadence,
   CustomerResponse,
   CustomerProductResponse,
   ProductResponse,
 } from "@/types/api"
+
+type CustomerDialogState = { mode: "create" } | { mode: "edit"; target: CustomerResponse }
+type ProductDialogState = { mode: "create" } | { mode: "edit"; target: ProductResponse }
+type PlanDialogState = { mode: "create" } | { mode: "edit"; target: CustomerProductResponse }
 
 type Section =
   | "customers"
@@ -110,6 +133,10 @@ export default function TenantDetailPage({
 
   const [confirmDelete, setConfirmDelete] = useState<{ type: string; id: number; name: string; extra?: number } | null>(null)
   const [inviteEmail, setInviteEmail] = useState("")
+
+  const [customerDialog, setCustomerDialog] = useState<CustomerDialogState | null>(null)
+  const [productDialog, setProductDialog] = useState<ProductDialogState | null>(null)
+  const [planDialog, setPlanDialog] = useState<PlanDialogState | null>(null)
 
   const tenant = useQuery({ queryKey: ["tenants", tenantId], queryFn: () => tenantsApi.get(tenantId) })
   const summary = useQuery({ queryKey: ["dashboard-summary", tenantId], queryFn: () => dashboardApi.summary(tenantId) })
@@ -199,6 +226,41 @@ export default function TenantDetailPage({
   const triggerReminders = useMutation({
     mutationFn: () => remindersApi.trigger(tenantId),
     onSuccess: () => { invalidateAll(); toast.success("Reminders triggered") },
+    onError: (e) => toast.error(friendlyError(e)),
+  })
+
+  const createCustomer = useMutation({
+    mutationFn: (data: CustomerFormValues) => customersApi.create(tenantId, normalizeCustomer(data)),
+    onSuccess: () => { invalidateAll(); setCustomerDialog(null); toast.success("Customer created") },
+    onError: (e) => toast.error(friendlyError(e)),
+  })
+  const updateCustomer = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: CustomerFormValues }) =>
+      customersApi.update(tenantId, id, normalizeCustomer(data)),
+    onSuccess: () => { invalidateAll(); setCustomerDialog(null); toast.success("Customer updated") },
+    onError: (e) => toast.error(friendlyError(e)),
+  })
+  const createProduct = useMutation({
+    mutationFn: (data: ProductFormValues) => productsApi.create(tenantId, normalizeProduct(data)),
+    onSuccess: () => { invalidateAll(); setProductDialog(null); toast.success("Product created") },
+    onError: (e) => toast.error(friendlyError(e)),
+  })
+  const updateProduct = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: ProductFormValues }) =>
+      productsApi.update(tenantId, id, normalizeProduct(data)),
+    onSuccess: () => { invalidateAll(); setProductDialog(null); toast.success("Product updated") },
+    onError: (e) => toast.error(friendlyError(e)),
+  })
+  const createPlan = useMutation({
+    mutationFn: ({ customerId, data }: { customerId: number; data: PlanCreateValues }) =>
+      plansApi.assign(tenantId, customerId, normalizePlanAssign(data)),
+    onSuccess: () => { invalidateAll(); setPlanDialog(null); toast.success("Plan created") },
+    onError: (e) => toast.error(friendlyError(e)),
+  })
+  const updatePlan = useMutation({
+    mutationFn: ({ customerId, cpId, data }: { customerId: number; cpId: number; data: PlanEditValues }) =>
+      plansApi.update(tenantId, customerId, cpId, normalizePlanUpdate(data)),
+    onSuccess: () => { invalidateAll(); setPlanDialog(null); toast.success("Plan updated") },
     onError: (e) => toast.error(friendlyError(e)),
   })
 
@@ -395,6 +457,21 @@ export default function TenantDetailPage({
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base">{SECTIONS.find((sec) => sec.key === activeSection)?.label}</CardTitle>
                   <div className="flex items-center gap-1.5">
+                    {activeSection === "customers" && (
+                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setCustomerDialog({ mode: "create" })}>
+                        <Plus className="h-3 w-3" /> New
+                      </Button>
+                    )}
+                    {activeSection === "products" && (
+                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setProductDialog({ mode: "create" })}>
+                        <Plus className="h-3 w-3" /> New
+                      </Button>
+                    )}
+                    {activeSection === "plans" && (
+                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setPlanDialog({ mode: "create" })}>
+                        <Plus className="h-3 w-3" /> New
+                      </Button>
+                    )}
                     {activeSection === "reminders" && (
                       <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => triggerReminders.mutate()} disabled={triggerReminders.isPending}>
                         <Send className="h-3 w-3" /> <span className="hidden sm:inline">Trigger batch</span><span className="sm:hidden">Trigger</span>
@@ -433,9 +510,14 @@ export default function TenantDetailPage({
                       </button>
                       {selectedCustomer?.id === c.id && (
                         <DetailPanel onClose={() => setSelectedCustomer(null)} actions={
-                          <Button variant="ghost" size="sm" className="h-6 text-[10px] text-destructive hover:text-destructive" onClick={() => setConfirmDelete({ type: "customer", id: c.id, name: c.name })}>
-                            <Trash2 className="h-3 w-3" /> Delete
-                          </Button>
+                          <>
+                            <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setCustomerDialog({ mode: "edit", target: c })}>
+                              <Pencil className="h-3 w-3" /> Edit
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-6 text-[10px] text-destructive hover:text-destructive" onClick={() => setConfirmDelete({ type: "customer", id: c.id, name: c.name })}>
+                              <Trash2 className="h-3 w-3" /> Delete
+                            </Button>
+                          </>
                         }>
                           <DetailRow icon={Mail} label="Email" value={c.email} />
                           {c.phone && <DetailRow icon={Phone} label="Phone" value={c.phone} />}
@@ -466,9 +548,14 @@ export default function TenantDetailPage({
                       </button>
                       {selectedProduct?.id === p.id && (
                         <DetailPanel onClose={() => setSelectedProduct(null)} actions={
-                          <Button variant="ghost" size="sm" className="h-6 text-[10px] text-destructive hover:text-destructive" onClick={() => setConfirmDelete({ type: "product", id: p.id, name: p.name })}>
-                            <Trash2 className="h-3 w-3" /> Delete
-                          </Button>
+                          <>
+                            <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setProductDialog({ mode: "edit", target: p })}>
+                              <Pencil className="h-3 w-3" /> Edit
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-6 text-[10px] text-destructive hover:text-destructive" onClick={() => setConfirmDelete({ type: "product", id: p.id, name: p.name })}>
+                              <Trash2 className="h-3 w-3" /> Delete
+                            </Button>
+                          </>
                         }>
                           <DetailRow icon={Package} label="Price" value={formatCurrency(p.price, p.currency)} />
                           <DetailRow icon={ClipboardList} label="Cadence" value={titleCase(p.billingCadence)} />
@@ -500,6 +587,9 @@ export default function TenantDetailPage({
                       {selectedPlan?.id === p.id && (
                         <DetailPanel onClose={() => setSelectedPlan(null)} actions={
                           <div className="flex flex-wrap items-center gap-1">
+                            <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setPlanDialog({ mode: "edit", target: p })}>
+                              <Pencil className="h-3 w-3" /> Edit
+                            </Button>
                             {p.status === "ACTIVE" && (
                               <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setPlanStatus.mutate({ customerId: p.customerId, cpId: p.id, status: "PAUSED" })}>
                                 <PauseCircle className="h-3 w-3" /> Pause
@@ -620,6 +710,37 @@ export default function TenantDetailPage({
         loading={deleteCustomer.isPending || deleteProduct.isPending || deletePlan.isPending || deleteUser.isPending}
         onConfirm={handleConfirmDelete}
       />
+
+      <CustomerFormDialog
+        state={customerDialog}
+        onClose={() => setCustomerDialog(null)}
+        onSubmit={(values) => {
+          if (!customerDialog) return
+          if (customerDialog.mode === "create") createCustomer.mutate(values)
+          else updateCustomer.mutate({ id: customerDialog.target.id, data: values })
+        }}
+        loading={createCustomer.isPending || updateCustomer.isPending}
+      />
+
+      <ProductFormDialog
+        state={productDialog}
+        onClose={() => setProductDialog(null)}
+        onSubmit={(values) => {
+          if (!productDialog) return
+          if (productDialog.mode === "create") createProduct.mutate(values)
+          else updateProduct.mutate({ id: productDialog.target.id, data: values })
+        }}
+        loading={createProduct.isPending || updateProduct.isPending}
+      />
+
+      <PlanFormDialog
+        state={planDialog}
+        onClose={() => setPlanDialog(null)}
+        tenantId={tenantId}
+        onCreate={(customerId, values) => createPlan.mutate({ customerId, data: values })}
+        onUpdate={(customerId, cpId, values) => updatePlan.mutate({ customerId, cpId, data: values })}
+        loading={createPlan.isPending || updatePlan.isPending}
+      />
     </div>
   )
 }
@@ -661,6 +782,401 @@ function DetailRow({ icon: Icon, label, value }: { icon: React.ComponentType<{ c
       <Icon className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
       <span className="shrink-0 text-muted-foreground">{label}:</span>
       <span className="text-foreground break-all">{value}</span>
+    </div>
+  )
+}
+
+// ─── Form types / helpers ──────────────────────────────────────────────
+
+type CustomerFormValues = {
+  name: string
+  email: string
+  phone: string
+  address: string
+  notes: string
+}
+
+type ProductFormValues = {
+  name: string
+  description: string
+  price: string
+  currency: string
+  billingCadence: BillingCadence
+  status: "ACTIVE" | "INACTIVE"
+}
+
+type PlanCreateValues = {
+  productId: number
+  startsAt: string
+  endsAt: string
+  notes: string
+}
+
+type PlanEditValues = {
+  startsAt: string
+  endsAt: string
+  notes: string
+}
+
+function normalizeCustomer(v: CustomerFormValues) {
+  return {
+    name: v.name.trim(),
+    email: v.email.trim(),
+    phone: v.phone.trim() || undefined,
+    address: v.address.trim() || undefined,
+    notes: v.notes.trim() || undefined,
+  }
+}
+
+function normalizeProduct(v: ProductFormValues) {
+  return {
+    name: v.name.trim(),
+    description: v.description.trim() || undefined,
+    price: Number(v.price),
+    currency: v.currency.trim().toUpperCase(),
+    billingCadence: v.billingCadence,
+    status: v.status,
+  }
+}
+
+function toIso(local: string): string | undefined {
+  if (!local) return undefined
+  const d = new Date(local)
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString()
+}
+
+function normalizePlanAssign(v: PlanCreateValues) {
+  return {
+    productId: v.productId,
+    startsAt: toIso(v.startsAt),
+    endsAt: toIso(v.endsAt),
+    notes: v.notes.trim() || undefined,
+  }
+}
+
+function normalizePlanUpdate(v: PlanEditValues) {
+  return {
+    startsAt: toIso(v.startsAt),
+    endsAt: toIso(v.endsAt),
+    notes: v.notes.trim() || undefined,
+  }
+}
+
+function toLocalInput(iso?: string | null): string {
+  if (!iso) return ""
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  // datetime-local needs YYYY-MM-DDTHH:mm without timezone.
+  const pad = (n: number) => n.toString().padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+// ─── Dialogs ───────────────────────────────────────────────────────────
+
+function CustomerFormDialog({
+  state,
+  onClose,
+  onSubmit,
+  loading,
+}: {
+  state: CustomerDialogState | null
+  onClose: () => void
+  onSubmit: (values: CustomerFormValues) => void
+  loading: boolean
+}) {
+  const open = !!state
+  const editing = state?.mode === "edit" ? state.target : null
+  const [values, setValues] = useState<CustomerFormValues>({
+    name: "", email: "", phone: "", address: "", notes: "",
+  })
+
+  useEffect(() => {
+    if (!open) return
+    setValues({
+      name: editing?.name ?? "",
+      email: editing?.email ?? "",
+      phone: editing?.phone ?? "",
+      address: editing?.address ?? "",
+      notes: editing?.notes ?? "",
+    })
+  }, [open, editing])
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{editing ? "Edit customer" : "New customer"}</DialogTitle>
+          <DialogDescription>{editing ? "Update customer details." : "Add a person or organisation being billed."}</DialogDescription>
+        </DialogHeader>
+        <form
+          onSubmit={(e) => { e.preventDefault(); onSubmit(values) }}
+          className="space-y-3"
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Name" htmlFor="cust-name" required>
+              <Input id="cust-name" required value={values.name} onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))} />
+            </Field>
+            <Field label="Email" htmlFor="cust-email" required>
+              <Input id="cust-email" type="email" required value={values.email} onChange={(e) => setValues((v) => ({ ...v, email: e.target.value }))} />
+            </Field>
+            <Field label="Phone" htmlFor="cust-phone">
+              <Input id="cust-phone" value={values.phone} onChange={(e) => setValues((v) => ({ ...v, phone: e.target.value }))} />
+            </Field>
+            <Field label="Address" htmlFor="cust-address">
+              <Input id="cust-address" value={values.address} onChange={(e) => setValues((v) => ({ ...v, address: e.target.value }))} />
+            </Field>
+          </div>
+          <Field label="Notes" htmlFor="cust-notes">
+            <Textarea id="cust-notes" rows={3} value={values.notes} onChange={(e) => setValues((v) => ({ ...v, notes: e.target.value }))} />
+          </Field>
+          <DialogFooter>
+            <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>
+            <Button type="submit" loading={loading}>{editing ? "Save changes" : "Create customer"}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function ProductFormDialog({
+  state,
+  onClose,
+  onSubmit,
+  loading,
+}: {
+  state: ProductDialogState | null
+  onClose: () => void
+  onSubmit: (values: ProductFormValues) => void
+  loading: boolean
+}) {
+  const open = !!state
+  const editing = state?.mode === "edit" ? state.target : null
+  const [values, setValues] = useState<ProductFormValues>({
+    name: "", description: "", price: "", currency: "USD", billingCadence: "MONTHLY", status: "ACTIVE",
+  })
+
+  useEffect(() => {
+    if (!open) return
+    setValues({
+      name: editing?.name ?? "",
+      description: editing?.description ?? "",
+      price: editing ? String(editing.price) : "",
+      currency: editing?.currency ?? "USD",
+      billingCadence: editing?.billingCadence ?? "MONTHLY",
+      status: editing?.status === "INACTIVE" ? "INACTIVE" : "ACTIVE",
+    })
+  }, [open, editing])
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{editing ? "Edit product" : "New product"}</DialogTitle>
+          <DialogDescription>{editing ? "Update pricing or cadence." : "Add a product customers can subscribe to."}</DialogDescription>
+        </DialogHeader>
+        <form
+          onSubmit={(e) => { e.preventDefault(); onSubmit(values) }}
+          className="space-y-3"
+        >
+          <Field label="Name" htmlFor="prod-name" required>
+            <Input id="prod-name" required value={values.name} onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))} />
+          </Field>
+          <Field label="Description" htmlFor="prod-desc">
+            <Textarea id="prod-desc" rows={2} value={values.description} onChange={(e) => setValues((v) => ({ ...v, description: e.target.value }))} />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Price" htmlFor="prod-price" required>
+              <Input id="prod-price" type="number" step="0.01" min="0" required value={values.price} onChange={(e) => setValues((v) => ({ ...v, price: e.target.value }))} />
+            </Field>
+            <Field label="Currency" htmlFor="prod-currency" required>
+              <Input id="prod-currency" maxLength={3} required value={values.currency} onChange={(e) => setValues((v) => ({ ...v, currency: e.target.value.toUpperCase() }))} />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Cadence">
+              <Select value={values.billingCadence} onValueChange={(v) => setValues((s) => ({ ...s, billingCadence: v as BillingCadence }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="WEEKLY">Weekly</SelectItem>
+                  <SelectItem value="MONTHLY">Monthly</SelectItem>
+                  <SelectItem value="QUARTERLY">Quarterly</SelectItem>
+                  <SelectItem value="ANNUALLY">Annual</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Status">
+              <Select value={values.status} onValueChange={(v) => setValues((s) => ({ ...s, status: v as "ACTIVE" | "INACTIVE" }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ACTIVE">Active</SelectItem>
+                  <SelectItem value="INACTIVE">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>
+            <Button type="submit" loading={loading}>{editing ? "Save changes" : "Create product"}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function PlanFormDialog({
+  state,
+  onClose,
+  tenantId,
+  onCreate,
+  onUpdate,
+  loading,
+}: {
+  state: PlanDialogState | null
+  onClose: () => void
+  tenantId: number
+  onCreate: (customerId: number, values: PlanCreateValues) => void
+  onUpdate: (customerId: number, cpId: number, values: PlanEditValues) => void
+  loading: boolean
+}) {
+  const open = !!state
+  const editing = state?.mode === "edit" ? state.target : null
+  const isEdit = !!editing
+
+  const [customerId, setCustomerId] = useState<number | null>(null)
+  const [productId, setProductId] = useState<number | null>(null)
+  const [startsAt, setStartsAt] = useState("")
+  const [endsAt, setEndsAt] = useState("")
+  const [notes, setNotes] = useState("")
+
+  const customersQ = useQuery({
+    queryKey: ["plan-dialog-customers", tenantId],
+    queryFn: () => customersApi.list(tenantId, 0, 100),
+    enabled: open && !isEdit,
+  })
+  const productsQ = useQuery({
+    queryKey: ["plan-dialog-products", tenantId],
+    queryFn: () => productsApi.list(tenantId, 0, 100),
+    enabled: open && !isEdit,
+  })
+
+  useEffect(() => {
+    if (!open) return
+    if (editing) {
+      setCustomerId(editing.customerId)
+      setProductId(editing.productId)
+      setStartsAt(toLocalInput(editing.startsAt))
+      setEndsAt(toLocalInput(editing.endsAt))
+      setNotes(editing.notes ?? "")
+    } else {
+      setCustomerId(null)
+      setProductId(null)
+      setStartsAt("")
+      setEndsAt("")
+      setNotes("")
+    }
+  }, [open, editing])
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (isEdit && editing) {
+      onUpdate(editing.customerId, editing.id, { startsAt, endsAt, notes })
+      return
+    }
+    if (!customerId || !productId) {
+      toast.error("Pick a customer and a product")
+      return
+    }
+    onCreate(customerId, { productId, startsAt, endsAt, notes })
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? "Edit plan" : "New plan"}</DialogTitle>
+          <DialogDescription>
+            {isEdit
+              ? "Update the schedule or notes. Use the pause/cancel buttons in the panel to change status."
+              : "Assign a product to a customer to start billing."}
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          {!isEdit && (
+            <>
+              <Field label="Customer" required>
+                <Select
+                  value={customerId ? String(customerId) : undefined}
+                  onValueChange={(v) => setCustomerId(Number(v))}
+                >
+                  <SelectTrigger><SelectValue placeholder="Pick a customer…" /></SelectTrigger>
+                  <SelectContent>
+                    {customersQ.data?.content.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>{c.name} · {c.email}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Product" required>
+                <Select
+                  value={productId ? String(productId) : undefined}
+                  onValueChange={(v) => setProductId(Number(v))}
+                >
+                  <SelectTrigger><SelectValue placeholder="Pick a product…" /></SelectTrigger>
+                  <SelectContent>
+                    {productsQ.data?.content.filter((p) => p.status === "ACTIVE").map((p) => (
+                      <SelectItem key={p.id} value={String(p.id)}>{p.name} · {p.currency} {p.price}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            </>
+          )}
+          {isEdit && editing && (
+            <div className="rounded-md border border-border bg-card/40 px-3 py-2 text-xs text-muted-foreground">
+              {editing.customerName} · {editing.productName}
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Starts" htmlFor="plan-starts">
+              <Input id="plan-starts" type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
+            </Field>
+            <Field label="Ends" htmlFor="plan-ends">
+              <Input id="plan-ends" type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
+            </Field>
+          </div>
+          <Field label="Notes" htmlFor="plan-notes">
+            <Textarea id="plan-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </Field>
+          <DialogFooter>
+            <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>
+            <Button type="submit" loading={loading}>{isEdit ? "Save changes" : "Create plan"}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function Field({
+  label,
+  htmlFor,
+  required,
+  children,
+}: {
+  label: string
+  htmlFor?: string
+  required?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={htmlFor} className="text-xs">
+        {label}
+        {required && <span className="text-destructive"> *</span>}
+      </Label>
+      {children}
     </div>
   )
 }
