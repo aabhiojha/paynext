@@ -39,3 +39,6 @@ application-dev.yaml
 # Environment secrets
 .env
 .env.local
+
+# Runtime logs
+backend/core-monolith/logs/

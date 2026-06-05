@@ -20,7 +20,7 @@ public class DevDataSeeder implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DevDataSeeder.class);
 
-    private static final String SUPER_ADMIN_EMAIL    = "admin@saas.dev";
+    private static final String SUPER_ADMIN_EMAIL    = "admin@paynext.com";
     private static final String SUPER_ADMIN_PASSWORD = "Admin@1234";
 
     private final UserRepository userRepository;
