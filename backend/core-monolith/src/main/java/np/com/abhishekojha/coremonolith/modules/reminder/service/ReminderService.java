@@ -36,7 +36,24 @@ import java.util.Map;
 @Slf4j
 public class ReminderService {
 
-    private static final List<Integer> MILESTONES = List.of(7, 3, 1);
+    // Largest possible milestone — used to bound the DB query window.
+    private static final int MAX_LOOKAHEAD_DAYS = 60;
+
+    /**
+     * Returns the reminder milestones (days before expiry) for a plan of the given duration.
+     * D ≤ 14       → [3, 1, 0]
+     * 14 < D ≤ 30  → [7, 3, 1, 0]
+     * 30 < D ≤ 90  → [21, 14, 7, 0]
+     * 90 < D ≤ 180 → [30, 14, 7, 0]
+     * D > 180      → [60, 30, 14, 7, 0]
+     */
+    private static List<Integer> milestonesForDuration(long durationDays) {
+        if (durationDays <= 14)  return List.of(3, 1, 0);
+        if (durationDays <= 30)  return List.of(7, 3, 1, 0);
+        if (durationDays <= 90)  return List.of(21, 14, 7, 0);
+        if (durationDays <= 180) return List.of(30, 14, 7, 0);
+        return                          List.of(60, 30, 14, 7, 0);
+    }
 
     private static final DateTimeFormatter DUE_DATE_FMT =
             DateTimeFormatter.ofPattern("MMM d, yyyy").withZone(ZoneOffset.UTC);
@@ -79,37 +96,37 @@ public class ReminderService {
     // Called by the scheduler — no security context
     public List<ReminderResponse> triggerForTenant(TenantEntity tenant) {
         Instant now = Instant.now();
+        Instant lookAheadEnd = now.plus(MAX_LOOKAHEAD_DAYS, ChronoUnit.DAYS);
         List<ReminderResponse> results = new ArrayList<>();
 
-        for (int milestone : MILESTONES) {
-            Instant windowStart = now.plus(milestone - 1, ChronoUnit.DAYS);
-            Instant windowEnd   = now.plus(milestone,     ChronoUnit.DAYS).minusSeconds(1);
+        // Fetch all active plans expiring within the lookahead window.
+        // For each plan we compute its own milestones from its total duration,
+        // then check whether today (daysUntilExpiry) matches one of them.
+        List<CustomerProductEntity> candidates = customerProductRepository
+                .findAllByTenantIdAndStatusAndDeletedAtIsNullAndEndsAtBetween(
+                        tenant.getId(), CustomerProductStatus.ACTIVE, now, lookAheadEnd);
 
-            List<CustomerProductEntity> duePlans = customerProductRepository
-                    .findAllByTenantIdAndStatusAndDeletedAtIsNullAndEndsAtBetween(
-                            tenant.getId(), CustomerProductStatus.ACTIVE, windowStart, windowEnd);
+        for (CustomerProductEntity cp : candidates) {
+            if (cp.getStartsAt() == null || cp.getEndsAt() == null) continue;
 
-            for (CustomerProductEntity cp : duePlans) {
-                // Skip if the plan hasn't been active long enough for this milestone to make sense.
-                // Prevents short plans (e.g. 7-day) from receiving a 7-day reminder on day 0.
-                if (cp.getStartsAt() != null &&
-                        cp.getStartsAt().plus(milestone, ChronoUnit.DAYS).isAfter(now)) {
-                    continue;
-                }
+            long durationDays     = ChronoUnit.DAYS.between(cp.getStartsAt(), cp.getEndsAt());
+            int  daysUntilExpiry  = (int) ChronoUnit.DAYS.between(now, cp.getEndsAt());
 
-                boolean alreadyHandled = reminderRepository
-                        .existsByCustomerProductIdAndDaysBeforeExpiryAndStatusIn(
-                                cp.getId(), milestone,
-                                List.of(ReminderStatus.SENT, ReminderStatus.SKIPPED));
+            List<Integer> milestones = milestonesForDuration(durationDays);
+            if (!milestones.contains(daysUntilExpiry)) continue;
 
-                if (alreadyHandled) {
-                    log.debug("Skipping milestone={}d for customerProduct={} — already handled",
-                            milestone, cp.getId());
-                    continue;
-                }
+            boolean alreadyHandled = reminderRepository
+                    .existsByCustomerProductIdAndDaysBeforeExpiryAndStatusIn(
+                            cp.getId(), daysUntilExpiry,
+                            List.of(ReminderStatus.SENT, ReminderStatus.SKIPPED));
 
-                results.add(sendReminder(tenant, cp, milestone));
+            if (alreadyHandled) {
+                log.debug("Skipping milestone={}d for customerProduct={} — already handled",
+                        daysUntilExpiry, cp.getId());
+                continue;
             }
+
+            results.add(sendReminder(tenant, cp, daysUntilExpiry));
         }
 
         return results;

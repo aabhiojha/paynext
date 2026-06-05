@@ -50,9 +50,47 @@ public class EmailService {
     }
 
     public void sendReminder(ReminderEmailRequest req) {
-        String days = req.getDaysBeforeExpiry() == 1 ? "tomorrow" : "in " + req.getDaysBeforeExpiry() + " days";
-        String subject = "Reminder: " + req.getProductName() + " expires " + days;
-        send(req.getCustomerEmail(), subject, renderReminder(req));
+        send(req.getCustomerEmail(), subjectFor(req), renderReminder(req));
+    }
+
+    // ── template routing ──────────────────────────────────────────────────────
+
+    /**
+     * Selects the email template based on daysBeforeExpiry.
+     * Positive = days remaining before expiry.
+     * Zero     = expiry day.
+     * Negative = days elapsed since expiry (post-expiry follow-ups).
+     *
+     * Stage          Days                    Template
+     * Early awareness  60, 30, 21            reminder-awareness
+     * Getting close    14, 7                 reminder-intermediate
+     * Urgent           3, 1                  reminder-urgent
+     * Day of           0                     reminder-day-of-expiry
+     * Just expired    -1, -3                 reminder-just-expired
+     * Win-back        -7, -14                reminder-winback
+     */
+    private String templateFor(int days) {
+        if (days >= 21)       return "email/reminder-awareness";
+        if (days >= 7)        return "email/reminder-intermediate";
+        if (days >= 1)        return "email/reminder-urgent";
+        if (days == 0)        return "email/reminder-day-of-expiry";
+        if (days >= -3)       return "email/reminder-just-expired";
+        return                       "email/reminder-winback";
+    }
+
+    private String subjectFor(ReminderEmailRequest req) {
+        String product = req.getProductName();
+        int days = req.getDaysBeforeExpiry();
+        if (days >= 21)  return "Heads up: your " + product + " subscription renews in " + days + " days";
+        if (days == 14)  return product + " renews in 2 weeks — just a reminder";
+        if (days == 7)   return product + " subscription is coming up for renewal";
+        if (days == 3)   return "Action needed: " + product + " expires in 3 days";
+        if (days == 1)   return "Action needed: " + product + " expires tomorrow";
+        if (days == 0)   return "Last day: " + product + " expires today";
+        if (days == -1)  return product + " has expired — renewal available";
+        if (days == -3)  return "Renew " + product + " before it's too late";
+        if (days == -7)  return "Still interested? Your " + product + " renewal is waiting";
+        return                  "We'd love to have you back — renew " + product + " today";
     }
 
     // ── template rendering ────────────────────────────────────────────────────
@@ -83,7 +121,7 @@ public class EmailService {
         vars.put("dueDate",          req.getDueDate());
         vars.put("tenantName",       req.getTenantName());
         vars.put("daysBeforeExpiry", req.getDaysBeforeExpiry());
-        return render("email/reminder", vars);
+        return render(templateFor(req.getDaysBeforeExpiry()), vars);
     }
 
     private String render(String template, Map<String, Object> vars) {
