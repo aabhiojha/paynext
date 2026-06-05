@@ -1,0 +1,51 @@
+<configuration>
+
+  <!-- ── DEV: human-readable colored console ─────────────────────────────── -->
+  <springProfile name="dev">
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+        <!--
+          HH:mm:ss.SSS  LEVEL  [requestId]  [role@tenantId]  logger  - message
+          Colors:
+            timestamp   → gray
+            level       → highlighted by severity
+            requestId   → cyan
+            user ctx    → magenta
+            logger name → yellow (abbreviated to 30 chars)
+        -->
+        <pattern>%d{HH:mm:ss.SSS} %highlight(%-5level) %cyan([%X{requestId:-no-req}]) %magenta([%X{role:--}/%X{userId:--}@t%X{tenantId:--}]) %yellow(%logger{30}) - %msg%n</pattern>
+        <charset>UTF-8</charset>
+      </encoder>
+    </appender>
+
+    <root level="INFO">
+      <appender-ref ref="CONSOLE"/>
+    </root>
+  </springProfile>
+
+  <!-- ── PROD: structured JSON to console + rolling file ────────────────── -->
+  <springProfile name="prod">
+
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+        <includeMdcKeyName>requestId</includeMdcKeyName>
+        <includeMdcKeyName>requestPath</includeMdcKeyName>
+        <includeMdcKeyName>userId</includeMdcKeyName>
+        <includeMdcKeyName>tenantId</includeMdcKeyName>
+        <includeMdcKeyName>role</includeMdcKeyName>
+        <fieldNames>
+          <timestamp>ts</timestamp>
+          <message>msg</message>
+          <logger>logger</logger>
+          <thread>thread</thread>
+          <levelValue>[ignore]</levelValue>
+        </fieldNames>
+      </encoder>
+    </appender>
+
+    <root level="INFO">
+      <appender-ref ref="JSON_CONSOLE"/>
+    </root>
+  </springProfile>
+
+</configuration>

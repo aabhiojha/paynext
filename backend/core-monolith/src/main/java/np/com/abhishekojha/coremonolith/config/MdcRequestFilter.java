@@ -4,8 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -20,11 +19,11 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
+@Slf4j
 public class MdcRequestFilter extends OncePerRequestFilter {
 
-    private static final Logger log = LoggerFactory.getLogger(MdcRequestFilter.class);
     private static final String REQUEST_ID_HEADER = "X-Request-Id";
-    private static final String MDC_REQUEST_ID    = "requestId";
+    private static final String MDC_REQUEST_ID = "requestId";
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -46,12 +45,21 @@ public class MdcRequestFilter extends OncePerRequestFilter {
             int status = response.getStatus();
             String method = request.getMethod();
             String uri = request.getRequestURI();
-            log.info("{} {} → {} ({}ms)",
-                    method, uri, status, duration,
-                    kv("method", method),
-                    kv("uri", uri),
-                    kv("status", status),
-                    kv("duration_ms", duration));
+
+            MDC.put("httpMethod", method);
+            MDC.put("httpStatus", String.valueOf(status));
+            MDC.put("durationMs", String.valueOf(duration));
+
+            if (status >= 500) {
+                log.error("{} {} → {} ({}ms)", method, uri, status, duration);
+            } else if (status >= 400) {
+                log.warn("{} {} → {} ({}ms)", method, uri, status, duration);
+            } else if (duration > 2000) {
+                log.warn("{} {} → {} ({}ms) [SLOW]", method, uri, status, duration);
+            } else {
+                log.info("{} {} → {} ({}ms)", method, uri, status, duration);
+            }
+
             MDC.clear();
         }
     }
