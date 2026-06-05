@@ -38,10 +38,13 @@ ALTER TABLE tenant_platform_plans
     ADD CONSTRAINT FK_TENANT_PLATFORM_PLANS_ON_TENANT FOREIGN KEY (tenant_id) REFERENCES tenants (id);
 
 ALTER TABLE customer_products
-    DROP COLUMN currency;
+DROP
+COLUMN currency;
 
 ALTER TABLE customer_products
-    DROP COLUMN price;
+DROP
+COLUMN price;
 
 ALTER TABLE reminders
-    DROP COLUMN retry_count;
+DROP
+COLUMN retry_count;
