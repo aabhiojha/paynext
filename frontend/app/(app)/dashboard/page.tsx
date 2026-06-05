@@ -1,6 +1,24 @@
 "use client";
 
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+
+function useCountUp(target: number, duration = 450) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    let raf: number;
+    let start: number | null = null;
+    const step = (ts: number) => {
+      if (!start) start = ts;
+      const p = Math.min((ts - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setVal(Math.round(eased * target));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return val;
+}
 
 function useColumnResize(initialWidths: number[]) {
   const [widths, setWidths] = useState(initialWidths);
@@ -199,8 +217,8 @@ function ExpiringTable() {
             </tr>
           </thead>
           <tbody>
-            {expiringSoon.map((row) => (
-              <tr key={row.id} style={{ borderTop: "1px solid var(--border)", backgroundColor: "#fef7fa" }}>
+            {expiringSoon.map((row, i) => (
+              <tr key={row.id} className="bg-[#fef7fa] hover:bg-[#fdf2f8] transition-colors" style={{ borderTop: "1px solid var(--border)", animation: "fade-in 0.15s ease-out both", animationDelay: `${80 + i * 25}ms` }}>
                 <td className="px-4 py-3 text-sm font-medium text-gray-700 truncate overflow-hidden">{row.id}</td>
                 <td className="px-4 py-3 text-sm text-gray-900 truncate overflow-hidden">{row.customer}</td>
                 <td className="px-4 py-3 text-sm text-gray-700 truncate overflow-hidden">{row.plan}</td>
@@ -248,7 +266,7 @@ function ReminderTable() {
           </thead>
           <tbody>
             {reminderLog.map((row, i) => (
-              <tr key={i} style={{ borderTop: "1px solid var(--border)", backgroundColor: "#fef7fa" }}>
+              <tr key={i} className="bg-[#fef7fa] hover:bg-[#fdf2f8] transition-colors" style={{ borderTop: "1px solid var(--border)", animation: "fade-in 0.15s ease-out both", animationDelay: `${80 + i * 20}ms` }}>
                 <td className="px-4 py-3 text-sm text-gray-1000 truncate overflow-hidden">{row.customer}</td>
                 <td className="px-4 py-3 overflow-hidden"><MilestoneBadge milestone={row.milestone} /></td>
                 <td className="px-4 py-3 overflow-hidden"><ResultBadge result={row.result} /></td>
@@ -290,8 +308,13 @@ export default function DashboardPage() {
   const hour = today.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
+  const mrrVal   = useCountUp(17224);
+  const subVal   = useCountUp(3);
+  const expVal   = useCountUp(1);
+  const remVal   = useCountUp(0);
+
   return (
-    <div className="font-sans px-6 py-8 md:px-12 md:py-10 max-w-6xl mx-auto">
+    <div className="font-sans px-6 py-8 md:px-12 md:py-10 max-w-6xl mx-auto" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
       {/* Greeting */}
       <div className="mb-8 border-l-4 pl-5 py-1" style={{ borderColor: "var(--primary)" }}>
         <p className="text-sm mb-1" style={{ color: "var(--primary)" }}>{greeting}, Levi</p>
@@ -300,18 +323,15 @@ export default function DashboardPage() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-        {[
-          { label: "MRR",                   value: "$17,224.00", showIcon: false },
-          { label: "Active Subscriptions",  value: "3"          },
-          { label: "Expiring This Week",    value: "1"          },
-          { label: "Reminders Sent Today",  value: "0"          },
-        ].map((card) => (
-          <div key={card.label} className="rounded-lg p-5" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm" style={{ color: "#6c757d" }}>{card.label}</p>
-              {card.showIcon && <span style={{ color: "#adb5bd" }}><MRRIcon /></span>}
-            </div>
-            <p className="text-2xl font-bold" style={{ color: "#212529" }}>{card.value}</p>
+        {([
+          { label: "MRR",                  display: `$${mrrVal.toLocaleString()}.00` },
+          { label: "Active Subscriptions", display: String(subVal) },
+          { label: "Expiring This Week",   display: String(expVal) },
+          { label: "Reminders Sent Today", display: String(remVal) },
+        ] as const).map((card, i) => (
+          <div key={card.label} className="rounded-lg p-5" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", animation: "fade-in-up 0.2s ease-out both", animationDelay: `${i * 35}ms` }}>
+            <p className="text-sm mb-3" style={{ color: "#6c757d" }}>{card.label}</p>
+            <p className="text-2xl font-bold tabular-nums" style={{ color: "#212529" }}>{card.display}</p>
           </div>
         ))}
       </div>

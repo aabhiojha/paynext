@@ -1,7 +1,25 @@
 "use client";
 
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+
+function useCountUp(target: number, duration = 450) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    let raf: number;
+    let start: number | null = null;
+    const step = (ts: number) => {
+      if (!start) start = ts;
+      const p = Math.min((ts - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setVal(Math.round(eased * target));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return val;
+}
 
 function useColumnResize(initialWidths: number[]) {
   const [widths, setWidths] = useState(initialWidths);
@@ -182,8 +200,8 @@ function CustomerTable() {
             </tr>
           </thead>
           <tbody>
-            {customers.map((row) => (
-              <tr key={row.id} className="group" style={{ borderTop: "1px solid var(--border)", backgroundColor: "#fef7fa" }}>
+            {customers.map((row, i) => (
+              <tr key={row.id} className="group bg-[#fef7fa] hover:bg-[#fdf2f8] transition-colors" style={{ borderTop: "1px solid var(--border)", animation: "fade-in 0.15s ease-out both", animationDelay: `${80 + i * 18}ms` }}>
                 <td className="px-4 py-3 text-sm font-medium text-gray-700 truncate overflow-hidden">{row.id}</td>
                 <td className="px-4 py-3 text-sm font-semibold text-gray-900 truncate overflow-hidden">
                   <Link href={`/customers/${row.id}`} className="hover:text-primary transition-colors">{row.name}</Link>
@@ -220,8 +238,20 @@ const stats = [
 ];
 
 export default function CustomersPage() {
+  const totalVal   = useCountUp(customers.length);
+  const activeVal  = useCountUp(customers.filter(c => c.status === "Active").length);
+  const churnedVal = useCountUp(customers.filter(c => c.status === "Cancelled" || c.status === "Expired").length);
+  const newVal     = useCountUp(3);
+
+  const statCards = [
+    { label: "Total Customers", display: String(totalVal)   },
+    { label: "Active",          display: String(activeVal)  },
+    { label: "Churned",         display: String(churnedVal) },
+    { label: "New This Month",  display: String(newVal)     },
+  ];
+
   return (
-    <div className="font-sans px-6 py-8 md:px-12 md:py-10 max-w-6xl mx-auto">
+    <div className="font-sans px-6 py-8 md:px-12 md:py-10 max-w-6xl mx-auto" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
       {/* Header */}
       <div className="mb-8 border-l-4 pl-5 py-1" style={{ borderColor: "var(--primary)" }}>
         <p className="text-sm mb-1" style={{ color: "var(--primary)" }}>Directory</p>
@@ -230,10 +260,10 @@ export default function CustomersPage() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-        {stats.map((card) => (
-          <div key={card.label} className="rounded-lg p-5" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
+        {statCards.map((card, i) => (
+          <div key={card.label} className="rounded-lg p-5" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", animation: "fade-in-up 0.2s ease-out both", animationDelay: `${i * 35}ms` }}>
             <p className="text-sm mb-3" style={{ color: "#6c757d" }}>{card.label}</p>
-            <p className="text-2xl font-bold" style={{ color: "#212529" }}>{card.value}</p>
+            <p className="text-2xl font-bold tabular-nums" style={{ color: "#212529" }}>{card.display}</p>
           </div>
         ))}
       </div>
