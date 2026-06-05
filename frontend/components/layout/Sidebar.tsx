@@ -77,7 +77,7 @@ function NavLink({
   return (
     <Link
       href={item.href}
-      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold mb-0.5 transition-colors"
+      className="flex items-center gap-3 px-3 py-2 rounded-sm text-sm font-extrabold:] mb-0.5 transition-colors hover:bg-[#f1eaed]"
       style={
         isActive
           ? { backgroundColor: "var(--nav-active)", color: "var(--nav-active-text)" }
@@ -126,7 +126,7 @@ export default function Sidebar() {
       {/* Resize handle */}
       <div
         onMouseDown={onMouseDown}
-        className="absolute top-0 right-0 w-1 h-full z-10 cursor-col-resize transition-colors hover:bg-pink-200"
+        className="absolute top-0 right-0 w-1 h-full z-10 cursor-col-resize transition-colors hover:bg-[#fbebf3]"
         style={{ marginRight: "-1px" }}
       />
 
@@ -134,23 +134,23 @@ export default function Sidebar() {
       <div className="flex items-center justify-between px-4 py-4">
         <div className="flex items-center gap-2">
           <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: "var(--nav-active)", border: "1.5px solid var(--primary)" }}
+            className="w-8 h-8 rounded-md flex items-center justify-center shrink-0"
+            // style={{ backgroundColor: "var(--nav-active)"}}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="18" height="18">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="30" height="30">
               <path stroke="var(--primary)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 11v4m12-6v4m-1-9c2.4487 0 3.7731.3748 4.4321.6654.0878.0388.1317.0581.2583.179.0759.0724.2145.285.2501.3837.0595.1646.0595.2546.0595.4346v10.7484c0 .9088 0 1.3632-.1363 1.5968-.1386.2375-.2723.348-.5318.4393-.255.0897-.7699-.0092-1.7997-.2071A13.45 13.45 0 0 0 17 18c-3 0-6 2-10 2-2.4487 0-3.7731-.3748-4.4321-.6654-.0878-.0388-.1317-.0581-.2583-.179-.076-.0724-.2145-.285-.2501-.3837C2 18.6073 2 18.5173 2 18.3373V7.5889c0-.9088 0-1.3632.1363-1.5968.1386-.2375.2723-.348.5318-.4393.255-.0898.77.0092 1.7997.207A13.44 13.44 0 0 0 7 6c3 0 6-2 10-2m-2.5 8c0 1.3807-1.1193 2.5-2.5 2.5S9.5 13.3807 9.5 12s1.1193-2.5 2.5-2.5 2.5 1.1193 2.5 2.5" />
             </svg>
           </div>
-          <span className="font-bold text-base text-gray-900">PayNext</span>
+          <span className="font-bold text-xl text-gray-900">PayNext</span>
         </div>
-        <div className="flex items-center gap-2 text-gray-400">
+        <div className="flex items-center gap-2 text-gray-800">
           <button className="hover:text-gray-600 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="18" height="18">
               <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               <path d="m21 21-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-          <button className="hover:text-gray-600 transition-colors">
+          <button className="hover:text-gray-1000 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="18" height="18">
               <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2" />
               <path d="m11 15-4-4 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -191,7 +191,7 @@ export default function Sidebar() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-gray-900 truncate">Levi Thompson</p>
-            <p className="text-xs text-gray-400 truncate">levi.thompson@...</p>
+            <p className="text-xs text-gray-400 truncate hover:text-primary transition-colors">levi.thompson@...</p>
           </div>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 flex-shrink-0">
             <polyline points="6 9 12 15 18 9" />
