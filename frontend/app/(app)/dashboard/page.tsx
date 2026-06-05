@@ -58,7 +58,7 @@ function CopyEmail({ email }: { email: string }) {
             <rect width="20" height="16" x="2" y="4" rx="2" />
             <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
           </svg>
-          <span className="group-hover:text-[--primary] transition-colors">{email}</span>
+          <span className="group-hover:text-primary transition-colors">{email}</span>
         </>
       )}
     </button>
@@ -80,7 +80,7 @@ const reminderLog = [
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { bg: string; color: string }> = {
-    "Expiring Soon": { bg: "#f59e0b", color: "#ffffff" },
+    "Expiring Soon": { bg: "#e8a020", color: "#000000" },
     Active:          { bg: "#24A37D", color: "#ffffff" },
     Paused:          { bg: "#9ca3af", color: "#ffffff" },
     Cancelled:       { bg: "#dc2626", color: "#ffffff" },
@@ -88,7 +88,7 @@ function StatusBadge({ status }: { status: string }) {
   };
   const s = map[status] ?? { bg: "#9ca3af", color: "#ffffff" };
   return (
-    <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-semibold" style={{ backgroundColor: s.bg, color: s.color }}>
+    <span className="inline-flex items-center px-3 py-1 rounded-sm text-xs font-semibold" style={{ backgroundColor: s.bg, color: s.color }}>
       {status}
     </span>
   );
@@ -98,12 +98,12 @@ function MilestoneBadge({ milestone }: { milestone: string }) {
   const map: Record<string, { bg: string; color: string }> = {
     "7-day":  { bg: "#386AF5", color: "#ffffff" },
     "3-day":  { bg: "#EF5F00", color: "#ffffff" },
-    "1-day":  { bg: "#E79F1F", color: "#ffffff" },
+    "1-day":  { bg: "#e8a020", color: "#000000" },
     "expiry": { bg: "#1f2937", color: "#ffffff" },
   };
   const s = map[milestone] ?? { bg: "#6b7280", color: "#ffffff" };
   return (
-    <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-semibold" style={{ backgroundColor: s.bg, color: s.color }}>
+    <span className="inline-flex items-center justify-center w-12 py-1 rounded-sm text-xs font-semibold" style={{ backgroundColor: s.bg, color: s.color }}>
       {milestone === "expiry" ? "Expiry" : milestone}
     </span>
   );
@@ -117,7 +117,7 @@ function ResultBadge({ result }: { result: string }) {
   };
   const s = map[result] ?? { bg: "#9ca3af", color: "#ffffff" };
   return (
-    <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-semibold" style={{ backgroundColor: s.bg, color: s.color }}>
+    <span className="inline-flex items-center px-2 py-1 rounded-sm text-xs font-semibold" style={{ backgroundColor: s.bg, color: s.color }}>
       {result}
     </span>
   );
@@ -249,7 +249,7 @@ function ReminderTable() {
           <tbody>
             {reminderLog.map((row, i) => (
               <tr key={i} style={{ borderTop: "1px solid var(--border)", backgroundColor: "#fef7fa" }}>
-                <td className="px-4 py-3 text-sm text-gray-900 truncate overflow-hidden">{row.customer}</td>
+                <td className="px-4 py-3 text-sm text-gray-1000 truncate overflow-hidden">{row.customer}</td>
                 <td className="px-4 py-3 overflow-hidden"><MilestoneBadge milestone={row.milestone} /></td>
                 <td className="px-4 py-3 overflow-hidden"><ResultBadge result={row.result} /></td>
                 <td className="px-4 py-3 text-sm text-gray-700 truncate overflow-hidden">{row.sentAt}</td>
@@ -270,14 +270,15 @@ const MRRIcon = () => (
 );
 
 function SearchInput({ placeholder, className = "" }: { placeholder: string; className?: string }) {
+  const [hovered, setHovered] = useState(false);
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative ${className}`} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
         <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
       </svg>
       <input type="text" placeholder={placeholder} readOnly
-        className="text-sm pl-9 pr-4 py-2 rounded-lg outline-none w-full"
-        style={{ border: "1px solid var(--border)", backgroundColor: "var(--bg-search)", color: "#1a1a1a" }}
+        className="text-sm pl-9 pr-4 py-2 rounded-lg outline-none w-full transition-colors"
+        style={{ border: "1px solid var(--border)", backgroundColor: hovered ? "#e4dee1" : "var(--bg-search)", color: "#1a1a1a" }}
       />
     </div>
   );
@@ -291,7 +292,6 @@ export default function DashboardPage() {
 
   return (
     <div className="font-sans px-6 py-8 md:px-12 md:py-10 max-w-6xl mx-auto">
-
       {/* Greeting */}
       <div className="mb-8 border-l-4 pl-5 py-1" style={{ borderColor: "var(--primary)" }}>
         <p className="text-sm mb-1" style={{ color: "var(--primary)" }}>{greeting}, Levi</p>
@@ -301,7 +301,7 @@ export default function DashboardPage() {
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
         {[
-          { label: "MRR",                   value: "$17,224.00", showIcon: true },
+          { label: "MRR",                   value: "$17,224.00", showIcon: false },
           { label: "Active Subscriptions",  value: "3"          },
           { label: "Expiring This Week",    value: "1"          },
           { label: "Reminders Sent Today",  value: "0"          },
