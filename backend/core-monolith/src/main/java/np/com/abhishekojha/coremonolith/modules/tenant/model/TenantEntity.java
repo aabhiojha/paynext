@@ -53,6 +53,12 @@ public class TenantEntity extends BaseAuditEntity {
     @Column(name = "archived_at")
     private Instant archivedAt;
 
+    @Column(name = "suspension_reason", columnDefinition = "TEXT")
+    private String suspensionReason;
+
+    @Column(name = "archival_reason", columnDefinition = "TEXT")
+    private String archivalReason;
+
     @Column(name = "deleted_at")
     private Instant deletedAt;
 

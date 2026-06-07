@@ -3,6 +3,8 @@ package np.com.abhishekojha.coremonolith.modules.tenant.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+import java.math.BigDecimal;
+
 public record CreateTenantRequest(
 
         @NotBlank
@@ -14,5 +16,9 @@ public record CreateTenantRequest(
 
         @NotBlank
         @Size(max = 100)
-        String timezone
+        String timezone,
+
+        Long planId,
+
+        BigDecimal customPlanPrice
 ) {}

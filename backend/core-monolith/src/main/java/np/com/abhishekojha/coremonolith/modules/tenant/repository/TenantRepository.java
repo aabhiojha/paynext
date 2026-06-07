@@ -19,6 +19,8 @@ public interface TenantRepository extends JpaRepository<TenantEntity, Long> {
 
     Optional<TenantEntity> findByIdAndDeletedAtIsNull(Long id);
 
+    Optional<TenantEntity> findByIdAndStatusAndDeletedAtIsNull(Long id, TenantStatus status);
+
     List<TenantEntity> findAllByStatusAndDeletedAtIsNull(TenantStatus status);
 
     long countByStatusAndDeletedAtIsNull(TenantStatus status);

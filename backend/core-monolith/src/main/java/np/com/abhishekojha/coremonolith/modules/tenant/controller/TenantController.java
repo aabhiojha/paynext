@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import np.com.abhishekojha.coremonolith.common.enums.TenantStatus;
 import np.com.abhishekojha.coremonolith.modules.tenant.dto.CreateTenantRequest;
+import np.com.abhishekojha.coremonolith.modules.tenant.dto.StatusChangeRequest;
 import np.com.abhishekojha.coremonolith.modules.tenant.dto.TenantResponse;
 import np.com.abhishekojha.coremonolith.modules.tenant.dto.UpdateTenantRequest;
 import np.com.abhishekojha.coremonolith.modules.tenant.service.TenantSuperAdminService;
@@ -91,8 +92,10 @@ public class TenantController {
     })
     @PostMapping("/{tenantId}/suspend")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<TenantResponse> suspendTenant(@PathVariable Long tenantId) {
-        return ResponseEntity.ok(tenantSuperAdminService.suspend(tenantId));
+    public ResponseEntity<TenantResponse> suspendTenant(
+            @PathVariable Long tenantId,
+            @Valid @RequestBody StatusChangeRequest req) {
+        return ResponseEntity.ok(tenantSuperAdminService.suspend(tenantId, req));
     }
 
     @Operation(summary = "Archive tenant")
@@ -103,7 +106,15 @@ public class TenantController {
     })
     @PostMapping("/{tenantId}/archive")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<TenantResponse> archiveTenant(@PathVariable Long tenantId) {
-        return ResponseEntity.ok(tenantSuperAdminService.archive(tenantId));
+    public ResponseEntity<TenantResponse> archiveTenant(
+            @PathVariable Long tenantId,
+            @Valid @RequestBody StatusChangeRequest req) {
+        return ResponseEntity.ok(tenantSuperAdminService.archive(tenantId, req));
+    }
+
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PostMapping("/{tenantId}/reactivate")
+    public ResponseEntity<TenantResponse> reactiveTenant(@PathVariable Long tenantId) {
+        return ResponseEntity.ok(tenantSuperAdminService.reactivate(tenantId));
     }
 }
