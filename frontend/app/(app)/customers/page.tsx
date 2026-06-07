@@ -2,6 +2,8 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useAuthStore } from "@/store/authStore";
+import { apiGet } from "@/lib/api";
 
 function useCountUp(target: number, duration = 450) {
   const [val, setVal] = useState(0);
@@ -51,6 +53,35 @@ function useColumnResize(initialWidths: number[]) {
   return { widths, onMouseDown };
 }
 
+type Customer = {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  status: string;
+  createdAt: string;
+};
+
+type ApiCustomer = {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  status: string;
+  createdAt: string;
+};
+
+type ApiCustomerPage = {
+  content: ApiCustomer[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+};
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "numeric" });
+}
+
 function CopyEmail({ email }: { email: string }) {
   const [copied, setCopied] = useState(false);
   const handleClick = () => {
@@ -83,15 +114,16 @@ function CopyEmail({ email }: { email: string }) {
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { bg: string; color: string }> = {
-    Active:    { bg: "#24A37D", color: "#ffffff" },
-    Paused:    { bg: "#9ca3af", color: "#ffffff" },
-    Cancelled: { bg: "#dc2626", color: "#ffffff" },
-    Expired:   { bg: "#374151", color: "#ffffff" },
+    ACTIVE:    { bg: "#24A37D", color: "#ffffff" },
+    PAUSED:    { bg: "#9ca3af", color: "#ffffff" },
+    CANCELLED: { bg: "#dc2626", color: "#ffffff" },
+    DELETED:   { bg: "#374151", color: "#ffffff" },
   };
   const s = map[status] ?? { bg: "#9ca3af", color: "#ffffff" };
+  const label = status.charAt(0) + status.slice(1).toLowerCase();
   return (
     <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-semibold" style={{ backgroundColor: s.bg, color: s.color }}>
-      {status}
+      {label}
     </span>
   );
 }
@@ -139,7 +171,8 @@ const ColIcon = {
   ),
   status: (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="13" height="13" className="inline mr-1.5 opacity-60 flex-shrink-0">
-      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 8h.01M2 5.2v4.4745c0 .4892 0 .7338.0553.964.049.204.1298.3991.2394.5781.1237.2018.2966.3748.6426.7207l7.6686 7.6686c1.188 1.188 1.7821 1.7821 2.467 2.0046a3 3 0 0 0 1.8541 0c.685-.2225 1.2791-.8166 2.4671-2.0046l2.2118-2.2118c1.188-1.188 1.7821-1.7821 2.0046-2.4671a3 3 0 0 0 0-1.8541c-.2225-.6849-.8166-1.279-2.0046-2.467l-7.6686-7.6686c-.3459-.346-.5189-.5189-.7207-.6426a2 2 0 0 0-.5781-.2394C10.4083 2 10.1637 2 9.6745 2H5.2c-1.1201 0-1.6802 0-2.108.218a2 2 0 0 0-.874.874C2 3.5198 2 4.08 2 5.2M8.5 8a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0" />
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m9 12 2 2 4-4" />
     </svg>
   ),
   date: (
@@ -154,34 +187,18 @@ const ColIcon = {
   ),
 };
 
-const customers = [
-  { id: "CUS-001", name: "Hannah Abbott",   email: "hannah.abbott@example.com",   plan: "Legacy Pro Plan",    status: "Active",    joined: "1/4/2025",  subs: 2 },
-  { id: "CUS-002", name: "Marcus Reid",     email: "marcus.reid@techcorp.io",      plan: "Starter Monthly",    status: "Active",    joined: "3/12/2025", subs: 1 },
-  { id: "CUS-003", name: "Alice Johnson",   email: "alice.johnson@example.com",    plan: "Growth Annual",      status: "Active",    joined: "11/2/2024", subs: 3 },
-  { id: "CUS-004", name: "David Chen",      email: "d.chen@brightworks.com",       plan: "Enterprise",         status: "Active",    joined: "7/19/2024", subs: 1 },
-  { id: "CUS-005", name: "Sarah O'Brien",   email: "sarah.obrien@mailme.net",      plan: "Starter Monthly",    status: "Paused",    joined: "2/28/2025", subs: 1 },
-  { id: "CUS-006", name: "James Thornton",  email: "jthornton@finvault.com",       plan: "Growth Annual",      status: "Active",    joined: "5/5/2024",  subs: 2 },
-  { id: "CUS-007", name: "Priya Nair",      email: "priya.nair@cloudsync.io",      plan: "Legacy Pro Plan",    status: "Cancelled", joined: "9/14/2024", subs: 0 },
-  { id: "CUS-008", name: "Tom Bakker",      email: "tom.bakker@deltaops.nl",       plan: "Enterprise",         status: "Active",    joined: "4/1/2025",  subs: 1 },
-  { id: "CUS-009", name: "Lena Hoffmann",   email: "lena.h@mirosoft.de",           plan: "Starter Monthly",    status: "Expired",   joined: "8/22/2024", subs: 0 },
-  { id: "CUS-010", name: "Carlos Vega",     email: "cvega@stratosphere.mx",        plan: "Growth Annual",      status: "Active",    joined: "6/10/2024", subs: 2 },
-  { id: "CUS-011", name: "Mei Lin",         email: "meilin@fastlane.sg",           plan: "Starter Monthly",    status: "Active",    joined: "5/17/2025", subs: 1 },
-  { id: "CUS-012", name: "Jordan Blake",    email: "jordan.b@techcorp.io",         plan: "Legacy Pro Plan",    status: "Cancelled", joined: "12/3/2024", subs: 0 },
-];
-
 const headers: { label: string; icon?: React.ReactNode; sortable?: boolean }[] = [
-  { label: "Customer",      icon: ColIcon.text,   sortable: true  },
-  { label: "Name",          icon: ColIcon.text,   sortable: true  },
-  { label: "Email",         icon: ColIcon.email                   },
-  { label: "Plan",          icon: ColIcon.text,   sortable: true  },
-  { label: "Status",        icon: ColIcon.status                  },
-  { label: "Joined",        icon: ColIcon.date,   sortable: true  },
-  { label: "Subscriptions", icon: ColIcon.status                  },
-  { label: ""                                                      },
+  { label: "ID",          icon: ColIcon.text                    },
+  { label: "Name",        icon: ColIcon.text,   sortable: true  },
+  { label: "Email",       icon: ColIcon.email                   },
+  { label: "Phone",       icon: ColIcon.text                    },
+  { label: "Status",      icon: ColIcon.status                  },
+  { label: "Joined",      icon: ColIcon.date,   sortable: true  },
+  { label: ""                                                    },
 ];
 
-function CustomerTable() {
-  const cols = [96, 152, 220, 160, 120, 112, 128, 40];
+function CustomerTable({ data }: { data: Customer[] }) {
+  const cols = [96, 152, 220, 130, 120, 112, 40];
   const { widths, onMouseDown } = useColumnResize(cols);
 
   return (
@@ -200,24 +217,16 @@ function CustomerTable() {
             </tr>
           </thead>
           <tbody>
-            {customers.map((row, i) => (
+            {data.map((row, i) => (
               <tr key={row.id} className="group bg-[#fef7fa] hover:bg-[#fdf2f8] transition-colors" style={{ borderTop: "1px solid var(--border)", animation: "fade-in 0.15s ease-out both", animationDelay: `${80 + i * 18}ms` }}>
-                <td className="px-4 py-3 text-sm font-medium text-gray-700 truncate overflow-hidden">{row.id}</td>
+                <td className="px-4 py-3 text-sm font-medium text-gray-700 truncate overflow-hidden">#{row.id}</td>
                 <td className="px-4 py-3 text-sm font-semibold text-gray-900 truncate overflow-hidden">
                   <Link href={`/customers/${row.id}`} className="hover:text-primary transition-colors">{row.name}</Link>
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-500 overflow-hidden"><CopyEmail email={row.email} /></td>
-                <td className="px-4 py-3 text-sm text-gray-700 truncate overflow-hidden">{row.plan}</td>
+                <td className="px-4 py-3 text-sm text-gray-600 truncate overflow-hidden">{row.phone ?? <span className="text-gray-400">—</span>}</td>
                 <td className="px-4 py-3 overflow-hidden"><StatusBadge status={row.status} /></td>
-                <td className="px-4 py-3 text-sm text-gray-700 truncate overflow-hidden">{row.joined}</td>
-                <td className="px-4 py-3 text-sm text-gray-700 overflow-hidden">
-                  <span className="inline-flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="13" height="13" className="opacity-40">
-                      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M22 10H2m0-1.8v7.6c0 1.1201 0 1.6802.218 2.108.1917.3763.4977.6823.874.874C3.5198 19 4.08 19 5.2 19h13.6c1.1201 0 1.6802 0 2.108-.218a2 2 0 0 0 .874-.874C22 17.4802 22 16.9201 22 15.8V8.2c0-1.1201 0-1.6802-.218-2.108a2 2 0 0 0-.874-.874C20.4802 5 19.9201 5 18.8 5H5.2c-1.1201 0-1.6802 0-2.108.218a2 2 0 0 0-.874.874C2 6.5198 2 7.08 2 8.2" />
-                    </svg>
-                    {row.subs}
-                  </span>
-                </td>
+                <td className="px-4 py-3 text-sm text-gray-700 truncate overflow-hidden">{row.createdAt}</td>
                 <td className="px-4 py-3 text-sm text-gray-400 text-center">
                   <button className="hover:text-gray-600">···</button>
                 </td>
@@ -230,35 +239,61 @@ function CustomerTable() {
   );
 }
 
-const stats = [
-  { label: "Total Customers",   value: String(customers.length)                                              },
-  { label: "Active",            value: String(customers.filter(c => c.status === "Active").length)           },
-  { label: "Churned",           value: String(customers.filter(c => c.status === "Cancelled" || c.status === "Expired").length) },
-  { label: "New This Month",    value: "3"                                                                    },
-];
-
 export default function CustomersPage() {
-  const totalVal   = useCountUp(customers.length);
-  const activeVal  = useCountUp(customers.filter(c => c.status === "Active").length);
-  const churnedVal = useCountUp(customers.filter(c => c.status === "Cancelled" || c.status === "Expired").length);
-  const newVal     = useCountUp(3);
+  const user = useAuthStore((s) => s.user);
+  const token = useAuthStore((s) => s.token);
+
+  const [data, setData] = useState<Customer[]>([]);
+  const [totalElements, setTotalElements] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [page, setPage] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token || !user?.tenantId) return;
+    setLoading(true);
+    apiGet<ApiCustomerPage>(
+      `/api/v1/tenants/${user.tenantId}/customers?page=${page}&size=20&sort=createdAt,desc`,
+      token
+    )
+      .then((res) => {
+        setData(res.content.map((c) => ({
+          id: c.id,
+          name: c.name,
+          email: c.email,
+          phone: c.phone,
+          status: c.status,
+          createdAt: formatDate(c.createdAt),
+        })));
+        setTotalElements(res.totalElements);
+        setTotalPages(res.totalPages);
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [token, user, page]);
+
+  const active = data.filter((c) => c.status === "ACTIVE").length;
+  const churned = data.filter((c) => c.status === "CANCELLED" || c.status === "DELETED").length;
+
+  const totalVal   = useCountUp(!loading ? totalElements : 0);
+  const activeVal  = useCountUp(!loading ? active : 0);
+  const churnedVal = useCountUp(!loading ? churned : 0);
 
   const statCards = [
-    { label: "Total Customers", display: String(totalVal)   },
-    { label: "Active",          display: String(activeVal)  },
-    { label: "Churned",         display: String(churnedVal) },
-    { label: "New This Month",  display: String(newVal)     },
+    { label: "Total Customers", display: loading ? "—" : String(totalVal)   },
+    { label: "Active",          display: loading ? "—" : String(activeVal)  },
+    { label: "Churned",         display: loading ? "—" : String(churnedVal) },
+    { label: "This Page",       display: loading ? "—" : String(data.length) },
   ];
 
   return (
     <div className="font-sans px-6 py-8 md:px-12 md:py-10 max-w-6xl mx-auto" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
-      {/* Header */}
       <div className="mb-8 border-l-4 pl-5 py-1" style={{ borderColor: "var(--primary)" }}>
         <p className="text-sm mb-1" style={{ color: "var(--primary)" }}>Directory</p>
         <h1 className="text-3xl font-bold" style={{ color: "#212529" }}>Customers</h1>
       </div>
 
-      {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
         {statCards.map((card, i) => (
           <div key={card.label} className="rounded-lg p-5" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", animation: "fade-in-up 0.2s ease-out both", animationDelay: `${i * 35}ms` }}>
@@ -268,7 +303,6 @@ export default function CustomersPage() {
         ))}
       </div>
 
-      {/* Toolbar */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
           {["Status", "Plan"].map((f) => (
@@ -294,26 +328,63 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      {/* Table */}
-      <CustomerTable />
-
-      {/* Pagination */}
-      <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
-        <span>{customers.length} customers</span>
-        <div className="flex items-center gap-1">
-          <button className="px-3 py-1.5 rounded-lg transition-colors hover:bg-[#f1eaed]" style={{ border: "1px solid var(--border)" }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </button>
-          <span className="px-3 py-1.5 rounded-lg font-semibold text-xs" style={{ backgroundColor: "var(--nav-active)", color: "var(--primary)" }}>1</span>
-          <button className="px-3 py-1.5 rounded-lg transition-colors hover:bg-[#f1eaed]" style={{ border: "1px solid var(--border)" }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </button>
+      {loading ? (
+        <div className="flex items-center justify-center py-20 text-gray-400">
+          <svg className="animate-spin mr-3" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+          </svg>
+          Loading customers…
         </div>
-      </div>
+      ) : error ? (
+        <div className="flex items-center gap-2 text-sm px-4 py-3 rounded-lg" style={{ backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626" }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+            <circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" />
+          </svg>
+          {error}
+        </div>
+      ) : data.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-3 opacity-40">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
+          </svg>
+          <p className="text-sm">No customers yet. Add your first customer to get started.</p>
+        </div>
+      ) : (
+        <CustomerTable data={data} />
+      )}
+
+      {!loading && !error && data.length > 0 && (
+        <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
+          <span>{totalElements} customer{totalElements !== 1 ? "s" : ""}</span>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="px-3 py-1.5 rounded-lg transition-colors hover:bg-[#f1eaed] disabled:opacity-40"
+                style={{ border: "1px solid var(--border)" }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
+              <span className="px-3 py-1.5 rounded-lg font-semibold text-xs" style={{ backgroundColor: "var(--nav-active)", color: "var(--primary)" }}>
+                {page + 1}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page >= totalPages - 1}
+                className="px-3 py-1.5 rounded-lg transition-colors hover:bg-[#f1eaed] disabled:opacity-40"
+                style={{ border: "1px solid var(--border)" }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
