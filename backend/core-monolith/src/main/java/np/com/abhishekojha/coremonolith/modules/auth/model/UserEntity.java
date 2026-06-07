@@ -64,10 +64,6 @@ public class UserEntity extends BaseAuditEntity {
     private Instant lastLoginAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by")
-    private UserEntity createdBy;
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "deleted_by")
     private UserEntity deletedBy;
 
