@@ -1,9 +1,9 @@
 package np.com.abhishekojha.coremonolith.modules.auth.service;
 
 import lombok.RequiredArgsConstructor;
+import np.com.abhishekojha.coremonolith.modules.auth.model.CustomUserDetails;
 import np.com.abhishekojha.coremonolith.modules.auth.repository.UserRepository;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -20,7 +20,8 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         return userRepository.findByEmailAndDeletedAtIsNull(email)
-                .map(u -> new User(
+                .map(u -> new CustomUserDetails(
+                        u.getId(),
                         u.getEmail(),
                         u.getPasswordHash(),
                         List.of(new SimpleGrantedAuthority("ROLE_" + u.getRole().name()))

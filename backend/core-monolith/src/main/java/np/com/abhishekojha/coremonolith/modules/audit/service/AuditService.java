@@ -41,7 +41,7 @@ public class AuditService {
             entry.setNewValue(toJson(newValue));
             entry.setUserAgent(userAgent());
             auditLogRepository.save(entry);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             log.error("Failed to write audit log [{} {}:{}]: {}", action, resourceType, resourceId, e.getMessage());
         }
     }
