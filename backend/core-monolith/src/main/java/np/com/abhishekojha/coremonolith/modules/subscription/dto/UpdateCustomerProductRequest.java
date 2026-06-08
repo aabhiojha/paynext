@@ -1,4 +1,4 @@
-package np.com.abhishekojha.coremonolith.modules.customerproduct.dto;
+package np.com.abhishekojha.coremonolith.modules.subscription.dto;
 
 import java.time.Instant;
 

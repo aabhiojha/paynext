@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import np.com.abhishekojha.coremonolith.common.enums.ReminderStatus;
 import np.com.abhishekojha.coremonolith.modules.audit.model.BaseAuditEntity;
-import np.com.abhishekojha.coremonolith.modules.customerproduct.model.CustomerProductEntity;
+import np.com.abhishekojha.coremonolith.modules.subscription.model.CustomerProductEntity;
 import np.com.abhishekojha.coremonolith.modules.tenant.model.TenantEntity;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;

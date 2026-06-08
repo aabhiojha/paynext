@@ -23,6 +23,8 @@ public interface ReminderRepository extends JpaRepository<ReminderEntity, Long> 
 
     long countByStatus(ReminderStatus status);
 
+    long countBySentAtIsNull();
+
     boolean existsByCustomerProductIdAndDaysBeforeExpiryAndStatusIn(
             Long customerProductId, Integer daysBeforeExpiry, List<ReminderStatus> statuses);
 

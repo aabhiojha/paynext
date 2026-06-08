@@ -13,7 +13,7 @@ import np.com.abhishekojha.coremonolith.modules.customer.dto.CustomerResponse;
 import np.com.abhishekojha.coremonolith.modules.customer.dto.UpdateCustomerRequest;
 import np.com.abhishekojha.coremonolith.modules.customer.model.CustomerEntity;
 import np.com.abhishekojha.coremonolith.modules.customer.repository.CustomerRepository;
-import np.com.abhishekojha.coremonolith.modules.customerproduct.repository.CustomerProductRepository;
+import np.com.abhishekojha.coremonolith.modules.subscription.repository.CustomerProductRepository;
 import np.com.abhishekojha.coremonolith.modules.tenant.model.TenantEntity;
 import np.com.abhishekojha.coremonolith.modules.tenant.repository.TenantRepository;
 import org.springframework.data.domain.Page;

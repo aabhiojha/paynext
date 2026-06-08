@@ -6,5 +6,6 @@ public record AuthResponse(
         Long userId,
         String email,
         String role,
-        String fullName
+        String fullName,
+        Long tenantId
 ) {}

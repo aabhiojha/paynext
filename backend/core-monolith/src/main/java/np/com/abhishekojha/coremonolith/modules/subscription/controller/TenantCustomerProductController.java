@@ -1,4 +1,4 @@
-package np.com.abhishekojha.coremonolith.modules.customerproduct.controller;
+package np.com.abhishekojha.coremonolith.modules.subscription.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -6,8 +6,8 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import np.com.abhishekojha.coremonolith.common.enums.CustomerProductStatus;
-import np.com.abhishekojha.coremonolith.modules.customerproduct.dto.CustomerProductResponse;
-import np.com.abhishekojha.coremonolith.modules.customerproduct.service.CustomerProductService;
+import np.com.abhishekojha.coremonolith.modules.subscription.dto.CustomerProductResponse;
+import np.com.abhishekojha.coremonolith.modules.subscription.service.CustomerProductService;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

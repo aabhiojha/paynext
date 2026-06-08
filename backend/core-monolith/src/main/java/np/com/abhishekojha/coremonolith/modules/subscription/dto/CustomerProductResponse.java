@@ -1,6 +1,6 @@
-package np.com.abhishekojha.coremonolith.modules.customerproduct.dto;
+package np.com.abhishekojha.coremonolith.modules.subscription.dto;
 
-import np.com.abhishekojha.coremonolith.modules.customerproduct.model.CustomerProductEntity;
+import np.com.abhishekojha.coremonolith.modules.subscription.model.CustomerProductEntity;
 
 import java.math.BigDecimal;
 import java.time.Instant;

@@ -188,7 +188,8 @@ public class AuthService {
 
         String accessToken = jwtService.generateAccessToken(user);
 
-        return new AuthResponse(accessToken, rawRefreshToken, user.getId(), user.getEmail(), user.getRole().name(), user.getFullName());
+        Long tenantId = user.getTenant() != null ? user.getTenant().getId() : null;
+        return new AuthResponse(accessToken, rawRefreshToken, user.getId(), user.getEmail(), user.getRole().name(), user.getFullName(), tenantId);
     }
 
     private String sha256Hex(String input) {

@@ -1,7 +1,7 @@
-package np.com.abhishekojha.coremonolith.modules.customerproduct.repository;
+package np.com.abhishekojha.coremonolith.modules.subscription.repository;
 
 import np.com.abhishekojha.coremonolith.common.enums.CustomerProductStatus;
-import np.com.abhishekojha.coremonolith.modules.customerproduct.model.CustomerProductEntity;
+import np.com.abhishekojha.coremonolith.modules.subscription.model.CustomerProductEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

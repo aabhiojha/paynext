@@ -2,21 +2,23 @@ package np.com.abhishekojha.coremonolith.modules.dashboard.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import np.com.abhishekojha.coremonolith.common.enums.CustomerProductStatus;
-import np.com.abhishekojha.coremonolith.common.enums.ReminderStatus;
-import np.com.abhishekojha.coremonolith.common.enums.TenantStatus;
+import np.com.abhishekojha.coremonolith.common.enums.*;
 import np.com.abhishekojha.coremonolith.config.TenantAccessGuard;
 import np.com.abhishekojha.coremonolith.modules.audit.dto.AuditLogResponse;
 import np.com.abhishekojha.coremonolith.modules.audit.repository.AuditLogRepository;
 import np.com.abhishekojha.coremonolith.modules.auth.repository.UserRepository;
 import np.com.abhishekojha.coremonolith.modules.customer.repository.CustomerRepository;
-import np.com.abhishekojha.coremonolith.modules.customerproduct.repository.CustomerProductRepository;
-import np.com.abhishekojha.coremonolith.modules.dashboard.dto.AdminSummaryResponse;
+import np.com.abhishekojha.coremonolith.modules.subscription.repository.CustomerProductRepository;
+import np.com.abhishekojha.coremonolith.modules.dashboard.dto.superadmin.AdminSummaryResponse;
 import np.com.abhishekojha.coremonolith.modules.dashboard.dto.OverduePlanResponse;
 import np.com.abhishekojha.coremonolith.modules.dashboard.dto.ReminderStatsResponse;
 import np.com.abhishekojha.coremonolith.modules.dashboard.dto.RevenueByCurrencyResponse;
 import np.com.abhishekojha.coremonolith.modules.dashboard.dto.TenantSummaryResponse;
 import np.com.abhishekojha.coremonolith.modules.dashboard.dto.UpcomingReminderResponse;
+import np.com.abhishekojha.coremonolith.modules.dashboard.dto.superadmin.GlobalTenantsSummaryResponse;
+import np.com.abhishekojha.coremonolith.modules.dashboard.dto.superadmin.RemaindersSummary;
+import np.com.abhishekojha.coremonolith.modules.dashboard.dto.superadmin.UsersSummary;
+import np.com.abhishekojha.coremonolith.modules.platformplan.repository.TenantPlatformPlanRepository;
 import np.com.abhishekojha.coremonolith.modules.product.repository.ProductRepository;
 import np.com.abhishekojha.coremonolith.modules.reminder.repository.ReminderRepository;
 import np.com.abhishekojha.coremonolith.modules.tenant.repository.TenantRepository;
@@ -48,6 +50,7 @@ public class DashboardService {
     private final TenantRepository tenantRepository;
     private final UserRepository userRepository;
     private final TenantAccessGuard guard;
+    private final TenantPlatformPlanRepository tenantPlatformPlanRepository;
 
     public TenantSummaryResponse getSummary(Long tenantId) {
         guard.requireTenantAccess(tenantId);
@@ -125,14 +128,39 @@ public class DashboardService {
 
     public AdminSummaryResponse getAdminSummary() {
         log.info("Fetching platform-wide admin dashboard");
-        return new AdminSummaryResponse(
-                tenantRepository.countByStatusAndDeletedAtIsNull(TenantStatus.ACTIVE),
-                tenantRepository.countByStatusAndDeletedAtIsNull(TenantStatus.SUSPENDED),
-                tenantRepository.countByStatusAndDeletedAtIsNull(TenantStatus.ARCHIVED),
-                userRepository.countByDeletedAtIsNull(),
-                reminderRepository.countByStatus(ReminderStatus.SENT),
-                reminderRepository.countByStatus(ReminderStatus.FAILED),
-                reminderRepository.countByStatus(ReminderStatus.SKIPPED)
-        );
+
+
+        GlobalTenantsSummaryResponse tenantsSummary = GlobalTenantsSummaryResponse.builder()
+                .active(tenantRepository.countByStatusAndDeletedAtIsNull(TenantStatus.ACTIVE))
+                .suspended(tenantRepository.countByStatusAndDeletedAtIsNull(TenantStatus.SUSPENDED))
+                .archived(tenantRepository.countByStatusAndDeletedAtIsNull(TenantStatus.ARCHIVED))
+                .newThisWeek(tenantRepository.countByCreatedAtAfterAndArchivedAtIsNull(Instant.now().minus(7, ChronoUnit.DAYS)))
+                .expiringThisWeek(tenantPlatformPlanRepository.countByStatusAndEndDateAfter(PlatformPlanStatus.ACTIVE, Instant.now().plus(7, ChronoUnit.DAYS)))
+                .build();
+
+        UsersSummary usersSummary = UsersSummary.builder()
+                .totalUsers(userRepository.countByDeletedAtIsNull())
+                .activeUsers(userRepository.countByStatusAndDeletedAtIsNull(UserStatus.ACTIVE))
+                .build();
+
+        long sent = reminderRepository.countByStatus(ReminderStatus.SENT);
+        long failed = reminderRepository.countByStatus(ReminderStatus.FAILED);
+        long skipped = reminderRepository.countByStatus(ReminderStatus.SKIPPED);
+        long total = sent + failed + skipped;
+
+        RemaindersSummary remaindersSummary = RemaindersSummary.builder()
+                .sent(sent)
+                .failed(failed)
+                .skipped(skipped)
+                .pending(reminderRepository.countBySentAtIsNull())
+                .overdue(0)
+                .failureRate(total > 0 ? (double) failed / total * 100 : 0)
+                .build();
+
+        return AdminSummaryResponse.builder()
+                .tenants(tenantsSummary)
+                .users(usersSummary)
+                .remainders(remaindersSummary)
+                .build();
     }
 }

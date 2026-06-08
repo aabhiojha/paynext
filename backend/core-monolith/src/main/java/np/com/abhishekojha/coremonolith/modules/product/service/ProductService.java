@@ -10,7 +10,7 @@ import np.com.abhishekojha.coremonolith.common.enums.UserRole;
 import np.com.abhishekojha.coremonolith.config.TenantAccessGuard;
 import np.com.abhishekojha.coremonolith.modules.auth.model.UserEntity;
 import np.com.abhishekojha.coremonolith.modules.audit.service.AuditService;
-import np.com.abhishekojha.coremonolith.modules.customerproduct.repository.CustomerProductRepository;
+import np.com.abhishekojha.coremonolith.modules.subscription.repository.CustomerProductRepository;
 import np.com.abhishekojha.coremonolith.modules.product.dto.CreateProductRequest;
 import np.com.abhishekojha.coremonolith.modules.product.dto.ProductResponse;
 import np.com.abhishekojha.coremonolith.modules.product.dto.UpdateProductRequest;

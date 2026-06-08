@@ -4,6 +4,7 @@ import np.com.abhishekojha.coremonolith.common.enums.PlatformPlanStatus;
 import np.com.abhishekojha.coremonolith.modules.platformplan.model.TenantPlatformPlanEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -12,4 +13,8 @@ public interface TenantPlatformPlanRepository extends JpaRepository<TenantPlatfo
     Optional<TenantPlatformPlanEntity> findByTenantIdAndStatus(Long tenantId, PlatformPlanStatus status);
 
     List<TenantPlatformPlanEntity> findAllByTenantIdOrderByCreatedAtDesc(Long tenantId);
+
+    List<TenantPlatformPlanEntity> findByStatusAndEndDateAfter(PlatformPlanStatus status, Instant endDateAfter);
+
+    long countByStatusAndEndDateAfter(PlatformPlanStatus status, Instant endDateAfter);
 }

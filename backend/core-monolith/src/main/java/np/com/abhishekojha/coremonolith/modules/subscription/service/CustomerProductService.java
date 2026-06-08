@@ -1,4 +1,4 @@
-package np.com.abhishekojha.coremonolith.modules.customerproduct.service;
+package np.com.abhishekojha.coremonolith.modules.subscription.service;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -10,12 +10,12 @@ import np.com.abhishekojha.coremonolith.modules.audit.service.AuditService;
 import np.com.abhishekojha.coremonolith.modules.auth.model.UserEntity;
 import np.com.abhishekojha.coremonolith.modules.customer.model.CustomerEntity;
 import np.com.abhishekojha.coremonolith.modules.customer.repository.CustomerRepository;
-import np.com.abhishekojha.coremonolith.modules.customerproduct.dto.AssignProductRequest;
-import np.com.abhishekojha.coremonolith.modules.customerproduct.dto.CustomerProductResponse;
-import np.com.abhishekojha.coremonolith.modules.customerproduct.dto.UpdateCustomerProductRequest;
-import np.com.abhishekojha.coremonolith.modules.customerproduct.dto.UpdateCustomerProductStatusRequest;
-import np.com.abhishekojha.coremonolith.modules.customerproduct.model.CustomerProductEntity;
-import np.com.abhishekojha.coremonolith.modules.customerproduct.repository.CustomerProductRepository;
+import np.com.abhishekojha.coremonolith.modules.subscription.dto.AssignProductRequest;
+import np.com.abhishekojha.coremonolith.modules.subscription.dto.CustomerProductResponse;
+import np.com.abhishekojha.coremonolith.modules.subscription.dto.UpdateCustomerProductRequest;
+import np.com.abhishekojha.coremonolith.modules.subscription.dto.UpdateCustomerProductStatusRequest;
+import np.com.abhishekojha.coremonolith.modules.subscription.model.CustomerProductEntity;
+import np.com.abhishekojha.coremonolith.modules.subscription.repository.CustomerProductRepository;
 import np.com.abhishekojha.coremonolith.modules.product.model.ProductEntity;
 import np.com.abhishekojha.coremonolith.modules.product.model.ProductPlanEntity;
 import np.com.abhishekojha.coremonolith.modules.product.repository.ProductPlanRepository;
@@ -30,6 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Map;
 
 @Service
@@ -74,6 +76,10 @@ public class CustomerProductService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "ends_at must be after starts_at");
             }
             cp.setEndsAt(req.endsAt());
+        } else if (product.getBillingCadence() != null) {
+            LocalDate startsAtDate = cp.getStartsAt().atZone(ZoneId.systemDefault()).toLocalDate();
+            LocalDate endsAtDate = product.getBillingCadence().nextBillingDate(startsAtDate);
+            cp.setEndsAt(endsAtDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
         }
         if (req.notes() != null) cp.setNotes(req.notes());
         customerProductRepository.save(cp);
