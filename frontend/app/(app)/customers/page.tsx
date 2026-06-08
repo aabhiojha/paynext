@@ -1,9 +1,50 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useAuthStore } from "@/store/authStore";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
+import SlideOver, { SlideOverField } from "@/components/SlideOver";
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type Customer = {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  address: string | null;
+  notes: string | null;
+  status: string;
+  createdAt: string;
+};
+
+type Subscription = {
+  id: number;
+  productName: string;
+  productPlanName: string | null;
+  amount: number;
+  currency: string;
+  status: string;
+  startsAt: string;
+  endsAt: string | null;
+};
+
+type SpringPage<T> = {
+  content: T[];
+  page: { totalElements: number; totalPages: number; size: number; number: number };
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "numeric" });
+}
+
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString("en-US", { month: "numeric", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+// ─── Hooks ────────────────────────────────────────────────────────────────────
 
 function useCountUp(target: number, duration = 450) {
   const [val, setVal] = useState(0);
@@ -13,8 +54,7 @@ function useCountUp(target: number, duration = 450) {
     const step = (ts: number) => {
       if (!start) start = ts;
       const p = Math.min((ts - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setVal(Math.round(eased * target));
+      setVal(Math.round((1 - Math.pow(1 - p, 3)) * target));
       if (p < 1) raf = requestAnimationFrame(step);
     };
     raf = requestAnimationFrame(step);
@@ -26,18 +66,15 @@ function useCountUp(target: number, duration = 450) {
 function useColumnResize(initialWidths: number[]) {
   const [widths, setWidths] = useState(initialWidths);
   const dragging = useRef<{ col: number; startX: number; startW: number } | null>(null);
-
   const onMouseDown = useCallback((col: number, e: React.MouseEvent) => {
     e.preventDefault();
     dragging.current = { col, startX: e.clientX, startW: widths[col] };
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
-
-    const onMove = (e: MouseEvent) => {
+    const onMove = (ev: MouseEvent) => {
       if (!dragging.current) return;
-      const { col, startX, startW } = dragging.current;
-      const next = Math.max(60, startW + (e.clientX - startX));
-      setWidths((prev) => prev.map((w, i) => (i === col ? next : w)));
+      const { col: c, startX, startW } = dragging.current;
+      setWidths((prev) => prev.map((w, i) => (i === c ? Math.max(60, startW + (ev.clientX - startX)) : w)));
     };
     const onUp = () => {
       dragging.current = null;
@@ -49,342 +86,523 @@ function useColumnResize(initialWidths: number[]) {
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
   }, [widths]);
-
   return { widths, onMouseDown };
 }
 
-type Customer = {
-  id: number;
-  name: string;
-  email: string;
-  phone: string | null;
-  status: string;
-  createdAt: string;
-};
-
-type ApiCustomer = {
-  id: number;
-  name: string;
-  email: string;
-  phone: string | null;
-  status: string;
-  createdAt: string;
-};
-
-type ApiCustomerPage = {
-  content: ApiCustomer[];
-  totalElements: number;
-  totalPages: number;
-  number: number;
-};
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "numeric" });
-}
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function CopyEmail({ email }: { email: string }) {
   const [copied, setCopied] = useState(false);
-  const handleClick = () => {
-    navigator.clipboard.writeText(email).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
   return (
-    <button onClick={handleClick} className="flex items-center gap-1.5 transition-colors text-left group">
+    <button
+      onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(email).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }); }}
+      className="flex items-center gap-1.5 transition-colors text-left group"
+    >
       {copied ? (
         <>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--primary)" }}>
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--primary)" }}><polyline points="20 6 9 17 4 12" /></svg>
           <span className="text-xs font-medium" style={{ color: "var(--primary)" }}>Copied!</span>
         </>
       ) : (
         <>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 text-gray-400 group-hover:text-primary transition-colors">
-            <rect width="20" height="16" x="2" y="4" rx="2" />
-            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-          </svg>
-          <span className="group-hover:text-primary transition-colors">{email}</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 text-gray-400"><rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg>
+          <span className="group-hover:underline">{email}</span>
         </>
       )}
     </button>
   );
 }
 
+const CUSTOMER_STATUS_COLORS: Record<string, { bg: string; color: string }> = {
+  ACTIVE:    { bg: "#24A37D", color: "#fff" },
+  PAUSED:    { bg: "#9ca3af", color: "#fff" },
+  CANCELLED: { bg: "#dc2626", color: "#fff" },
+};
+
 function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { bg: string; color: string }> = {
-    ACTIVE:    { bg: "#24A37D", color: "#ffffff" },
-    PAUSED:    { bg: "#9ca3af", color: "#ffffff" },
-    CANCELLED: { bg: "#dc2626", color: "#ffffff" },
-    DELETED:   { bg: "#374151", color: "#ffffff" },
-  };
-  const s = map[status] ?? { bg: "#9ca3af", color: "#ffffff" };
-  const label = status.charAt(0) + status.slice(1).toLowerCase();
+  const s = CUSTOMER_STATUS_COLORS[status] ?? { bg: "#9ca3af", color: "#fff" };
   return (
-    <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-semibold" style={{ backgroundColor: s.bg, color: s.color }}>
-      {label}
+    <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold" style={{ backgroundColor: s.bg, color: s.color }}>
+      {status.charAt(0) + status.slice(1).toLowerCase()}
     </span>
   );
 }
 
-function SearchInput({ placeholder, className = "" }: { placeholder: string; className?: string }) {
-  const [hovered, setHovered] = useState(false);
+function SubStatusBadge({ status }: { status: string }) {
+  const map: Record<string, { bg: string; text: string }> = {
+    ACTIVE:    { bg: "#dcfce7", text: "#15803d" },
+    PAUSED:    { bg: "#f3f4f6", text: "#6b7280" },
+    CANCELLED: { bg: "#fee2e2", text: "#b91c1c" },
+    EXPIRED:   { bg: "#fef3c7", text: "#b45309" },
+  };
+  const s = map[status] ?? { bg: "#f3f4f6", text: "#6b7280" };
   return (
-    <div className={`relative ${className}`} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-      </svg>
-      <input
-        type="text"
-        placeholder={placeholder}
-        className="text-sm pl-9 pr-4 py-2 rounded-lg outline-none w-full transition-colors"
-        style={{ border: "1px solid var(--border)", backgroundColor: hovered ? "#e4dee1" : "var(--bg-search)", color: "#1a1a1a" }}
-      />
-    </div>
+    <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: s.bg, color: s.text }}>
+      {status.charAt(0) + status.slice(1).toLowerCase()}
+    </span>
   );
 }
 
 function SortIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline ml-1.5 opacity-40">
-      <path d="m7 15 5 5 5-5" />
-      <path d="m7 9 5-5 5 5" />
+      <path d="m7 15 5 5 5-5" /><path d="m7 9 5-5 5 5" />
     </svg>
   );
 }
 
 function ResizeHandle({ onMouseDown }: { onMouseDown: (e: React.MouseEvent) => void }) {
-  return (
-    <div
-      onMouseDown={onMouseDown}
-      className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-pink-200 transition-colors"
-    />
-  );
+  return <div onMouseDown={onMouseDown} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-200 transition-colors" />;
 }
 
 const ColIcon = {
-  text: (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="13" height="13" className="inline mr-1.5 opacity-60 flex-shrink-0">
-      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 7c0-.9319 0-1.3978.1522-1.7654a2 2 0 0 1 1.0824-1.0824C5.6022 4 6.0681 4 7 4h10c.9319 0 1.3978 0 1.7654.1522.49.203.8794.5924 1.0824 1.0824C20 5.6022 20 6.0681 20 7M9 20h6M12 4v16" />
-    </svg>
-  ),
-  status: (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="13" height="13" className="inline mr-1.5 opacity-60 flex-shrink-0">
-      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m9 12 2 2 4-4" />
-    </svg>
-  ),
-  date: (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="13" height="13" className="inline mr-1.5 opacity-60 flex-shrink-0">
-      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 10H3m13-8v4M8 2v4m-.2 16h8.4c1.6802 0 2.5202 0 3.162-.327a3 3 0 0 0 1.311-1.311C21 19.7202 21 18.8802 21 17.2V8.8c0-1.6802 0-2.5202-.327-3.162a3 3 0 0 0-1.311-1.311C18.7202 4 17.8802 4 16.2 4H7.8c-1.6802 0-2.5202 0-3.162.327a3 3 0 0 0-1.311 1.311C3 6.2798 3 7.1198 3 8.8v8.4c0 1.6802 0 2.5202.327 3.162a3 3 0 0 0 1.311 1.311C5.2798 22 6.1198 22 7.8 22" />
-    </svg>
-  ),
-  email: (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="13" height="13" className="inline mr-1.5 opacity-60 flex-shrink-0">
-      <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m2 7 8.1649 5.7154c.6612.4629.9918.6943 1.3514.7839.3176.0792.6498.0792.9674 0 .3596-.0896.6902-.321 1.3514-.7839L22 7M6.8 20h10.4c1.6802 0 2.5202 0 3.162-.327a3 3 0 0 0 1.311-1.311C22 17.7202 22 16.8802 22 15.2V8.8c0-1.6802 0-2.5202-.327-3.162a3 3 0 0 0-1.311-1.311C19.7202 4 18.8802 4 17.2 4H6.8c-1.6802 0-2.5202 0-3.162.327a3 3 0 0 0-1.311 1.311C2 6.2798 2 7.1198 2 8.8v6.4c0 1.6802 0 2.5202.327 3.162a3 3 0 0 0 1.311 1.311C4.2798 20 5.1198 20 6.8 20" />
-    </svg>
-  ),
+  text: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="13" height="13" className="inline mr-1.5 opacity-60 flex-shrink-0"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 7c0-.9319 0-1.3978.1522-1.7654a2 2 0 0 1 1.0824-1.0824C5.6022 4 6.0681 4 7 4h10c.9319 0 1.3978 0 1.7654.1522.49.203.8794.5924 1.0824 1.0824C20 5.6022 20 6.0681 20 7M9 20h6M12 4v16" /></svg>,
+  status: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="13" height="13" className="inline mr-1.5 opacity-60 flex-shrink-0"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" /><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m9 12 2 2 4-4" /></svg>,
+  date: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="13" height="13" className="inline mr-1.5 opacity-60 flex-shrink-0"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 10H3m13-8v4M8 2v4m-.2 16h8.4c1.6802 0 2.5202 0 3.162-.327a3 3 0 0 0 1.311-1.311C21 19.7202 21 18.8802 21 17.2V8.8c0-1.6802 0-2.5202-.327-3.162a3 3 0 0 0-1.311-1.311C18.7202 4 17.8802 4 16.2 4H7.8c-1.6802 0-2.5202 0-3.162.327a3 3 0 0 0-1.311 1.311C3 6.2798 3 7.1198 3 8.8v8.4c0 1.6802 0 2.5202.327 3.162a3 3 0 0 0 1.311 1.311C5.2798 22 6.1198 22 7.8 22" /></svg>,
+  email: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="13" height="13" className="inline mr-1.5 opacity-60 flex-shrink-0"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m2 7 8.1649 5.7154c.6612.4629.9918.6943 1.3514.7839.3176.0792.6498.0792.9674 0 .3596-.0896.6902-.321 1.3514-.7839L22 7M6.8 20h10.4c1.6802 0 2.5202 0 3.162-.327a3 3 0 0 0 1.311-1.311C22 17.7202 22 16.8802 22 15.2V8.8c0-1.6802 0-2.5202-.327-3.162a3 3 0 0 0-1.311-1.311C19.7202 4 18.8802 4 17.2 4H6.8c-1.6802 0-2.5202 0-3.162.327a3 3 0 0 0-1.311 1.311C2 6.2798 2 7.1198 2 8.8v6.4c0 1.6802 0 2.5202.327 3.162a3 3 0 0 0 1.311 1.311C4.2798 20 5.1198 20 6.8 20" /></svg>,
 };
 
-const headers: { label: string; icon?: React.ReactNode; sortable?: boolean }[] = [
-  { label: "ID",          icon: ColIcon.text                    },
-  { label: "Name",        icon: ColIcon.text,   sortable: true  },
-  { label: "Email",       icon: ColIcon.email                   },
-  { label: "Phone",       icon: ColIcon.text                    },
-  { label: "Status",      icon: ColIcon.status                  },
-  { label: "Joined",      icon: ColIcon.date,   sortable: true  },
-  { label: ""                                                    },
+const TABLE_HEADERS: { label: string; icon?: React.ReactNode; sortable?: boolean }[] = [
+  { label: "Name",   icon: ColIcon.text,   sortable: true },
+  { label: "Email",  icon: ColIcon.email                  },
+  { label: "Phone",  icon: ColIcon.text                   },
+  { label: "Status", icon: ColIcon.status                 },
+  { label: "Joined", icon: ColIcon.date,   sortable: true },
+  { label: ""                                              },
 ];
 
-function CustomerTable({ data }: { data: Customer[] }) {
-  const cols = [96, 152, 220, 130, 120, 112, 40];
-  const { widths, onMouseDown } = useColumnResize(cols);
+const STATUS_FILTERS = ["ALL", "ACTIVE", "PAUSED", "CANCELLED"] as const;
+const PAGE_SIZE = 20;
 
+const inputCls   = "w-full text-sm px-3 py-2 rounded-lg outline-none";
+const inputStyle = { border: "1px solid var(--border)", backgroundColor: "#fff" };
+const labelCls   = "block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1";
+
+type FormFieldsProps = {
+  name: string; onName: (v: string) => void;
+  email: string; onEmail: (v: string) => void;
+  phone: string; onPhone: (v: string) => void;
+  address: string; onAddress: (v: string) => void;
+  notes: string; onNotes: (v: string) => void;
+  error: string | null;
+};
+
+function FormFields({ name, onName, email, onEmail, phone, onPhone, address, onAddress, notes, onNotes, error }: FormFieldsProps) {
   return (
-    <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-      <div className="overflow-x-auto">
-        <table style={{ tableLayout: "fixed", width: "100%", minWidth: widths.reduce((a, b) => a + b, 0) }}>
-          <colgroup>{widths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
-          <thead>
-            <tr style={{ backgroundColor: "var(--bg-card)" }}>
-              {headers.map((h, i) => (
-                <th key={i} className="relative text-left px-4 py-3 text-sm font-semibold text-gray-700 select-none overflow-hidden">
-                  <span className="truncate flex items-center pr-2">{h.icon}{h.label}{h.sortable && <SortIcon />}</span>
-                  {i < headers.length - 1 && <ResizeHandle onMouseDown={(e) => onMouseDown(i, e)} />}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((row, i) => (
-              <tr key={row.id} className="group bg-[#fef7fa] hover:bg-[#fdf2f8] transition-colors" style={{ borderTop: "1px solid var(--border)", animation: "fade-in 0.15s ease-out both", animationDelay: `${80 + i * 18}ms` }}>
-                <td className="px-4 py-3 text-sm font-medium text-gray-700 truncate overflow-hidden">#{row.id}</td>
-                <td className="px-4 py-3 text-sm font-semibold text-gray-900 truncate overflow-hidden">
-                  <Link href={`/customers/${row.id}`} className="hover:text-primary transition-colors">{row.name}</Link>
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-500 overflow-hidden"><CopyEmail email={row.email} /></td>
-                <td className="px-4 py-3 text-sm text-gray-600 truncate overflow-hidden">{row.phone ?? <span className="text-gray-400">—</span>}</td>
-                <td className="px-4 py-3 overflow-hidden"><StatusBadge status={row.status} /></td>
-                <td className="px-4 py-3 text-sm text-gray-700 truncate overflow-hidden">{row.createdAt}</td>
-                <td className="px-4 py-3 text-sm text-gray-400 text-center">
-                  <button className="hover:text-gray-600">···</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div><label className={labelCls}>Name *</label><input className={inputCls} style={inputStyle} value={name} onChange={(e) => onName(e.target.value)} placeholder="Full name" /></div>
+        <div><label className={labelCls}>Email *</label><input type="email" className={inputCls} style={inputStyle} value={email} onChange={(e) => onEmail(e.target.value)} placeholder="email@example.com" /></div>
       </div>
+      <div><label className={labelCls}>Phone</label><input className={inputCls} style={inputStyle} value={phone} onChange={(e) => onPhone(e.target.value)} placeholder="+1 555 000 0000" /></div>
+      <div><label className={labelCls}>Address</label><textarea rows={2} className={inputCls} style={inputStyle} value={address} onChange={(e) => onAddress(e.target.value)} placeholder="Street, city, country" /></div>
+      <div><label className={labelCls}>Notes</label><textarea rows={3} className={inputCls} style={inputStyle} value={notes} onChange={(e) => onNotes(e.target.value)} placeholder="Internal notes…" /></div>
+      {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
   );
 }
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function CustomersPage() {
-  const user = useAuthStore((s) => s.user);
+  const user  = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
+  const isAdmin = user?.role === "TENANT_ADMIN";
+  const tid = user?.tenantId;
 
-  const [data, setData] = useState<Customer[]>([]);
-  const [totalElements, setTotalElements] = useState(0);
+  // List
+  const [customers, setCustomers]   = useState<Customer[]>([]);
+  const [total, setTotal]           = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [page, setPage] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [page, setPage]             = useState(0);
+  const [loading, setLoading]       = useState(true);
+  const [filter, setFilter]         = useState("ALL");
+  const [search, setSearch]         = useState("");
 
-  useEffect(() => {
-    if (!token || !user?.tenantId) return;
+  // Stat counts
+  const [activeCount,    setActiveCount]    = useState(0);
+  const [pausedCount,    setPausedCount]    = useState(0);
+  const [cancelledCount, setCancelledCount] = useState(0);
+
+  // Panel
+  const [selected,      setSelected]      = useState<Customer | null>(null);
+  const [editing,       setEditing]       = useState(false);
+  const [creating,      setCreating]      = useState(false);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [subsLoading,   setSubsLoading]   = useState(false);
+
+  // Form
+  const [editName,    setEditName]    = useState("");
+  const [editEmail,   setEditEmail]   = useState("");
+  const [editPhone,   setEditPhone]   = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editNotes,   setEditNotes]   = useState("");
+  const [saving,      setSaving]      = useState(false);
+  const [formError,   setFormError]   = useState<string | null>(null);
+
+  const load = (f = filter, q = search, p = page) => {
+    if (!token || !tid) return;
     setLoading(true);
-    apiGet<ApiCustomerPage>(
-      `/api/v1/tenants/${user.tenantId}/customers?page=${page}&size=20&sort=createdAt,desc`,
-      token
-    )
-      .then((res) => {
-        setData(res.content.map((c) => ({
-          id: c.id,
-          name: c.name,
-          email: c.email,
-          phone: c.phone,
-          status: c.status,
-          createdAt: formatDate(c.createdAt),
-        })));
-        setTotalElements(res.totalElements);
-        setTotalPages(res.totalPages);
-      })
-      .catch((e) => setError(e.message))
+    const params = new URLSearchParams({ size: String(PAGE_SIZE), page: String(p), sort: "createdAt,desc" });
+    if (f !== "ALL") params.set("status", f);
+    if (q.trim()) params.set("search", q.trim());
+    apiGet<SpringPage<Customer>>(`/api/v1/tenants/${tid}/customers?${params}`, token)
+      .then((d) => { setCustomers(d.content); setTotal(d.page.totalElements); setTotalPages(d.page.totalPages); })
+      .catch(() => {})
       .finally(() => setLoading(false));
-  }, [token, user, page]);
+  };
 
-  const active = data.filter((c) => c.status === "ACTIVE").length;
-  const churned = data.filter((c) => c.status === "CANCELLED" || c.status === "DELETED").length;
+  // Accurate per-status totals
+  useEffect(() => {
+    if (!token || !tid) return;
+    const count = (s: string) =>
+      apiGet<SpringPage<Customer>>(`/api/v1/tenants/${tid}/customers?size=1&status=${s}`, token)
+        .then((d) => d.page.totalElements).catch(() => 0);
+    Promise.all([count("ACTIVE"), count("PAUSED"), count("CANCELLED")]).then(([a, p, c]) => {
+      setActiveCount(a); setPausedCount(p); setCancelledCount(c);
+    });
+  }, [token, tid]);
 
-  const totalVal   = useCountUp(!loading ? totalElements : 0);
-  const activeVal  = useCountUp(!loading ? active : 0);
-  const churnedVal = useCountUp(!loading ? churned : 0);
+  useEffect(() => { load(); }, [token, user]);
 
-  const statCards = [
-    { label: "Total Customers", display: loading ? "—" : String(totalVal)   },
-    { label: "Active",          display: loading ? "—" : String(activeVal)  },
-    { label: "Churned",         display: loading ? "—" : String(churnedVal) },
-    { label: "This Page",       display: loading ? "—" : String(data.length) },
+  const loadSubscriptions = (customerId: number) => {
+    if (!token || !tid) return;
+    setSubsLoading(true);
+    apiGet<SpringPage<Subscription>>(`/api/v1/tenants/${tid}/customers/${customerId}/products?size=50`, token)
+      .then((d) => setSubscriptions(d.content))
+      .catch(() => setSubscriptions([]))
+      .finally(() => setSubsLoading(false));
+  };
+
+  const openCustomer = (c: Customer) => {
+    setSelected(c); setEditing(false); setCreating(false); setFormError(null);
+    loadSubscriptions(c.id);
+  };
+
+  const startEdit = () => {
+    if (!selected) return;
+    setEditName(selected.name); setEditEmail(selected.email);
+    setEditPhone(selected.phone ?? ""); setEditAddress(selected.address ?? "");
+    setEditNotes(selected.notes ?? ""); setFormError(null); setEditing(true);
+  };
+
+  const openCreate = () => {
+    setCreating(true); setSelected(null); setEditing(false);
+    setEditName(""); setEditEmail(""); setEditPhone(""); setEditAddress(""); setEditNotes("");
+    setFormError(null);
+  };
+
+  const closePanel = () => { setSelected(null); setEditing(false); setCreating(false); setFormError(null); };
+
+  const saveEdit = async () => {
+    if (!token || !tid || !selected) return;
+    if (!editName.trim() || !editEmail.trim()) { setFormError("Name and email are required."); return; }
+    setSaving(true); setFormError(null);
+    try {
+      const updated = await apiPatch<Customer>(`/api/v1/tenants/${tid}/customers/${selected.id}`, {
+        name: editName.trim(), email: editEmail.trim(),
+        phone: editPhone.trim() || null, address: editAddress.trim() || null, notes: editNotes.trim() || null,
+      }, token);
+      setSelected(updated); setEditing(false); load();
+    } catch (e) { setFormError(e instanceof Error ? e.message : "Failed to save."); }
+    finally { setSaving(false); }
+  };
+
+  const createCustomer = async () => {
+    if (!token || !tid) return;
+    if (!editName.trim() || !editEmail.trim()) { setFormError("Name and email are required."); return; }
+    setSaving(true); setFormError(null);
+    try {
+      await apiPost<Customer>(`/api/v1/tenants/${tid}/customers`, {
+        name: editName.trim(), email: editEmail.trim(),
+        phone: editPhone.trim() || null, address: editAddress.trim() || null, notes: editNotes.trim() || null,
+      }, token);
+      closePanel(); load();
+    } catch (e) { setFormError(e instanceof Error ? e.message : "Failed to create."); }
+    finally { setSaving(false); }
+  };
+
+  const deleteCustomer = async () => {
+    if (!token || !tid || !selected) return;
+    if (!confirm(`Delete ${selected.name}? This cannot be undone.`)) return;
+    try {
+      await apiDelete(`/api/v1/tenants/${tid}/customers/${selected.id}`, token);
+      closePanel(); load();
+    } catch { /* ignore */ }
+  };
+
+  const { widths, onMouseDown } = useColumnResize([180, 240, 130, 110, 120, 44]);
+
+  const totalVal     = useCountUp(total);
+  const activeVal    = useCountUp(activeCount);
+  const pausedVal    = useCountUp(pausedCount);
+  const cancelledVal = useCountUp(cancelledCount);
+
+  const stats = [
+    { label: "Total",     value: totalVal     },
+    { label: "Active",    value: activeVal     },
+    { label: "Paused",    value: pausedVal     },
+    { label: "Cancelled", value: cancelledVal  },
   ];
 
+
   return (
-    <div className="font-sans px-6 py-8 md:px-12 md:py-10 max-w-6xl mx-auto" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
-      <div className="mb-8 border-l-4 pl-5 py-1" style={{ borderColor: "var(--primary)" }}>
-        <p className="text-sm mb-1" style={{ color: "var(--primary)" }}>Directory</p>
-        <h1 className="text-3xl font-bold" style={{ color: "#212529" }}>Customers</h1>
-      </div>
+    <>
+      <div className="px-6 py-8 md:px-10 max-w-7xl mx-auto space-y-6" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-        {statCards.map((card, i) => (
-          <div key={card.label} className="rounded-lg p-5" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", animation: "fade-in-up 0.2s ease-out both", animationDelay: `${i * 35}ms` }}>
-            <p className="text-sm mb-3" style={{ color: "#6c757d" }}>{card.label}</p>
-            <p className="text-2xl font-bold tabular-nums" style={{ color: "#212529" }}>{card.display}</p>
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Customers</h1>
+            <p className="text-sm text-gray-500 mt-0.5">{total.toLocaleString()} customers</p>
           </div>
-        ))}
-      </div>
-
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-        <div className="flex items-center gap-2">
-          {["Status", "Plan"].map((f) => (
-            <button key={f} className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg" style={{ border: "1px solid var(--border)", backgroundColor: "#fef7fa", color: "#4b4b4b" }}>
-              {f}
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
+          {isAdmin && (
+            <button
+              onClick={openCreate}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white"
+              style={{ backgroundColor: "var(--primary)" }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
+              Add Customer
             </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
-          <SearchInput placeholder="Search customers..." className="w-full md:w-60" />
-          <button
-            className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg text-white flex-shrink-0 transition-opacity hover:opacity-90"
-            style={{ backgroundColor: "var(--primary)" }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-            Add Customer
-          </button>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center py-20 text-gray-400">
-          <svg className="animate-spin mr-3" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-          </svg>
-          Loading customers…
-        </div>
-      ) : error ? (
-        <div className="flex items-center gap-2 text-sm px-4 py-3 rounded-lg" style={{ backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626" }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
-            <circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" />
-          </svg>
-          {error}
-        </div>
-      ) : data.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-3 opacity-40">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
-          </svg>
-          <p className="text-sm">No customers yet. Add your first customer to get started.</p>
-        </div>
-      ) : (
-        <CustomerTable data={data} />
-      )}
-
-      {!loading && !error && data.length > 0 && (
-        <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
-          <span>{totalElements} customer{totalElements !== 1 ? "s" : ""}</span>
-          {totalPages > 1 && (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-                className="px-3 py-1.5 rounded-lg transition-colors hover:bg-[#f1eaed] disabled:opacity-40"
-                style={{ border: "1px solid var(--border)" }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="15 18 9 12 15 6" />
-                </svg>
-              </button>
-              <span className="px-3 py-1.5 rounded-lg font-semibold text-xs" style={{ backgroundColor: "var(--nav-active)", color: "var(--primary)" }}>
-                {page + 1}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                disabled={page >= totalPages - 1}
-                className="px-3 py-1.5 rounded-lg transition-colors hover:bg-[#f1eaed] disabled:opacity-40"
-                style={{ border: "1px solid var(--border)" }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </button>
-            </div>
           )}
         </div>
-      )}
-    </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {stats.map((s, i) => (
+            <div key={s.label} className="rounded-xl p-5" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", animation: "fade-in-up 0.2s ease-out both", animationDelay: `${i * 30}ms` }}>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{s.label}</p>
+              <p className="text-2xl font-bold text-gray-900 tabular-nums">{loading ? "—" : s.value.toLocaleString()}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Filter + Search */}
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+          <div className="flex items-center gap-1 p-1 rounded-lg" style={{ backgroundColor: "var(--border)" }}>
+            {STATUS_FILTERS.map((f) => (
+              <button
+                key={f}
+                onClick={() => { setFilter(f); setPage(0); load(f, search, 0); }}
+                className="text-xs font-semibold px-3 py-1.5 rounded-md transition-all"
+                style={filter === f
+                  ? { backgroundColor: "#fff", color: "#111827", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }
+                  : { color: "#6b7280" }}
+              >
+                {f === "ALL" ? "All" : f.charAt(0) + f.slice(1).toLowerCase()}
+              </button>
+            ))}
+          </div>
+          <div className="relative w-full sm:w-64">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search customers…"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(0); load(filter, e.target.value, 0); }}
+              className="w-full text-sm pl-9 pr-3 py-2 rounded-lg outline-none"
+              style={{ border: "1px solid var(--border)", backgroundColor: "var(--bg-card)" }}
+            />
+          </div>
+        </div>
+
+        {/* Table */}
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-gray-400">
+            <svg className="animate-spin mr-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+            Loading…
+          </div>
+        ) : customers.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-gray-400 rounded-xl" style={{ border: "1px dashed var(--border)" }}>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-3 opacity-40">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
+            </svg>
+            <p className="text-sm">No customers found.</p>
+          </div>
+        ) : (
+          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+            <div className="overflow-x-auto">
+              <table style={{ tableLayout: "fixed", width: "100%", minWidth: widths.reduce((a, b) => a + b, 0) }}>
+                <colgroup>{widths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
+                <thead>
+                  <tr style={{ backgroundColor: "var(--bg-card)" }}>
+                    {TABLE_HEADERS.map((h, i) => (
+                      <th key={i} className="relative text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide select-none overflow-hidden">
+                        <span className="truncate flex items-center pr-2">{h.icon}{h.label}{h.sortable && <SortIcon />}</span>
+                        {i < TABLE_HEADERS.length - 1 && <ResizeHandle onMouseDown={(e) => onMouseDown(i, e)} />}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {customers.map((c, i) => (
+                    <tr
+                      key={c.id}
+                      className="group cursor-pointer hover:bg-[#eef3ee] transition-colors"
+                      style={{ borderTop: "1px solid var(--border)", backgroundColor: selected?.id === c.id ? "#eef3ee" : "#f8faf8", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 18}ms` }}
+                      onClick={() => openCustomer(c)}
+                    >
+                      <td className="px-4 py-3 text-sm font-semibold text-gray-900 truncate overflow-hidden">{c.name}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500 overflow-hidden"><CopyEmail email={c.email} /></td>
+                      <td className="px-4 py-3 text-sm text-gray-600 truncate overflow-hidden">{c.phone ?? <span className="text-gray-400">—</span>}</td>
+                      <td className="px-4 py-3 overflow-hidden"><StatusBadge status={c.status} /></td>
+                      <td className="px-4 py-3 text-sm text-gray-600 truncate overflow-hidden">{formatDate(c.createdAt)}</td>
+                      <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => openCustomer(c)} className="text-gray-300 hover:text-gray-500 transition-colors p-1 rounded">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!loading && totalPages > 1 && (
+          <div className="flex items-center justify-between text-sm text-gray-500">
+            <span>Page {page + 1} of {totalPages}</span>
+            <div className="flex gap-2">
+              <button disabled={page === 0} onClick={() => { const p = page - 1; setPage(p); load(filter, search, p); }} className="px-3 py-1.5 rounded-lg font-medium disabled:opacity-40" style={{ border: "1px solid var(--border)", backgroundColor: "var(--bg-card)" }}>Prev</button>
+              <button disabled={page >= totalPages - 1} onClick={() => { const p = page + 1; setPage(p); load(filter, search, p); }} className="px-3 py-1.5 rounded-lg font-medium disabled:opacity-40" style={{ border: "1px solid var(--border)", backgroundColor: "var(--bg-card)" }}>Next</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Slide-over */}
+      <SlideOver open={!!selected || creating} onClose={closePanel} width="50vw">
+
+        {creating ? (
+          <>
+            <div className="px-6 pt-6 pb-5 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "#fff" }}>
+              <div className="flex items-start justify-between">
+                <h2 className="text-xl font-bold text-gray-900">New Customer</h2>
+                <button onClick={closePanel} className="text-gray-400 hover:text-gray-600 transition-colors mt-0.5">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              <FormFields name={editName} onName={setEditName} email={editEmail} onEmail={setEditEmail} phone={editPhone} onPhone={setEditPhone} address={editAddress} onAddress={setEditAddress} notes={editNotes} onNotes={setEditNotes} error={formError} />
+            </div>
+            <div className="px-6 py-4 flex gap-3" style={{ borderTop: "1px solid var(--border)" }}>
+              <button onClick={closePanel} className="flex-1 py-2 text-sm font-medium rounded-lg text-gray-600" style={{ border: "1px solid var(--border)" }}>Cancel</button>
+              <button onClick={createCustomer} disabled={saving} className="flex-1 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-60" style={{ backgroundColor: "var(--primary)" }}>
+                {saving ? "Creating…" : "Create Customer"}
+              </button>
+            </div>
+          </>
+
+        ) : selected ? (
+          <>
+            {/* Header */}
+            <div className="px-6 pt-6 pb-5 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "#fff" }}>
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  {editing && (
+                    <button onClick={() => setEditing(false)} className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 mb-2 transition-colors">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+                      Back
+                    </button>
+                  )}
+                  <h2 className="text-xl font-bold text-gray-900">{selected.name}</h2>
+                  {!editing && <div className="mt-2"><StatusBadge status={selected.status} /></div>}
+                </div>
+                <button onClick={closePanel} className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0 mt-0.5">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                </button>
+              </div>
+            </div>
+
+            <div key={editing ? "edit" : "detail"} className="flex-1 overflow-y-auto" style={{ animation: "slide-in-from-right 0.2s cubic-bezier(0.25,0.46,0.45,0.94) both" }}>
+              {editing ? (
+                <div className="px-6 py-5">
+                  <FormFields name={editName} onName={setEditName} email={editEmail} onEmail={setEditEmail} phone={editPhone} onPhone={setEditPhone} address={editAddress} onAddress={setEditAddress} notes={editNotes} onNotes={setEditNotes} error={formError} />
+                  <div className="flex gap-3 pt-4 mt-4" style={{ borderTop: "1px solid var(--border)" }}>
+                    <button onClick={() => setEditing(false)} className="flex-1 py-2 text-sm font-medium rounded-lg text-gray-600" style={{ border: "1px solid var(--border)" }}>Cancel</button>
+                    <button onClick={saveEdit} disabled={saving} className="flex-1 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-60" style={{ backgroundColor: "var(--primary)" }}>{saving ? "Saving…" : "Save"}</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Detail rows */}
+                  <div className="px-6 py-2">
+                    <SlideOverField label="Email"><CopyEmail email={selected.email} /></SlideOverField>
+                    {selected.phone   && <SlideOverField label="Phone">{selected.phone}</SlideOverField>}
+                    {selected.address && <SlideOverField label="Address">{selected.address}</SlideOverField>}
+                    {selected.notes   && <SlideOverField label="Notes"><span className="text-gray-500 italic">{selected.notes}</span></SlideOverField>}
+                    <SlideOverField label="Joined">{formatDateTime(selected.createdAt)}</SlideOverField>
+                  </div>
+
+                  {/* Action buttons */}
+                  {isAdmin && (
+                    <div className="px-6 pb-5 pt-2 flex gap-3">
+                      <button onClick={startEdit} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white" style={{ backgroundColor: "var(--primary)" }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z" /></svg>
+                        Edit customer
+                      </button>
+                      <button onClick={deleteCustomer} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors" style={{ border: "1px solid #fecaca" }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>
+                        Delete
+                      </button>
+                    </div>
+                  )}
+
+                  <div style={{ borderTop: "1px solid var(--border)" }} />
+
+                  {/* Subscriptions */}
+                  <div className="px-6 py-5">
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">Subscriptions</h3>
+                    {subsLoading ? (
+                      <div className="py-8 text-center text-sm text-gray-400">Loading…</div>
+                    ) : subscriptions.length === 0 ? (
+                      <div className="py-8 text-center text-sm text-gray-400 rounded-lg" style={{ border: "1px dashed var(--border)" }}>
+                        No subscriptions yet.
+                      </div>
+                    ) : (
+                      <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm min-w-[400px]">
+                            <thead>
+                              <tr style={{ backgroundColor: "var(--bg-card)", borderBottom: "1px solid var(--border)" }}>
+                                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Product</th>
+                                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Amount</th>
+                                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Period</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {subscriptions.map((s, i) => (
+                                <tr key={s.id} className="hover:bg-[#eef3ee] transition-colors" style={{ borderTop: "1px solid var(--border)", backgroundColor: "#f8faf8", animation: "fade-in 0.12s ease-out both", animationDelay: `${i * 15}ms` }}>
+                                  <td className="px-4 py-3">
+                                    <p className="font-medium text-gray-900">{s.productName}</p>
+                                    {s.productPlanName && <p className="text-xs text-gray-400">{s.productPlanName}</p>}
+                                  </td>
+                                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{s.currency} {Number(s.amount).toFixed(2)}</td>
+                                  <td className="px-4 py-3"><SubStatusBadge status={s.status} /></td>
+                                  <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                                    {formatDate(s.startsAt)}{s.endsAt ? ` → ${formatDate(s.endsAt)}` : " → ∞"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </>
+        ) : null}
+      </SlideOver>
+    </>
   );
 }

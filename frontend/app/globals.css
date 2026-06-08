@@ -61,13 +61,13 @@
 }
 
 :root {
-  --bg-app: #FEF7FA;
-  --bg-card: #FFF8EF;
-  --bg-search: #f1eaed;
-  --nav-active: #FBEBF3;
-  --nav-active-text: #ac2c6e;
-  --primary: #DC4D96;
-  --border: #ede6de;
+  --bg-app: #f8faf8;
+  --bg-card: #ffffff;
+  --bg-search: #eceeec;
+  --nav-active: #dcebf2;
+  --nav-active-text: #14638b;
+  --primary: #4796be;
+  --border: #eeeeee;
 
   /* Milestone badges */
   --badge-expiry-color: #494E5C;

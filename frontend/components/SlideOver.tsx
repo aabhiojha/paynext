@@ -7,7 +7,7 @@ export default function SlideOver({
   open,
   onClose,
   children,
-  width = "480px",
+  width = "50vw",
 }: {
   open: boolean;
   onClose: () => void;
@@ -16,15 +16,25 @@ export default function SlideOver({
 }) {
   const [mounted, setMounted] = useState(false);
   const [phase, setPhase] = useState<"entering" | "leaving" | "hidden">("hidden");
+  const [isMobile, setIsMobile] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const everOpened = useRef(false);
 
   useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current);
     if (open) {
       setPhase("entering");
-    } else {
+      everOpened.current = true;
+    } else if (everOpened.current) {
       setPhase("leaving");
       timer.current = setTimeout(() => setPhase("hidden"), 210);
     }
@@ -36,7 +46,7 @@ export default function SlideOver({
   const entering = phase === "entering";
   const backdropAnim = entering ? "fade-in 0.2s ease both" : "fade-out 0.2s ease both";
   const panelAnim   = entering
-    ? "slide-in-from-right 0.32s cubic-bezier(0.25,0.46,0.45,0.94) both"
+    ? "slide-in-from-right 0.2s cubic-bezier(0.25,0.46,0.45,0.94) both"
     : "slide-out-to-right 0.20s ease-in both";
 
   return createPortal(
@@ -53,8 +63,8 @@ export default function SlideOver({
       <div
         className="fixed top-0 right-0 z-50 h-full flex flex-col overflow-hidden"
         style={{
-          width: `min(${width}, 100vw)`,
-          backgroundColor: "#fff",
+          width: isMobile ? "100dvw" : `min(${width}, 100vw)`,
+          backgroundColor: "#f8faf8",
           borderLeft: "1px solid var(--border)",
           boxShadow: "-8px 0 32px rgba(0,0,0,0.08)",
           animation: panelAnim,
@@ -70,26 +80,42 @@ export default function SlideOver({
 export function SlideOverHeader({
   title,
   badge,
+  actions,
+  onBack,
   onClose,
 }: {
   title: string;
   badge?: React.ReactNode;
+  actions?: React.ReactNode;
+  onBack?: () => void;
   onClose: () => void;
 }) {
   return (
     <div className="flex items-start justify-between px-6 py-5 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
-      <div className="min-w-0">
-        <h2 className="text-base font-bold text-gray-900 truncate">{title}</h2>
-        {badge && <div className="mt-1.5">{badge}</div>}
+      <div className="flex items-center gap-2 min-w-0">
+        {onBack && (
+          <button onClick={onBack} className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors -ml-1">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+          </button>
+        )}
+        <div className="min-w-0">
+          <h2 className="text-base font-bold text-gray-900 truncate">{title}</h2>
+          {badge && <div className="mt-1.5">{badge}</div>}
+        </div>
       </div>
-      <button
-        onClick={onClose}
-        className="ml-4 flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors mt-0.5"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 6 6 18M6 6l12 12" />
-        </svg>
-      </button>
+      <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+        {actions}
+        <button
+          onClick={onClose}
+          className="text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 }

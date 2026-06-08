@@ -12,6 +12,7 @@ type LoginResponse = {
   email: string;
   role: string;
   fullName: string | null;
+  tenantId: number | null;
 };
 
 export default function LoginPage() {
@@ -47,7 +48,7 @@ export default function LoginPage() {
         email: res.email,
         role: res.role as UserRole,
         fullName: res.fullName,
-        tenantId: null,
+        tenantId: res.tenantId ?? null,
       };
 
       login(authUser, res.accessToken, res.refreshToken);

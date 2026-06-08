@@ -55,7 +55,7 @@ function NavLink({
   return (
     <Link
       href={item.href}
-      className="flex items-center gap-3 px-3 py-2 rounded-sm text-sm font-medium mb-0.5 transition-colors hover:bg-[#f1eaed]"
+      className="flex items-center gap-3 px-3 py-2 rounded-sm text-sm font-medium mb-0.5 transition-colors hover:bg-[#e3eef2]"
       style={
         isActive
           ? { backgroundColor: "var(--nav-active)", color: "var(--nav-active-text)" }
@@ -67,27 +67,6 @@ function NavLink({
       </span>
       {item.label}
     </Link>
-  );
-}
-
-// ── Role badge ────────────────────────────────────────────────────────────────
-
-function RoleBadge({ role }: { role: string }) {
-  const labels: Record<string, string> = {
-    SUPER_ADMIN: "Super Admin",
-    TENANT_ADMIN: "Admin",
-    TENANT_USER: "Member",
-  };
-  return (
-    <span
-      className="text-xs font-semibold px-1.5 py-0.5 rounded"
-      style={{
-        backgroundColor: role === "SUPER_ADMIN" ? "#fce7f3" : "var(--nav-active)",
-        color: role === "SUPER_ADMIN" ? "#be185d" : "var(--nav-active-text)",
-      }}
-    >
-      {labels[role] ?? role}
-    </span>
   );
 }
 
@@ -104,13 +83,6 @@ export default function Sidebar() {
 
   const isAdmin = user?.role === "SUPER_ADMIN";
   const mainNav = isAdmin ? superAdminNav : tenantMainNav;
-
-  const initials = user?.fullName
-    ? user.fullName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-    : user?.email?.slice(0, 2).toUpperCase() ?? "??";
-
-  const displayName = user?.fullName ?? user?.email ?? "Unknown";
-  const emailDisplay = user?.email ?? "";
 
   useEffect(() => {
     const apply = () => {
@@ -150,12 +122,12 @@ export default function Sidebar() {
   return (
     <aside
       className="flex-shrink-0 h-full flex flex-col relative"
-      style={{ width, backgroundColor: "#fef7fa", borderRight: "1px solid var(--border)" }}
+      style={{ width, backgroundColor: "#f3f8fa", borderRight: "1px solid var(--border)" }}
     >
       {/* Resize handle */}
       <div
         onMouseDown={onMouseDown}
-        className="absolute top-0 right-0 w-1 h-full z-10 cursor-col-resize transition-colors hover:bg-[#fbebf3]"
+        className="absolute top-0 right-0 w-1 h-full z-10 cursor-col-resize transition-colors hover:bg-[#dcebf2]"
         style={{ marginRight: "-1px" }}
       />
 
@@ -163,7 +135,7 @@ export default function Sidebar() {
       <div className="flex items-center justify-between px-4 py-4">
         <div className="flex items-center gap-2">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="30" height="30">
-            <path stroke="var(--primary)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 11v4m12-6v4m-1-9c2.4487 0 3.7731.3748 4.4321.6654.0878.0388.1317.0581.2583.179.0759.0724.2145.285.2501.3837.0595.1646.0595.2546.0595.4346v10.7484c0 .9088 0 1.3632-.1363 1.5968-.1386.2375-.2723.348-.5318.4393-.255.0897-.7699-.0092-1.7997-.2071A13.45 13.45 0 0 0 17 18c-3 0-6 2-10 2-2.4487 0-3.7731-.3748-4.4321-.6654-.0878-.0388-.1317-.0581-.2583-.179-.076-.0724-.2145-.285-.2501-.3837C2 18.6073 2 18.5173 2 18.3373V7.5889c0-.9088 0-1.3632.1363-1.5968.1386-.2375.2723-.348.5318-.4393.255-.0898.77.0092 1.7997.207A13.44 13.44 0 0 0 7 6c3 0 6-2 10-2m-2.5 8c0 1.3807-1.1193 2.5-2.5 2.5S9.5 13.3807 9.5 12s1.1193-2.5 2.5-2.5 2.5 1.1193 2.5 2.5" />
+            <path stroke="#197caf" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 11v4m12-6v4m-1-9c2.4487 0 3.7731.3748 4.4321.6654.0878.0388.1317.0581.2583.179.0759.0724.2145.285.2501.3837.0595.1646.0595.2546.0595.4346v10.7484c0 .9088 0 1.3632-.1363 1.5968-.1386.2375-.2723.348-.5318.4393-.255.0897-.7699-.0092-1.7997-.2071A13.45 13.45 0 0 0 17 18c-3 0-6 2-10 2-2.4487 0-3.7731-.3748-4.4321-.6654-.0878-.0388-.1317-.0581-.2583-.179-.076-.0724-.2145-.285-.2501-.3837C2 18.6073 2 18.5173 2 18.3373V7.5889c0-.9088 0-1.3632.1363-1.5968.1386-.2375.2723-.348.5318-.4393.255-.0898.77.0092 1.7997.207A13.44 13.44 0 0 0 7 6c3 0 6-2 10-2m-2.5 8c0 1.3807-1.1193 2.5-2.5 2.5S9.5 13.3807 9.5 12s1.1193-2.5 2.5-2.5 2.5 1.1193 2.5 2.5" />
           </svg>
           <span className="font-bold text-xl text-gray-900">PayNext</span>
         </div>
@@ -171,11 +143,11 @@ export default function Sidebar() {
 
       {/* Role context banner for super admin */}
       {isAdmin && (
-        <div className="mx-3 mb-2 px-3 py-1.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: "#fce7f3", border: "1px solid #fbcfe8" }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#be185d" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <div className="mx-3 mb-2 px-3 py-1.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: "#e3f0f7", border: "1px solid #cde4f0" }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#14638b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
           </svg>
-          <span className="text-xs font-semibold" style={{ color: "#be185d" }}>Platform Admin</span>
+          <span className="text-xs font-semibold" style={{ color: "#14638b" }}>Platform Super Admin</span>
         </div>
       )}
 
@@ -202,33 +174,16 @@ export default function Sidebar() {
 
       <div className="flex-1" />
 
-      {/* User profile */}
+      {/* Sign out */}
       <div className="px-3 pb-3">
-        <div className="rounded-xl p-2.5" style={{ border: "1px solid var(--border)", backgroundColor: "#fff8ef" }}>
-          <div className="flex items-center gap-2.5 mb-2.5">
-            <div
-              className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold text-white"
-              style={{ backgroundColor: "var(--primary)" }}
-            >
-              {initials}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 truncate">{displayName}</p>
-              <p className="text-xs text-gray-400 truncate">{emailDisplay}</p>
-            </div>
-          </div>
-          <div className="flex items-center justify-between">
-            {user?.role && <RoleBadge role={user.role} />}
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-red-500 transition-colors ml-auto"
-              title="Sign out"
-            >
-              {Icons.logout}
-              Sign out
-            </button>
-          </div>
-        </div>
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+          title="Sign out"
+        >
+          {Icons.logout}
+          Sign out
+        </button>
       </div>
     </aside>
   );

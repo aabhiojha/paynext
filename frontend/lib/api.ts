@@ -30,6 +30,14 @@ export async function apiGet<T>(path: string, token?: string): Promise<T> {
   return res.json();
 }
 
+export async function apiDelete(path: string, token?: string): Promise<void> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "DELETE",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error("Request failed");
+}
+
 export async function apiPatch<T>(path: string, body: unknown, token?: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "PATCH",

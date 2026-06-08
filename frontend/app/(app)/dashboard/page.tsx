@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { apiGet } from "@/lib/api";
@@ -13,8 +13,7 @@ function useCountUp(target: number, duration = 450) {
     const step = (ts: number) => {
       if (!start) start = ts;
       const p = Math.min((ts - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setVal(Math.round(eased * target));
+      setVal(Math.round((1 - Math.pow(1 - p, 3)) * target));
       if (p < 1) raf = requestAnimationFrame(step);
     };
     raf = requestAnimationFrame(step);
@@ -22,54 +21,6 @@ function useCountUp(target: number, duration = 450) {
   }, [target, duration]);
   return val;
 }
-
-function useColumnResize(initialWidths: number[]) {
-  const [widths, setWidths] = useState(initialWidths);
-  const dragging = useRef<{ col: number; startX: number; startW: number } | null>(null);
-
-  const onMouseDown = useCallback((col: number, e: React.MouseEvent) => {
-    e.preventDefault();
-    dragging.current = { col, startX: e.clientX, startW: widths[col] };
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-
-    const onMove = (e: MouseEvent) => {
-      if (!dragging.current) return;
-      const { col, startX, startW } = dragging.current;
-      const next = Math.max(60, startW + (e.clientX - startX));
-      setWidths((prev) => prev.map((w, i) => (i === col ? next : w)));
-    };
-    const onUp = () => {
-      dragging.current = null;
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  }, [widths]);
-
-  return { widths, onMouseDown };
-}
-
-type UpcomingRow = {
-  id: number;
-  customer: string;
-  plan: string;
-  currency: string;
-  amount: number;
-  endDate: string;
-};
-
-type ReminderRow = {
-  id: number;
-  customer: string;
-  daysBeforeExpiry: number | null;
-  result: string;
-  sentAt: string;
-  product: string;
-};
 
 type TenantSummary = {
   totalCustomers: number;
@@ -92,208 +43,279 @@ type ApiUpcoming = {
   endsAt: string;
 };
 
-type ApiReminder = {
+type ReminderStats = {
+  from: string;
+  to: string;
+  sent: number;
+  failed: number;
+  skipped: number;
+  total: number;
+};
+
+type AuditLog = {
   id: number;
-  customerName: string;
-  productName: string;
-  status: string;
-  daysBeforeExpiry: number | null;
-  sentAt: string | null;
+  actorEmail: string;
+  action: string;
+  resourceType: string;
+  resourceId: number | null;
   createdAt: string;
 };
 
-type ApiReminderPage = { content: ApiReminder[] };
+type OverduePlan = {
+  customerProductId: number;
+  customerName: string;
+  productName: string;
+  currency: string;
+  amount: number;
+  endsAt: string;
+};
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "numeric" });
+function formatShortDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString("en-US", { month: "numeric", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
+function relativeTime(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min}m ago`;
+  const hrs = Math.floor(min / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { bg: string; color: string }> = {
-    "Expiring Soon": { bg: "#e8a020", color: "#000000" },
-    Active:          { bg: "#24A37D", color: "#ffffff" },
-    Paused:          { bg: "#9ca3af", color: "#ffffff" },
-    Cancelled:       { bg: "#dc2626", color: "#ffffff" },
-    Expired:         { bg: "#374151", color: "#ffffff" },
-  };
-  const s = map[status] ?? { bg: "#9ca3af", color: "#ffffff" };
+function prettyAction(action: string) {
+  return action.charAt(0) + action.slice(1).toLowerCase().replace(/_/g, " ");
+}
+
+function prettyResource(type: string) {
+  return type.toLowerCase().replace(/_/g, " ");
+}
+
+function actionColor(action: string): string {
+  if (action.includes("CREAT") || action.includes("ADD")) return "#24A37D";
+  if (action.includes("DELET") || action.includes("REMOV") || action.includes("CANCEL") || action.includes("ARCHIV")) return "#dc2626";
+  if (action.includes("SUSPEND")) return "#f59e0b";
+  return "#6b7280";
+}
+
+function StatCard({
+  label,
+  value,
+  sub,
+  accent,
+  delay = 0,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  accent?: string;
+  delay?: number;
+}) {
   return (
-    <span className="inline-flex items-center px-3 py-1 rounded-sm text-xs font-semibold" style={{ backgroundColor: s.bg, color: s.color }}>
-      {status}
-    </span>
-  );
-}
-
-function DaysBadge({ days }: { days: number | null }) {
-  if (days === null) return <span className="text-xs text-gray-400">—</span>;
-  const map: Record<number, { bg: string; color: string; label: string }> = {
-    7:  { bg: "#386AF5", color: "#ffffff", label: "7-day" },
-    3:  { bg: "#EF5F00", color: "#ffffff", label: "3-day" },
-    1:  { bg: "#e8a020", color: "#000000", label: "1-day" },
-    0:  { bg: "#1f2937", color: "#ffffff", label: "Expiry" },
-  };
-  const s = map[days] ?? { bg: "#6b7280", color: "#fff", label: `${days}d` };
-  return (
-    <span className="inline-flex items-center justify-center w-12 py-1 rounded-sm text-xs font-semibold" style={{ backgroundColor: s.bg, color: s.color }}>
-      {s.label}
-    </span>
-  );
-}
-
-function ResultBadge({ result }: { result: string }) {
-  const map: Record<string, { bg: string; color: string }> = {
-    SENT:    { bg: "#24A37D", color: "#ffffff" },
-    SKIPPED: { bg: "#9ca3af", color: "#ffffff" },
-    FAILED:  { bg: "#dc2626", color: "#ffffff" },
-  };
-  const s = map[result] ?? { bg: "#9ca3af", color: "#ffffff" };
-  return (
-    <span className="inline-flex items-center px-2 py-1 rounded-sm text-xs font-semibold" style={{ backgroundColor: s.bg, color: s.color }}>
-      {result}
-    </span>
-  );
-}
-
-function SortIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline ml-1.5 opacity-40">
-      <path d="m7 15 5 5 5-5" />
-      <path d="m7 9 5-5 5 5" />
-    </svg>
-  );
-}
-
-function ResizeHandle({ onMouseDown }: { onMouseDown: (e: React.MouseEvent) => void }) {
-  return (
-    <div onMouseDown={onMouseDown} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-pink-200 transition-colors" />
-  );
-}
-
-const expiringHeaders: { label: string; sortable?: boolean }[] = [
-  { label: "Subscription"             },
-  { label: "Customer",  sortable: true },
-  { label: "Plan",      sortable: true },
-  { label: "Status"                   },
-  { label: "End Date",  sortable: true },
-  { label: "Price"                    },
-  { label: ""                         },
-];
-
-function ExpiringTable({ rows }: { rows: UpcomingRow[] }) {
-  const cols = [112, 160, 176, 144, 112, 96, 40];
-  const { widths, onMouseDown } = useColumnResize(cols);
-
-  if (rows.length === 0) {
-    return (
-      <div className="flex items-center justify-center py-10 text-sm text-gray-400 rounded-lg" style={{ border: "1px solid var(--border)" }}>
-        No upcoming expirations.
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-      <div className="overflow-x-auto">
-        <table style={{ tableLayout: "fixed", width: "100%", minWidth: widths.reduce((a, b) => a + b, 0) }}>
-          <colgroup>{widths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
-          <thead>
-            <tr style={{ backgroundColor: "var(--bg-card)" }}>
-              {expiringHeaders.map((h, i) => (
-                <th key={i} className="relative text-left px-4 py-3 text-sm font-semibold text-gray-700 select-none overflow-hidden">
-                  <span className="truncate flex items-center pr-2">{h.label}{h.sortable && <SortIcon />}</span>
-                  {i < expiringHeaders.length - 1 && <ResizeHandle onMouseDown={(e) => onMouseDown(i, e)} />}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <tr key={row.id} className="bg-[#fef7fa] hover:bg-[#fdf2f8] transition-colors" style={{ borderTop: "1px solid var(--border)", animation: "fade-in 0.15s ease-out both", animationDelay: `${80 + i * 25}ms` }}>
-                <td className="px-4 py-3 text-sm font-medium text-gray-700 truncate overflow-hidden">#{row.id}</td>
-                <td className="px-4 py-3 text-sm text-gray-900 truncate overflow-hidden">{row.customer}</td>
-                <td className="px-4 py-3 text-sm text-gray-700 truncate overflow-hidden">{row.plan}</td>
-                <td className="px-4 py-3 overflow-hidden"><StatusBadge status="Expiring Soon" /></td>
-                <td className="px-4 py-3 text-sm text-gray-700 truncate overflow-hidden">{row.endDate}</td>
-                <td className="px-4 py-3 text-sm text-gray-700 truncate overflow-hidden">{row.currency} {Number(row.amount).toLocaleString()}</td>
-                <td className="px-4 py-3 text-sm text-gray-400 text-center">
-                  <button className="hover:text-gray-600">···</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <div
+      className="rounded-xl px-5 py-4 flex flex-col gap-1"
+      style={{
+        backgroundColor: "var(--bg-card)",
+        border: "1px solid var(--border)",
+        animation: "fade-in-up 0.2s ease-out both",
+        animationDelay: `${delay}ms`,
+      }}
+    >
+      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
+      <p
+        className="text-2xl font-bold tabular-nums leading-tight"
+        style={{ color: accent ?? "#111827" }}
+      >
+        {value}
+      </p>
+      {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
     </div>
   );
 }
 
-const reminderHeaders: { label: string; sortable?: boolean }[] = [
-  { label: "Customer",  sortable: true },
-  { label: "Milestone"                },
-  { label: "Result"                   },
-  { label: "Sent At",   sortable: true },
-  { label: "Plan"                     },
-];
-
-function ReminderTable({ rows }: { rows: ReminderRow[] }) {
-  const cols = [144, 112, 96, 176, 220];
-  const { widths, onMouseDown } = useColumnResize(cols);
-
-  if (rows.length === 0) {
-    return (
-      <div className="flex items-center justify-center py-10 text-sm text-gray-400 rounded-lg" style={{ border: "1px solid var(--border)" }}>
-        No reminder history.
-      </div>
-    );
-  }
-
+function Spinner() {
   return (
-    <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-      <div className="overflow-x-auto">
-        <table style={{ tableLayout: "fixed", width: "100%", minWidth: widths.reduce((a, b) => a + b, 0) }}>
-          <colgroup>{widths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
-          <thead>
-            <tr style={{ backgroundColor: "var(--bg-card)" }}>
-              {reminderHeaders.map((h, i) => (
-                <th key={i} className="relative text-left px-4 py-3 text-sm font-semibold text-gray-700 select-none overflow-hidden">
-                  <span className="truncate flex items-center pr-2">{h.label}{h.sortable && <SortIcon />}</span>
-                  {i < reminderHeaders.length - 1 && <ResizeHandle onMouseDown={(e) => onMouseDown(i, e)} />}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <tr key={row.id} className="bg-[#fef7fa] hover:bg-[#fdf2f8] transition-colors" style={{ borderTop: "1px solid var(--border)", animation: "fade-in 0.15s ease-out both", animationDelay: `${80 + i * 20}ms` }}>
-                <td className="px-4 py-3 text-sm text-gray-900 truncate overflow-hidden">{row.customer}</td>
-                <td className="px-4 py-3 overflow-hidden"><DaysBadge days={row.daysBeforeExpiry} /></td>
-                <td className="px-4 py-3 overflow-hidden"><ResultBadge result={row.result} /></td>
-                <td className="px-4 py-3 text-sm text-gray-700 truncate overflow-hidden">{row.sentAt}</td>
-                <td className="px-4 py-3 text-sm text-gray-500 truncate overflow-hidden">{row.product}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function SearchInput({ placeholder, className = "" }: { placeholder: string; className?: string }) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <div className={`relative ${className}`} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+    <div className="flex items-center justify-center py-10 text-gray-400">
+      <svg className="animate-spin mr-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
       </svg>
-      <input type="text" placeholder={placeholder} readOnly
-        className="text-sm pl-9 pr-4 py-2 rounded-lg outline-none w-full transition-colors"
-        style={{ border: "1px solid var(--border)", backgroundColor: hovered ? "#e4dee1" : "var(--bg-search)", color: "#1a1a1a" }}
-      />
+      Loading…
+    </div>
+  );
+}
+
+function RenewalTable({ rows, loading }: { rows: ApiUpcoming[]; loading: boolean }) {
+  if (loading) return <Spinner />;
+  if (rows.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-10 text-sm text-gray-400 rounded-lg" style={{ border: "1px solid var(--border)" }}>
+        No upcoming renewals this week.
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+      <table className="w-full">
+        <thead>
+          <tr style={{ backgroundColor: "var(--bg-card)", borderBottom: "1px solid var(--border)" }}>
+            {["Customer", "Plan", "Renewal Date", "Amount"].map((h) => (
+              <th key={h} className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr
+              key={row.customerProductId}
+              className="hover:bg-[#eef3ee] transition-colors"
+              style={{
+                borderTop: i > 0 ? "1px solid var(--border)" : undefined,
+                animation: "fade-in 0.15s ease-out both",
+                animationDelay: `${60 + i * 20}ms`,
+              }}
+            >
+              <td className="px-4 py-2.5 text-sm font-medium text-gray-900 max-w-[140px] truncate">{row.customerName}</td>
+              <td className="px-4 py-2.5 text-sm text-gray-600 max-w-[120px] truncate">{row.productName}</td>
+              <td className="px-4 py-2.5 text-sm text-gray-700 whitespace-nowrap">{formatShortDate(row.endsAt)}</td>
+              <td className="px-4 py-2.5 text-sm font-semibold text-gray-900 whitespace-nowrap">
+                {row.currency} {Number(row.amount).toLocaleString()}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ReminderStatusPanel({ stats, loading }: { stats: ReminderStats | null; loading: boolean }) {
+  const successRate =
+    stats && stats.total > 0
+      ? (((stats.sent) / stats.total) * 100).toFixed(1)
+      : null;
+  const rateNum = successRate ? parseFloat(successRate) : 100;
+  const rateColor = rateNum >= 95 ? "#24A37D" : rateNum >= 80 ? "#f59e0b" : "#dc2626";
+  const pending = stats ? stats.total - stats.sent - stats.failed - stats.skipped : 0;
+
+  const rows = [
+    { label: "Sent",    value: stats?.sent    ?? 0, color: "#24A37D", icon: "✓" },
+    { label: "Pending", value: Math.max(0, pending), color: "#6366f1", icon: "◷" },
+    { label: "Failed",  value: stats?.failed  ?? 0, color: "#dc2626", icon: "⚠" },
+    { label: "Skipped", value: stats?.skipped ?? 0, color: "#9ca3af", icon: "⊘" },
+  ];
+
+  return (
+    <div className="rounded-xl p-5 flex flex-col gap-4" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-gray-700">Reminder Status</p>
+        {stats && (
+          <span className="text-xs text-gray-400">Last 30 days</span>
+        )}
+      </div>
+
+      {loading ? (
+        <Spinner />
+      ) : (
+        <>
+          <div className="space-y-3">
+            {rows.map((row) => (
+              <div key={row.label} className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm" style={{ color: row.color }}>{row.icon}</span>
+                  <span className="text-sm text-gray-600">{row.label}</span>
+                </div>
+                <span className="text-sm font-semibold tabular-nums" style={{ color: row.color === "#9ca3af" ? "#6b7280" : row.color }}>
+                  {row.value.toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-gray-500">Success Rate</span>
+              <span className="text-sm font-bold tabular-nums" style={{ color: rateColor }}>
+                {successRate ?? "—"}%
+              </span>
+            </div>
+            <div className="w-full rounded-full overflow-hidden" style={{ height: 5, backgroundColor: "#e5e7eb" }}>
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${successRate ?? 0}%`, backgroundColor: rateColor }}
+              />
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ActivityIcon({ action }: { action: string }) {
+  const color = actionColor(action);
+  if (action.includes("CREAT") || action.includes("ADD")) {
+    return (
+      <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: "#dcfce7" }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+      </div>
+    );
+  }
+  if (action.includes("DELET") || action.includes("CANCEL") || action.includes("ARCHIV")) {
+    return (
+      <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: "#fee2e2" }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 6 6 18M6 6l12 12" />
+        </svg>
+      </div>
+    );
+  }
+  return (
+    <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: "#f3f4f6" }}>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z" />
+      </svg>
+    </div>
+  );
+}
+
+function RecentActivity({ logs, loading }: { logs: AuditLog[]; loading: boolean }) {
+  if (loading) return <Spinner />;
+  if (logs.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-10 text-sm text-gray-400 rounded-lg" style={{ border: "1px solid var(--border)" }}>
+        No recent activity.
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+      <div className="divide-y" style={{ "--tw-divide-opacity": 1 } as React.CSSProperties}>
+        {logs.map((log, i) => (
+          <div
+            key={log.id}
+            className="flex items-start gap-3 px-4 py-3 hover:bg-[#f8faf8] transition-colors"
+            style={{ animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms`, borderTop: i > 0 ? "1px solid var(--border)" : undefined }}
+          >
+            <ActivityIcon action={log.action} />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-gray-800">
+                <span className="font-medium">{log.actorEmail}</span>{" "}
+                <span className="text-gray-500">{prettyAction(log.action)} {prettyResource(log.resourceType)}</span>
+                {log.resourceId && (
+                  <span className="text-gray-400 text-xs ml-1">#{log.resourceId}</span>
+                )}
+              </p>
+            </div>
+            <span className="text-xs text-gray-400 flex-shrink-0 mt-0.5 tabular-nums">{relativeTime(log.createdAt)}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -305,8 +327,10 @@ export default function DashboardPage() {
 
   const [summary, setSummary] = useState<TenantSummary | null>(null);
   const [revenue, setRevenue] = useState<RevenueTotals | null>(null);
-  const [upcoming, setUpcoming] = useState<UpcomingRow[]>([]);
-  const [reminders, setReminders] = useState<ReminderRow[]>([]);
+  const [upcoming, setUpcoming] = useState<ApiUpcoming[]>([]);
+  const [reminderStats, setReminderStats] = useState<ReminderStats | null>(null);
+  const [activity, setActivity] = useState<AuditLog[]>([]);
+  const [overdueCount, setOverdueCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -320,112 +344,116 @@ export default function DashboardPage() {
     const tid = user.tenantId;
     if (!tid) return;
 
-    Promise.all([
+    Promise.allSettled([
       apiGet<TenantSummary>(`/api/v1/tenants/${tid}/dashboard/summary`, token),
       apiGet<RevenueTotals>(`/api/v1/tenants/${tid}/dashboard/revenue`, token),
       apiGet<ApiUpcoming[]>(`/api/v1/tenants/${tid}/dashboard/upcoming-reminders`, token),
-      apiGet<ApiReminderPage>(`/api/v1/tenants/${tid}/reminders?size=20&sort=createdAt,desc`, token),
-    ])
-      .then(([sum, rev, upcomingList, reminderPage]) => {
-        setSummary(sum);
-        setRevenue(rev);
-        setUpcoming(
-          upcomingList.map((u) => ({
-            id: u.customerProductId,
-            customer: u.customerName,
-            plan: u.productName,
-            currency: u.currency,
-            amount: Number(u.amount),
-            endDate: formatDate(u.endsAt),
-          }))
-        );
-        setReminders(
-          reminderPage.content.map((r) => ({
-            id: r.id,
-            customer: r.customerName,
-            daysBeforeExpiry: r.daysBeforeExpiry,
-            result: r.status,
-            sentAt: r.sentAt ? formatDateTime(r.sentAt) : formatDateTime(r.createdAt),
-            product: r.productName,
-          }))
-        );
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      apiGet<ReminderStats>(`/api/v1/tenants/${tid}/dashboard/reminder-stats`, token),
+      apiGet<AuditLog[]>(`/api/v1/tenants/${tid}/dashboard/recent-activity`, token),
+      apiGet<OverduePlan[]>(`/api/v1/tenants/${tid}/dashboard/overdue`, token),
+    ]).then(([sum, rev, upcomingRes, statsRes, logsRes, overdueRes]) => {
+      if (sum.status === "fulfilled") setSummary(sum.value);
+      if (rev.status === "fulfilled") setRevenue(rev.value);
+      if (upcomingRes.status === "fulfilled") setUpcoming(upcomingRes.value);
+      if (statsRes.status === "fulfilled") setReminderStats(statsRes.value);
+      if (logsRes.status === "fulfilled") setActivity(logsRes.value);
+      if (overdueRes.status === "fulfilled") setOverdueCount(overdueRes.value.length);
+    }).finally(() => setLoading(false));
   }, [token, user]);
 
   const today = new Date();
-  const dateStr = `${today.getMonth() + 1}/${today.getDate()}/${today.getFullYear()}`;
-  const hour = today.getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const displayName = user?.fullName?.split(" ")[0] ?? user?.email?.split("@")[0] ?? "there";
+  const dateStr = today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 
-  const mrrAmount = revenue?.totals?.[0] ? Number(revenue.totals[0].totalAmount) : 0;
+  const mrrAmount  = revenue?.totals?.[0] ? Number(revenue.totals[0].totalAmount) : 0;
   const mrrCurrency = revenue?.totals?.[0]?.currency ?? "USD";
 
-  const mrrVal   = useCountUp(!loading ? mrrAmount : 0);
-  const subVal   = useCountUp(!loading && summary ? summary.activePlans : 0);
-  const expVal   = useCountUp(!loading ? upcoming.length : 0);
-  const remVal   = useCountUp(!loading ? reminders.filter((r) => r.result === "SENT").length : 0);
+  const customerVal = useCountUp(!loading && summary ? summary.totalCustomers : 0);
+  const activeVal   = useCountUp(!loading && summary ? summary.activePlans : 0);
+  const overdueVal  = useCountUp(!loading ? overdueCount : 0);
+  const revenueVal  = useCountUp(!loading ? mrrAmount : 0);
 
   return (
-    <div className="font-sans px-6 py-8 md:px-12 md:py-10 max-w-6xl mx-auto" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
-      <div className="mb-8 border-l-4 pl-5 py-1" style={{ borderColor: "var(--primary)" }}>
-        <p className="text-sm mb-1" style={{ color: "var(--primary)" }}>{greeting}, {displayName}</p>
-        <h1 className="text-3xl font-bold" style={{ color: "#212529" }}>Today is {dateStr}.</h1>
+    <div
+      className="font-sans px-6 py-8 md:px-10 md:py-10 max-w-6xl mx-auto space-y-8"
+      style={{ animation: "fade-in-up 0.2s ease-out both" }}
+    >
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Subscription Management</h1>
+          <p className="text-sm text-gray-500 mt-0.5">{dateStr}</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-        {([
-          { label: "MRR",                  display: loading ? "—" : `${mrrCurrency} ${mrrVal.toLocaleString()}` },
-          { label: "Active Subscriptions", display: loading ? "—" : String(subVal)  },
-          { label: "Expiring This Week",   display: loading ? "—" : String(expVal)  },
-          { label: "Reminders Sent",       display: loading ? "—" : String(remVal)  },
-        ] as const).map((card, i) => (
-          <div key={card.label} className="rounded-lg p-5" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", animation: "fade-in-up 0.2s ease-out both", animationDelay: `${i * 35}ms` }}>
-            <p className="text-sm mb-3" style={{ color: "#6c757d" }}>{card.label}</p>
-            <p className="text-2xl font-bold tabular-nums" style={{ color: "#212529" }}>{card.display}</p>
-          </div>
-        ))}
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          label="Total Customers"
+          value={loading ? "—" : customerVal.toLocaleString()}
+          sub={summary ? `${summary.totalProducts} products` : undefined}
+          delay={0}
+        />
+        <StatCard
+          label="Active Subscriptions"
+          value={loading ? "—" : activeVal.toLocaleString()}
+          sub={summary ? `${summary.pausedPlans} paused` : undefined}
+          accent="#24A37D"
+          delay={40}
+        />
+        <StatCard
+          label="Overdue / Expired"
+          value={loading ? "—" : overdueVal.toLocaleString()}
+          sub={overdueCount > 0 ? "needs attention" : "all clear"}
+          accent={overdueCount > 0 ? "#dc2626" : "#24A37D"}
+          delay={80}
+        />
+        <StatCard
+          label="Revenue This Month"
+          value={loading ? "—" : `${mrrCurrency} ${revenueVal.toLocaleString()}`}
+          sub={revenue?.totals?.[0] ? `${revenue.totals[0].planCount} active plans` : undefined}
+          accent="#111827"
+          delay={120}
+        />
       </div>
 
-      <div className="mb-10">
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">Expiring Soon</h2>
-            <p className="text-sm text-gray-500 mt-0.5">Subscriptions ending in the next 7 days</p>
+      {/* Middle row: Upcoming Renewals + Reminder Status */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Upcoming Renewals */}
+        <div className="lg:col-span-2 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-bold text-gray-900">Upcoming Renewals</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Subscriptions renewing this week</p>
+            </div>
+            {!loading && upcoming.length > 0 && (
+              <span
+                className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                style={{ backgroundColor: "#fff3cd", color: "#92400e" }}
+              >
+                {upcoming.length} due
+              </span>
+            )}
           </div>
-          <SearchInput placeholder="Search subscriptions..." className="w-full md:w-56 flex-shrink-0" />
+          <RenewalTable rows={upcoming} loading={loading} />
         </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-12 text-gray-400">
-            <svg className="animate-spin mr-2" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-            </svg>
-            Loading…
+        {/* Reminder Status */}
+        <div className="lg:col-span-1">
+          <div className="mb-3">
+            <h2 className="text-base font-bold text-gray-900">Reminder Status</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Delivery overview</p>
           </div>
-        ) : (
-          <ExpiringTable rows={upcoming} />
-        )}
+          <ReminderStatusPanel stats={reminderStats} loading={loading} />
+        </div>
       </div>
 
-      <div>
-        <div className="flex justify-between items-center mb-3">
-          <h2 className="text-xl font-bold text-gray-900">Reminder History</h2>
-          <SearchInput placeholder="Search" className="w-full md:w-44" />
+      {/* Recent Activity */}
+      <div className="flex flex-col gap-3">
+        <div>
+          <h2 className="text-base font-bold text-gray-900">Recent Activity</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Latest actions in your account</p>
         </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-12 text-gray-400">
-            <svg className="animate-spin mr-2" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-            </svg>
-            Loading…
-          </div>
-        ) : (
-          <ReminderTable rows={reminders} />
-        )}
+        <RecentActivity logs={activity} loading={loading} />
       </div>
     </div>
   );

@@ -64,13 +64,25 @@ type PlanBar = {
 };
 
 type AdminSummary = {
-  activeTenants: number;
-  suspendedTenants: number;
-  archivedTenants: number;
-  totalUsers: number;
-  remindersSent: number;
-  remindersFailed: number;
-  remindersSkipped: number;
+  tenants: {
+    active: number;
+    suspended: number;
+    archived: number;
+    newThisWeek: number;
+    expiringThisWeek: number;
+  };
+  users: {
+    totalUsers: number;
+    activeUsers: number;
+  };
+  remainders: {
+    sent: number;
+    failed: number;
+    skipped: number;
+    pending: number;
+    overdue: number;
+    failureRate: number;
+  };
 };
 
 type ApiTenantPage = {
@@ -140,7 +152,7 @@ function TenantsTable({ rows }: { rows: TenantRow[] }) {
           </thead>
           <tbody>
             {rows.map((row, i) => (
-              <tr key={row.id} className="bg-[#fef7fa] hover:bg-[#fdf2f8] transition-colors" style={{ borderTop: "1px solid var(--border)", animation: "fade-in 0.15s ease-out both", animationDelay: `${80 + i * 20}ms` }}>
+              <tr key={row.id} className="bg-[#f8faf8] hover:bg-[#eef3ee] transition-colors" style={{ borderTop: "1px solid var(--border)", animation: "fade-in 0.15s ease-out both", animationDelay: `${80 + i * 20}ms` }}>
                 <td className="px-4 py-3 text-sm font-medium text-gray-500 truncate">#{row.id}</td>
                 <td className="px-4 py-3 text-sm font-semibold text-gray-900 truncate">{row.name}</td>
                 <td className="px-4 py-3 text-sm text-gray-700 truncate">{row.plan ?? <span className="italic text-gray-400">No plan</span>}</td>
@@ -167,6 +179,7 @@ export default function AdminDashboardPage() {
   const [recentRows, setRecentRows] = useState<TenantRow[]>([]);
   const [planBars, setPlanBars] = useState<PlanBar[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expiryDismissed, setExpiryDismissed] = useState(false);
 
   useEffect(() => {
     if (user && user.role !== "SUPER_ADMIN") {
@@ -222,10 +235,14 @@ export default function AdminDashboardPage() {
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const displayName = user?.fullName?.split(" ")[0] ?? user?.email?.split("@")[0] ?? "Admin";
 
-  const totalTenants   = useCountUp(!loading && summary ? summary.activeTenants + summary.suspendedTenants + summary.archivedTenants : 0);
-  const activeTenants  = useCountUp(!loading && summary ? summary.activeTenants : 0);
-  const suspendedCount = useCountUp(!loading && summary ? summary.suspendedTenants : 0);
-  const planCount      = useCountUp(!loading ? planBars.length : 0);
+  const totalTenants    = useCountUp(!loading && summary ? summary.tenants.active + summary.tenants.suspended + summary.tenants.archived : 0);
+  const activeTenants   = useCountUp(!loading && summary ? summary.tenants.active : 0);
+  const suspendedCount  = useCountUp(!loading && summary ? summary.tenants.suspended : 0);
+  const newThisWeek     = useCountUp(!loading && summary ? summary.tenants.newThisWeek : 0);
+  const totalUsers      = useCountUp(!loading && summary ? summary.users.totalUsers : 0);
+  const activeUsers     = useCountUp(!loading && summary ? summary.users.activeUsers : 0);
+  const remindersSent   = useCountUp(!loading && summary ? summary.remainders.sent : 0);
+  const remindersPending = useCountUp(!loading && summary ? summary.remainders.pending : 0);
 
   const tenantTotal = planBars.reduce((s, p) => s + p.tenants, 0);
 
@@ -239,83 +256,106 @@ export default function AdminDashboardPage() {
         <p className="text-sm text-gray-400 mt-1">{dateStr} — Super Admin</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-        {[
-          { label: "Total Tenants",  value: loading ? "—" : String(totalTenants),   sub: "all time"         },
-          { label: "Active Tenants", value: loading ? "—" : String(activeTenants),  sub: "currently active" },
-          { label: "Suspended",      value: loading ? "—" : String(suspendedCount), sub: "needs attention"  },
-          { label: "Active Plans",   value: loading ? "—" : String(planCount),      sub: "with tenants"     },
-        ].map((c, i) => (
-          <div key={c.label} className="rounded-lg p-5" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", animation: "fade-in-up 0.2s ease-out both", animationDelay: `${i * 35}ms` }}>
-            <p className="text-sm mb-1" style={{ color: "#6c757d" }}>{c.label}</p>
-            <p className="text-2xl font-bold tabular-nums" style={{ color: "#212529" }}>{c.value}</p>
-            <p className="text-xs mt-1" style={{ color: "#9ca3af" }}>{c.sub}</p>
-          </div>
-        ))}
-      </div>
+      {!loading && summary && summary.tenants.expiringThisWeek > 0 && !expiryDismissed && (
+        <div className="mb-6 flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium" style={{ backgroundColor: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", animation: "fade-in 0.2s ease-out both" }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          <span className="flex-1"><strong>{summary.tenants.expiringThisWeek}</strong> platform plan subscription{summary.tenants.expiringThisWeek !== 1 ? "s" : ""} expiring within the next 7 days.</span>
+          <button onClick={() => setExpiryDismissed(true)} className="flex-shrink-0 rounded p-0.5 transition-colors hover:bg-orange-200" aria-label="Dismiss">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        {/* Tenants */}
         <div className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">Recent Tenants</h2>
-              <p className="text-sm text-gray-400 mt-0.5">Latest 5 onboarded tenants</p>
-            </div>
-            <Link href="/tenants" className="text-sm font-semibold transition-colors" style={{ color: "var(--primary)" }}>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--primary)" }}>Tenants</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            {[
+              { label: "Total",        value: loading ? "—" : String(totalTenants),   sub: "all time"         },
+              { label: "Active",       value: loading ? "—" : String(activeTenants),  sub: "currently active" },
+              { label: "Suspended",    value: loading ? "—" : String(suspendedCount), sub: "needs attention"  },
+              { label: "New This Week",value: loading ? "—" : String(newThisWeek),    sub: "recently joined"  },
+            ].map((c, i) => (
+              <div key={c.label} className="rounded-lg px-4 py-3" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", animation: "fade-in-up 0.2s ease-out both", animationDelay: `${i * 35}ms` }}>
+                <p className="text-xs mb-0.5" style={{ color: "#6c757d" }}>{c.label}</p>
+                <p className="text-xl font-bold tabular-nums" style={{ color: "#212529" }}>{c.value}</p>
+                <p className="text-xs mt-0.5" style={{ color: "#9ca3af" }}>{c.sub}</p>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm text-gray-400">Latest 5 onboarded tenants</p>
+            <Link href="/tenants" className="text-xs font-semibold transition-colors" style={{ color: "var(--primary)" }}>
               View all →
             </Link>
           </div>
           {loading ? (
-            <div className="flex items-center justify-center py-12 text-gray-400">
-              <svg className="animate-spin mr-2" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <div className="flex items-center justify-center py-10 text-gray-400">
+              <svg className="animate-spin mr-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M21 12a9 9 0 1 1-6.219-8.56" />
               </svg>
               Loading…
             </div>
           ) : recentRows.length === 0 ? (
-            <div className="py-10 text-center text-sm text-gray-400">No tenants yet.</div>
+            <div className="py-8 text-center text-sm text-gray-400">No tenants yet.</div>
           ) : (
             <TenantsTable rows={recentRows} />
           )}
         </div>
 
+        {/* Reminders */}
         <div>
-          <h2 className="text-lg font-bold text-gray-900 mb-1">Plan Distribution</h2>
-          <p className="text-sm text-gray-400 mb-4">Tenants per platform plan</p>
-          <div className="rounded-lg p-5 space-y-4" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
-            {loading ? (
-              <div className="flex items-center justify-center py-8 text-gray-400">
-                <svg className="animate-spin mr-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                </svg>
-                Loading…
+          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--primary)" }}>Reminders</p>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: "Sent",    value: loading ? "—" : String(remindersSent),                                                                        sub: "all time"          },
+              { label: "Failed",  value: loading ? "—" : (!loading && summary ? String(summary.remainders.failed)  : "—"),                             sub: "delivery errors"   },
+              { label: "Skipped", value: loading ? "—" : (!loading && summary ? String(summary.remainders.skipped) : "—"),                             sub: "no active sub"     },
+              { label: "Pending", value: loading ? "—" : String(remindersPending),                                                                     sub: "awaiting delivery" },
+            ].map((c, i) => (
+              <div key={c.label} className="rounded-lg px-4 py-3" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", animation: "fade-in-up 0.2s ease-out both", animationDelay: `${i * 35}ms` }}>
+                <p className="text-xs mb-0.5" style={{ color: "#6c757d" }}>{c.label}</p>
+                <p className="text-xl font-bold tabular-nums" style={{ color: "#212529" }}>{c.value}</p>
+                <p className="text-xs mt-0.5" style={{ color: "#9ca3af" }}>{c.sub}</p>
               </div>
-            ) : planBars.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-6">No plan assignments yet.</p>
-            ) : (
-              <>
-                {planBars.map((p, i) => {
-                  const pct = tenantTotal > 0 ? Math.round((p.tenants / tenantTotal) * 100) : 0;
-                  return (
-                    <div key={p.name} style={{ animation: "fade-in 0.15s ease-out both", animationDelay: `${120 + i * 40}ms` }}>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-sm font-medium text-gray-700 truncate">{p.name}</span>
-                        <span className="text-sm font-semibold text-gray-900 ml-2 flex-shrink-0">{p.tenants}</span>
-                      </div>
-                      <div className="w-full rounded-full h-1.5" style={{ backgroundColor: "var(--border)" }}>
-                        <div className="h-1.5 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: p.color }} />
-                      </div>
-                    </div>
-                  );
-                })}
-                <p className="text-xs text-gray-400 pt-1 border-t" style={{ borderColor: "var(--border)" }}>
-                  {tenantTotal} tenant{tenantTotal !== 1 ? "s" : ""} across all plans
-                </p>
-              </>
-            )}
+            ))}
           </div>
+          {!loading && summary && (
+            <div className="mt-3 rounded-lg px-4 py-3" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
+              <p className="text-xs mb-1" style={{ color: "#6c757d" }}>Failure rate</p>
+              <p className="text-xl font-bold tabular-nums" style={{ color: summary.remainders.failureRate > 5 ? "#ef4444" : "#24A37D" }}>
+                {summary.remainders.failureRate.toFixed(1)}%
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: "#9ca3af" }}>of all deliveries</p>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Users */}
+      <div className="mb-10">
+        <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--primary)" }}>Users</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "Total",       value: loading ? "—" : String(totalUsers),                                                                                                          sub: "across all tenants" },
+            { label: "Active",      value: loading ? "—" : String(activeUsers),                                                                                                         sub: "currently active"   },
+            { label: "Inactive",    value: loading ? "—" : (!loading && summary ? String(summary.users.totalUsers - summary.users.activeUsers) : "—"),                                  sub: "not yet active"     },
+            { label: "Active Rate", value: loading ? "—" : (!loading && summary && summary.users.totalUsers > 0 ? `${Math.round((summary.users.activeUsers / summary.users.totalUsers) * 100)}%` : "—"), sub: "of all users"       },
+          ].map((c, i) => (
+            <div key={c.label} className="rounded-lg px-4 py-3" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", animation: "fade-in-up 0.2s ease-out both", animationDelay: `${140 + i * 35}ms` }}>
+              <p className="text-xs mb-0.5" style={{ color: "#6c757d" }}>{c.label}</p>
+              <p className="text-xl font-bold tabular-nums" style={{ color: "#212529" }}>{c.value}</p>
+              <p className="text-xs mt-0.5" style={{ color: "#9ca3af" }}>{c.sub}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
 
       <div>
         <h2 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h2>

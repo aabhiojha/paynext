@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useAuthStore } from "@/store/authStore";
 import { apiGet, apiPost, apiPatch } from "@/lib/api";
 import SlideOver, { SlideOverField, SlideOverHeader, SlideOverSection } from "@/components/SlideOver";
+import { cadenceLabel, CADENCE_LABELS, cadenceBadgeStyle } from "@/lib/cadence";
 
 function useColumnResize(initialWidths: number[]) {
   const [widths, setWidths] = useState(initialWidths);
@@ -57,13 +58,6 @@ type ApiPlan = {
   createdAt: string;
 };
 
-const cadenceLabel: Record<string, string> = {
-  WEEKLY: "Weekly",
-  FORTNIGHT: "Fortnightly",
-  MONTHLY: "Monthly",
-  QUARTERLY: "Quarterly",
-  ANNUALLY: "Annually",
-};
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -172,7 +166,7 @@ function PlanModal({
 
   const modal = (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.18)" }}>
-      <div className="rounded-xl shadow-2xl w-full max-w-md mx-4 p-7" style={{ backgroundColor: "#fef7fa", border: "1px solid var(--border)" }}>
+      <div className="rounded-xl shadow-2xl w-full max-w-md mx-4 p-7" style={{ backgroundColor: "#f8faf8", border: "1px solid var(--border)" }}>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-bold text-gray-900">{mode === "create" ? "Create Plan" : "Edit Plan"}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
@@ -303,7 +297,7 @@ function PlansTable({ data, onSelect }: { data: Plan[]; onSelect: (p: Plan) => v
               <tr
                 key={row.id}
                 onClick={() => onSelect(row)}
-                className="group bg-[#fef7fa] hover:bg-[#fdf2f8] transition-colors cursor-pointer"
+                className="group bg-[#f8faf8] hover:bg-[#eef3ee] transition-colors cursor-pointer"
                 style={{ borderTop: "1px solid var(--border)", animation: "fade-in 0.15s ease-out both", animationDelay: `${80 + i * 18}ms`, opacity: row.status === "ARCHIVED" ? 0.65 : 1 }}
               >
                 <td className="px-4 py-3 text-sm font-semibold text-gray-900 truncate overflow-hidden">{row.name}</td>
@@ -311,8 +305,10 @@ function PlansTable({ data, onSelect }: { data: Plan[]; onSelect: (p: Plan) => v
                 <td className="px-4 py-3 text-sm font-medium text-gray-900 truncate overflow-hidden">
                   {row.currency} {row.price.toLocaleString()}
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-700 truncate overflow-hidden">
-                  {cadenceLabel[row.billingCadence] ?? row.billingCadence}
+                <td className="px-4 py-3 overflow-hidden">
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded" style={cadenceBadgeStyle(row.billingCadence)}>
+                    {cadenceLabel(row.billingCadence)}
+                  </span>
                 </td>
                 <td className="px-4 py-3 overflow-hidden"><StatusBadge status={row.status} /></td>
                 <td className="px-4 py-3 text-sm text-gray-500 truncate overflow-hidden">{row.createdAt}</td>
@@ -330,10 +326,6 @@ function PlansTable({ data, onSelect }: { data: Plan[]; onSelect: (p: Plan) => v
   );
 }
 
-const cadenceFull: Record<string, string> = {
-  WEEKLY: "Weekly", FORTNIGHT: "Fortnightly", MONTHLY: "Monthly",
-  QUARTERLY: "Quarterly", ANNUALLY: "Annually",
-};
 
 function PlanBadge({ status }: { status: string }) {
   const active = status === "ACTIVE";
@@ -348,25 +340,95 @@ function PlanBadge({ status }: { status: string }) {
 function PlanSidebar({
   plan,
   open,
+  token,
   onClose,
-  onEdit,
+  onSave,
   onArchive,
+  saving,
 }: {
   plan: Plan | null;
   open: boolean;
+  token: string | null;
   onClose: () => void;
-  onEdit: () => void;
+  onSave: (form: FormState) => void;
   onArchive: () => void;
+  saving: boolean;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState<FormState>(emptyForm);
+  const [tenants, setTenants] = useState<{ id: number; name: string; status: string }[] | null>(null);
+
+  useEffect(() => {
+    if (open && plan && token) {
+      setForm({
+        name: plan.name,
+        description: plan.description,
+        price: String(plan.price),
+        currency: plan.currency,
+        billingCadence: plan.billingCadence,
+      });
+      setEditing(false);
+      setTenants(null);
+      apiGet<{ content: { id: number; name: string; status: string; activePlan: { planName: string } | null }[] }>("/api/v1/tenants?size=100", token)
+        .then((res) => setTenants(res.content.filter((t) => t.activePlan?.planName === plan.name)))
+        .catch(() => setTenants([]));
+    }
+  }, [open, plan, token]);
+
+  const set = (k: keyof FormState, v: string) => setForm((p) => ({ ...p, [k]: v }));
+
+  const handleCancel = () => {
+    if (plan) {
+      setForm({
+        name: plan.name,
+        description: plan.description,
+        price: String(plan.price),
+        currency: plan.currency,
+        billingCadence: plan.billingCadence,
+      });
+    }
+    setEditing(false);
+  };
+
+  const cadenceOptions = Object.entries(CADENCE_LABELS);
+
   return (
     <SlideOver open={open} onClose={onClose}>
       <SlideOverHeader
-        title={plan?.name ?? ""}
-        badge={plan && <PlanBadge status={plan.status} />}
+        title={editing ? "Edit Plan" : (plan?.name ?? "")}
+        badge={!editing && plan ? <PlanBadge status={plan.status} /> : undefined}
+        onBack={editing ? handleCancel : undefined}
+        actions={!editing && plan ? (
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setEditing(true)}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors"
+              style={{ border: "1px solid var(--border)", color: "#374151", backgroundColor: "#f9fafb" }}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z" />
+              </svg>
+              Edit
+            </button>
+            {plan.status === "ACTIVE" && (
+              <button
+                onClick={onArchive}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors"
+                style={{ border: "1px solid #fecaca", color: "#dc2626", backgroundColor: "#fff5f5" }}
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="21 8 21 21 3 21 3 8" /><rect width="22" height="5" x="1" y="3" /><line x1="10" x2="14" y1="12" y2="12" />
+                </svg>
+                Archive
+              </button>
+            )}
+          </div>
+        ) : undefined}
         onClose={onClose}
       />
       <div className="flex-1 overflow-y-auto">
-        {plan && (
+        {plan && !editing && (
           <>
             <SlideOverSection>
               <SlideOverField label="Description">
@@ -376,39 +438,120 @@ function PlanSidebar({
                 {plan.currency} {plan.price.toLocaleString()}
               </SlideOverField>
               <SlideOverField label="Billing cadence">
-                {cadenceFull[plan.billingCadence] ?? plan.billingCadence}
+                {cadenceLabel(plan.billingCadence)}
               </SlideOverField>
               <SlideOverField label="Status">
                 <PlanBadge status={plan.status} />
               </SlideOverField>
             </SlideOverSection>
 
-            <div className="px-6 py-4 flex gap-3 flex-wrap" style={{ borderBottom: "1px solid var(--border)" }}>
-              <button
-                onClick={onEdit}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-                style={{ border: "1px solid var(--border)", color: "#374151", backgroundColor: "#f9fafb" }}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z" />
-                </svg>
-                Edit plan
-              </button>
-              {plan.status === "ACTIVE" && (
-                <button
-                  onClick={onArchive}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-                  style={{ border: "1px solid #fecaca", color: "#dc2626", backgroundColor: "#fff5f5" }}
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="21 8 21 21 3 21 3 8" /><rect width="22" height="5" x="1" y="3" /><line x1="10" x2="14" y1="12" y2="12" />
-                  </svg>
-                  Archive plan
-                </button>
+            <SlideOverSection title={tenants ? `Subscribed tenants (${tenants.length})` : "Subscribed tenants"}>
+              {tenants === null ? (
+                <p className="text-sm text-gray-400">Loading…</p>
+              ) : tenants.length === 0 ? (
+                <p className="text-sm text-gray-400 italic">No tenants on this plan.</p>
+              ) : (
+                <div className="space-y-1">
+                  {tenants.map((t) => (
+                    <div key={t.id} className="flex items-center justify-between py-1.5 px-2 rounded-md" style={{ backgroundColor: "#f8faf8" }}>
+                      <span className="text-sm font-medium text-gray-800">{t.name}</span>
+                      <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${t.status === "ACTIVE" ? "text-green-700 bg-green-100" : t.status === "SUSPENDED" ? "text-yellow-700 bg-yellow-100" : "text-gray-500 bg-gray-100"}`}>
+                        {t.status.charAt(0) + t.status.slice(1).toLowerCase()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               )}
-            </div>
+            </SlideOverSection>
+
           </>
+        )}
+        {plan && editing && (
+          <div className="px-6 py-5 space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Plan Name</label>
+              <input
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+                placeholder="e.g. Growth Monthly"
+                className="w-full text-sm px-3 py-2 rounded-lg outline-none"
+                style={{ border: "1px solid var(--border)", backgroundColor: "#fff" }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Description</label>
+              <textarea
+                value={form.description}
+                onChange={(e) => set("description", e.target.value)}
+                placeholder="Short description shown to tenants"
+                rows={2}
+                className="w-full text-sm px-3 py-2 rounded-lg outline-none resize-none"
+                style={{ border: "1px solid var(--border)", backgroundColor: "#fff" }}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Price</label>
+                <input
+                  type="number"
+                  value={form.price}
+                  onChange={(e) => set("price", e.target.value)}
+                  placeholder="0.00"
+                  className="w-full text-sm px-3 py-2 rounded-lg outline-none"
+                  style={{ border: "1px solid var(--border)", backgroundColor: "#fff" }}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Currency</label>
+                <select
+                  value={form.currency}
+                  onChange={(e) => set("currency", e.target.value)}
+                  className="w-full text-sm px-3 py-2 rounded-lg outline-none"
+                  style={{ border: "1px solid var(--border)", backgroundColor: "#fff" }}
+                >
+                  {["USD", "EUR", "GBP", "NPR", "AUD", "CAD"].map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Billing Cadence</label>
+              <select
+                value={form.billingCadence}
+                onChange={(e) => set("billingCadence", e.target.value)}
+                className="w-full text-sm px-3 py-2 rounded-lg outline-none"
+                style={{ border: "1px solid var(--border)", backgroundColor: "#fff" }}
+              >
+                {cadenceOptions.map(([v, label]) => (
+                  <option key={v} value={v}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={handleCancel}
+                disabled={saving}
+                className="flex-1 py-2.5 text-sm font-semibold rounded-lg transition-colors"
+                style={{ border: "1px solid var(--border)", color: "#4b4b4b" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { if (form.name && form.price) onSave(form); }}
+                disabled={saving || !form.name || !form.price}
+                className="flex-1 py-2.5 text-sm font-semibold rounded-lg text-white transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
+                style={{ backgroundColor: "var(--primary)", opacity: saving ? 0.7 : 1 }}
+              >
+                {saving && (
+                  <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                  </svg>
+                )}
+                Save Changes
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </SlideOver>
@@ -459,18 +602,17 @@ export default function PlatformPlansPage() {
   };
 
   const handleEdit = async (form: FormState) => {
-    if (!token || !modal?.plan) return;
+    if (!token || !selectedPlan) return;
     setSaving(true);
     try {
-      const updated = await apiPatch<ApiPlan>(`/api/v1/platform-plans/${modal.plan.id}`, {
+      const updated = await apiPatch<ApiPlan>(`/api/v1/platform-plans/${selectedPlan.id}`, {
         name: form.name,
         description: form.description || null,
         price: parseFloat(form.price),
         currency: form.currency,
         billingCadence: form.billingCadence,
       }, token);
-      setData((prev) => prev.map((p) => (p.id === modal.plan!.id ? mapPlan(updated) : p)));
-      setModal(null);
+      setData((prev) => prev.map((p) => (p.id === selectedPlan.id ? mapPlan(updated) : p)));
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to update plan");
     } finally {
@@ -511,13 +653,13 @@ export default function PlatformPlansPage() {
       </div>
 
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center p-0.5 rounded-lg gap-0.5" style={{ backgroundColor: "var(--border)" }}>
           {(["ALL", "ACTIVE", "ARCHIVED"] as const).map((s) => (
-            <button key={s} onClick={() => setFilterStatus(s)} className="text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            <button key={s} onClick={() => setFilterStatus(s)} className="text-xs font-semibold px-3 py-1.5 rounded-md transition-colors"
               style={filterStatus === s
-                ? { backgroundColor: "var(--nav-active)", color: "var(--primary)", border: "1px solid var(--primary)" }
-                : { border: "1px solid var(--border)", backgroundColor: "#fef7fa", color: "#4b4b4b" }}>
-              {s === "ALL" ? "All Plans" : s === "ACTIVE" ? "Active" : "Archived"}
+                ? { backgroundColor: "#fff", color: "var(--primary)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }
+                : { color: "#6b7280" }}>
+              {s === "ALL" ? "All" : s === "ACTIVE" ? "Active" : "Archived"}
             </button>
           ))}
         </div>
@@ -568,17 +710,18 @@ export default function PlatformPlansPage() {
       <PlanSidebar
         plan={selectedPlan}
         open={selectedPlan !== null}
+        token={token}
         onClose={() => setSelectedPlan(null)}
-        onEdit={() => { setModal({ mode: "edit", plan: selectedPlan! }); setSelectedPlan(null); }}
+        onSave={handleEdit}
         onArchive={() => { if (selectedPlan) { handleArchive(selectedPlan); setSelectedPlan(null); } }}
+        saving={saving}
       />
 
-      {modal && (
+      {modal?.mode === "create" && (
         <PlanModal
-          mode={modal.mode}
-          initial={modal.plan ? { name: modal.plan.name, description: modal.plan.description, price: String(modal.plan.price), currency: modal.plan.currency, billingCadence: modal.plan.billingCadence } : undefined}
+          mode="create"
           onClose={() => setModal(null)}
-          onSubmit={modal.mode === "create" ? handleCreate : handleEdit}
+          onSubmit={handleCreate}
           saving={saving}
         />
       )}

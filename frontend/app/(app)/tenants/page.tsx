@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAuthStore } from "@/store/authStore";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPatch, apiPost } from "@/lib/api";
 import SlideOver, { SlideOverField, SlideOverHeader, SlideOverSection } from "@/components/SlideOver";
 
 function useColumnResize(initialWidths: number[]) {
@@ -64,67 +64,7 @@ type Plan = {
   billingCadence: string;
 };
 
-type ApiActivePlan = {
-  planId: number;
-  planName: string;
-  effectivePrice: number;
-  currency: string;
-  billingCadence: string;
-};
-
-type ApiTenant = {
-  id: number;
-  name: string;
-  companyEmail: string;
-  timezone: string;
-  status: string;
-  createdAt: string;
-  activePlan: ApiActivePlan | null;
-};
-
-type ApiTenantPage = {
-  content: ApiTenant[];
-  totalElements: number;
-};
-
-type ApiPlan = {
-  id: number;
-  name: string;
-  description: string | null;
-  price: number;
-  currency: string;
-  billingCadence: string;
-  status: string;
-};
-
-type ApiTenantDetail = {
-  id: number;
-  name: string;
-  slug: string;
-  companyEmail: string;
-  timezone: string;
-  status: string;
-  archivedAt: string | null;
-  suspensionReason: string | null;
-  archivalReason: string | null;
-  createdAt: string;
-  updatedAt: string;
-  activePlan: {
-    id: number;
-    tenantId: number;
-    planId: number;
-    planName: string;
-    effectivePrice: number;
-    currency: string;
-    billingCadence: string;
-    status: string;
-    startDate: string;
-    endDate: string;
-    createdAt: string;
-  } | null;
-};
-
-type ApiAssignPlanResponse = {
+type TenantPlatformPlanResponse = {
   id: number;
   tenantId: number;
   planId: number;
@@ -137,6 +77,69 @@ type ApiAssignPlanResponse = {
   endDate: string;
   createdAt: string;
 };
+
+type ApiTenant = {
+  id: number;
+  name: string;
+  slug: string;
+  companyEmail: string;
+  timezone: string;
+  status: string;
+  archivedAt: string | null;
+  suspensionReason: string | null;
+  archivalReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  activePlan: TenantPlatformPlanResponse | null;
+};
+
+type ApiTenantPage = {
+  content: ApiTenant[];
+  page: {
+    totalElements: number;
+    totalPages: number;
+    size: number;
+    number: number;
+  };
+};
+
+type ApiPlan = {
+  id: number;
+  name: string;
+  description: string | null;
+  price: number;
+  currency: string;
+  billingCadence: string;
+  status: string;
+};
+
+type TenantUser = {
+  id: number;
+  tenantId: number;
+  email: string;
+  fullName: string | null;
+  role: string;
+  status: string;
+  createdAt: string;
+};
+
+type ApiUserPage = {
+  content: TenantUser[];
+};
+
+type InvitationItem = {
+  id: number;
+  email: string;
+  role: string;
+  status: string;
+  expiresAt: string;
+  createdAt: string;
+};
+
+type ApiInvitationPage = {
+  content: InvitationItem[];
+};
+
 
 const cadenceLabel: Record<string, string> = {
   WEEKLY: "/ wk",
@@ -180,6 +183,30 @@ function mapTenant(t: ApiTenant): Tenant {
     planCadence: t.activePlan?.billingCadence ?? null,
     createdAt: formatDate(t.createdAt),
   };
+}
+
+function CopyField({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleClick = () => {
+    navigator.clipboard.writeText(value).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  return (
+    <button onClick={handleClick} className="inline-flex items-center gap-1.5 transition-colors text-left group">
+      {copied ? (
+        <>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--primary)" }}>
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          <span className="text-xs font-medium" style={{ color: "var(--primary)" }}>Copied!</span>
+        </>
+      ) : (
+        <span className="group-hover:text-primary transition-colors cursor-pointer">{value}</span>
+      )}
+    </button>
+  );
 }
 
 function StatusBadge({ status }: { status: TenantStatus }) {
@@ -280,7 +307,7 @@ function TenantsTable({
               {data.map((row, i) => (
               <tr
                 key={row.id}
-                className="group bg-[#fef7fa] hover:bg-[#fdf2f8] transition-colors"
+                className="group bg-[#f8faf8] hover:bg-[#eef3ee] transition-colors"
                 style={{
                   borderTop: "1px solid var(--border)",
                   animation: "fade-in 0.15s ease-out both",
@@ -291,17 +318,9 @@ function TenantsTable({
                 onClick={() => onSelect(row)}
               >
                 <td className="px-4 py-3 overflow-hidden">
-                  <div className="flex items-center gap-2.5">
-                    <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                      style={{ backgroundColor: "var(--primary)" }}
-                    >
-                      {row.name.slice(0, 2).toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{row.name}</p>
-                      <p className="text-xs text-gray-400 truncate">#{row.id}</p>
-                    </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{row.name}</p>
+                    <p className="text-xs text-gray-400 truncate">#{row.id}</p>
                   </div>
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-600 truncate overflow-hidden">{row.email}</td>
@@ -466,9 +485,12 @@ function CreateTenantModal({
 }) {
   const [form, setForm] = useState<CreateForm>(emptyForm);
   const [step, setStep] = useState<1 | 2>(1);
+  const [showCustomPrice, setShowCustomPrice] = useState(false);
 
   const set = <K extends keyof CreateForm>(k: K, v: CreateForm[K]) =>
     setForm((p) => ({ ...p, [k]: v }));
+
+  useEffect(() => { setShowCustomPrice(false); setForm((p) => ({ ...p, customPrice: "" })); }, [form.selectedPlanId]);
 
   const [portalMounted, setPortalMounted] = useState(false);
   useEffect(() => setPortalMounted(true), []);
@@ -481,7 +503,7 @@ function CreateTenantModal({
       <div
         className="rounded-2xl shadow-2xl w-full mx-auto flex flex-col"
         style={{
-          backgroundColor: "#fef7fa",
+          backgroundColor: "#f8faf8",
           border: "1px solid var(--border)",
           maxWidth: step === 2 ? "680px" : "480px",
           maxHeight: "92dvh",
@@ -588,26 +610,42 @@ function CreateTenantModal({
 
               {selectedPlan && (
                 <div className="mt-4 rounded-xl p-4" style={{ backgroundColor: "#fff", border: "1px solid var(--border)" }}>
-                  <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Custom Price (optional)</p>
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">
-                        {selectedPlan.currency}
-                      </span>
-                      <input
-                        type="number"
-                        value={form.customPrice}
-                        onChange={(e) => set("customPrice", e.target.value)}
-                        placeholder={String(selectedPlan.price)}
-                        className="w-full text-sm pl-11 pr-3 py-2 rounded-lg outline-none"
-                        style={{ border: "1px solid var(--border)", backgroundColor: "#fafafa" }}
-                      />
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomPrice(!showCustomPrice)}
+                    className="w-full flex items-center justify-between text-sm font-medium text-gray-700"
+                  >
+                    <span>Set custom price?</span>
+                    <svg
+                      width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+                      strokeLinecap="round" strokeLinejoin="round"
+                      style={{ transform: showCustomPrice ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}
+                    >
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </button>
+                  {showCustomPrice && (
+                    <div className="mt-3">
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">
+                            {selectedPlan.currency}
+                          </span>
+                          <input
+                            type="number"
+                            value={form.customPrice}
+                            onChange={(e) => set("customPrice", e.target.value)}
+                            placeholder={String(selectedPlan.price)}
+                            className="w-full text-sm pl-11 pr-3 py-2 rounded-lg outline-none"
+                            style={{ border: "1px solid var(--border)", backgroundColor: "#fafafa" }}
+                          />
+                        </div>
+                        <span className="text-xs text-gray-400 flex-shrink-0">
+                          Default: {selectedPlan.currency} {selectedPlan.price.toLocaleString()}{cadenceLabel[selectedPlan.billingCadence]}
+                        </span>
+                      </div>
                     </div>
-                    <span className="text-xs text-gray-400 flex-shrink-0">
-                      Default: {selectedPlan.currency} {selectedPlan.price.toLocaleString()}{cadenceLabel[selectedPlan.billingCadence]}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-1.5">Leave blank to use the plan&apos;s standard price.</p>
+                  )}
                 </div>
               )}
             </div>
@@ -675,38 +713,85 @@ function TenantSidebar({
   token,
   plans,
   onClose,
-  onSuspend,
-  onActivate,
-  onPlanAssigned,
+  onDataChange,
+  width,
 }: {
   tenantId: number;
   open: boolean;
   token: string;
   plans: Plan[];
   onClose: () => void;
-  onSuspend: () => void;
-  onActivate: () => void;
-  onPlanAssigned: () => void;
+  onDataChange: () => void;
+  width?: string;
 }) {
-  const [detail, setDetail] = useState<ApiTenantDetail | null>(null);
+  const [detail, setDetail] = useState<ApiTenant | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [assigning, setAssigning] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
   const [customPrice, setCustomPrice] = useState("");
+  const [showCustomPrice, setShowCustomPrice] = useState(false);
   const [editingPlan, setEditingPlan] = useState(false);
+  useEffect(() => { setShowCustomPrice(false); setCustomPrice(""); }, [selectedPlanId]);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ name: "", email: "", timezone: "UTC" });
+  const [suspendReason, setSuspendReason] = useState("");
+  const [showSuspendForm, setShowSuspendForm] = useState(false);
+  const [archiveReason, setArchiveReason] = useState("");
+  const [showArchiveForm, setShowArchiveForm] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
-  useEffect(() => {
+  const [users, setUsers] = useState<TenantUser[]>([]);
+
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"admin" | "user">("user");
+  const [inviting, setInviting] = useState(false);
+  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [invitations, setInvitations] = useState<InvitationItem[]>([]);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+
+  const reloadInvitations = useCallback(() => {
+    apiGet<ApiInvitationPage>(`/api/v1/tenants/${tenantId}/invitations?size=20&sort=createdAt,desc`, token)
+      .then((page) => setInvitations(page.content))
+      .catch(() => {});
+  }, [tenantId, token]);
+
+  const reload = useCallback(() => {
     if (!open) return;
     setLoading(true);
     setError(null);
-    setDetail(null);
-    setEditingPlan(false);
-    apiGet<ApiTenantDetail>(`/api/v1/tenants/${tenantId}`, token)
-      .then((t) => { setDetail(t); setSelectedPlanId(t.activePlan?.planId ?? null); })
+    Promise.all([
+      apiGet<ApiTenant>(`/api/v1/tenants/${tenantId}`, token),
+      apiGet<ApiInvitationPage>(`/api/v1/tenants/${tenantId}/invitations?size=20&sort=createdAt,desc`, token),
+      apiGet<ApiUserPage>(`/api/v1/tenants/${tenantId}/users?size=50`, token),
+    ])
+      .then(([t, invPage, userPage]) => {
+        setDetail(t);
+        setSelectedPlanId(t.activePlan?.planId ?? null);
+        setEditForm({ name: t.name, email: t.companyEmail, timezone: t.timezone });
+        setInvitations(invPage.content);
+        setUsers(userPage.content);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [tenantId, open, token]);
+
+  useEffect(() => {
+    if (!open) return;
+    setEditing(false);
+    setEditingPlan(false);
+    setShowSuspendForm(false);
+    setShowArchiveForm(false);
+    setSuspendReason("");
+    setArchiveReason("");
+    setShowInviteForm(false);
+    setInviteEmail("");
+    setInviteRole("user");
+    setInviteError(null);
+    setInviteSuccess(null);
+    reload();
+  }, [reload]);
 
   const selectedPlan = plans.find((p) => p.id === selectedPlanId) ?? null;
 
@@ -714,14 +799,13 @@ function TenantSidebar({
     if (!selectedPlanId || !token || !detail) return;
     setAssigning(true);
     try {
-      await apiPost<ApiAssignPlanResponse>(
+      await apiPost<TenantPlatformPlanResponse>(
         `/api/v1/tenants/${tenantId}/platform-plan`,
         { planId: selectedPlanId, customPrice: customPrice ? parseFloat(customPrice) : null, startDate: null, endDate: null },
         token
       );
-      const updated = await apiGet<ApiTenantDetail>(`/api/v1/tenants/${tenantId}`, token);
-      setDetail(updated);
-      onPlanAssigned();
+      await reload();
+      onDataChange();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to assign plan");
     } finally {
@@ -729,14 +813,170 @@ function TenantSidebar({
     }
   };
 
+  const handleSaveEdit = async () => {
+    setActionLoading(true);
+    try {
+      await apiPatch(`/api/v1/tenants/${tenantId}`, {
+        name: editForm.name,
+        companyEmail: editForm.email,
+        timezone: editForm.timezone,
+      }, token);
+      await reload();
+      setEditing(false);
+      onDataChange();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to update tenant");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    if (detail) {
+      setEditForm({ name: detail.name, email: detail.companyEmail, timezone: detail.timezone });
+    }
+    setEditing(false);
+  };
+
+  const handleSuspend = async () => {
+    setActionLoading(true);
+    try {
+      await apiPost(`/api/v1/tenants/${tenantId}/suspend`, { reason: suspendReason || null }, token);
+      await reload();
+      setShowSuspendForm(false);
+      setSuspendReason("");
+      onDataChange();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to suspend tenant");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleActivate = async () => {
+    setActionLoading(true);
+    try {
+      await apiPost(`/api/v1/tenants/${tenantId}/reactivate`, {}, token);
+      await reload();
+      onDataChange();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to reactivate tenant");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleArchive = async () => {
+    setActionLoading(true);
+    try {
+      await apiPost(`/api/v1/tenants/${tenantId}/archive`, { reason: archiveReason || null }, token);
+      onDataChange();
+      onClose();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to archive tenant");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSendInvite = async () => {
+    if (!inviteEmail.trim()) return;
+    setInviting(true);
+    setInviteError(null);
+    setInviteSuccess(null);
+    const endpoint = inviteRole === "admin" ? "invite-admin" : "invite-user";
+    try {
+      await apiPost(`/api/v1/tenants/${tenantId}/${endpoint}`, { email: inviteEmail.trim() }, token);
+      setInviteSuccess(`Invite sent to ${inviteEmail.trim()}`);
+      setInviteEmail("");
+      setShowInviteForm(false);
+      reloadInvitations();
+    } catch (e) {
+      setInviteError(e instanceof Error ? e.message : "Failed to send invite.");
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const handleRevokeInvitation = async (invitationId: number) => {
+    try {
+      await apiPost(`/api/v1/tenants/${tenantId}/invitations/${invitationId}/revoke`, {}, token);
+      reloadInvitations();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to revoke invitation.");
+    }
+  };
+
+  const handleResendInvitation = async (invitationId: number) => {
+    try {
+      await apiPost(`/api/v1/tenants/${tenantId}/invitations/${invitationId}/resend`, {}, token);
+      reloadInvitations();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to resend invitation.");
+    }
+  };
+
   const status = detail?.status as TenantStatus | undefined;
 
+  const timezoneOptions = timezones;
+
   return (
-    <SlideOver open={open} onClose={onClose}>
+    <SlideOver open={open} onClose={onClose} width={width}>
       <SlideOverHeader
-        title={loading ? "Loading…" : (detail?.name ?? "Tenant")}
-        badge={detail && <StatusBadge status={detail.status as TenantStatus} />}
+        title={loading ? "Loading…" : editing ? "Edit Tenant" : (detail?.name ?? "Tenant")}
+        badge={detail && !editing ? <StatusBadge status={detail.status as TenantStatus} /> : undefined}
+        onBack={editing ? handleCancelEdit : onClose}
         onClose={onClose}
+        actions={!loading && detail && !editing ? (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setEditing(true)}
+              title="Edit tenant"
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z" />
+              </svg>
+            </button>
+            {status === "ACTIVE" && (
+              <button
+                onClick={() => setShowSuspendForm((v) => !v)}
+                title="Suspend tenant"
+                className="p-1.5 rounded-lg transition-colors"
+                style={{ color: showSuspendForm ? "#dc2626" : "#9ca3af" }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" /><line x1="10" x2="10" y1="15" y2="9" /><line x1="14" x2="14" y1="15" y2="9" />
+                </svg>
+              </button>
+            )}
+            {status === "SUSPENDED" && (
+              <>
+                <button
+                  onClick={handleActivate}
+                  disabled={actionLoading}
+                  title="Reactivate tenant"
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setShowArchiveForm((v) => !v)}
+                  title="Archive tenant"
+                  className="p-1.5 rounded-lg transition-colors"
+                  style={{ color: showArchiveForm ? "#6b7280" : "#9ca3af" }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="21 8 21 21 3 21 3 8" /><rect width="22" height="5" x="1" y="3" /><line x1="10" x2="14" y1="12" y2="12" />
+                  </svg>
+                </button>
+              </>
+            )}
+          </div>
+        ) : undefined}
       />
 
       <div className="flex-1 overflow-y-auto">
@@ -752,167 +992,488 @@ function TenantSidebar({
             <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">{error}</div>
           </SlideOverSection>
         ) : detail ? (
-          <>
-            <SlideOverSection>
-              <SlideOverField label="Email">{detail.companyEmail}</SlideOverField>
-              <SlideOverField label="Timezone">{detail.timezone}</SlideOverField>
-              <SlideOverField label="ID / Slug">#{detail.id} · {detail.slug}</SlideOverField>
-              <SlideOverField label="Created at">{formatDate(detail.createdAt)}</SlideOverField>
-            </SlideOverSection>
+          <div key={editing ? "edit" : "detail"} style={{ animation: "slide-in-from-right 0.2s cubic-bezier(0.25,0.46,0.45,0.94) both" }}>
+            {!editing && (
+              <SlideOverSection>
+                <SlideOverField label="Email">{detail.companyEmail}</SlideOverField>
+                <SlideOverField label="Timezone">{detail.timezone}</SlideOverField>
+                <SlideOverField label="ID / Slug">#{detail.id} · {detail.slug}</SlideOverField>
+                <SlideOverField label="Created at">{formatDate(detail.createdAt)}</SlideOverField>
+              </SlideOverSection>
+            )}
 
-            <SlideOverSection title="Current Plan">
-              {detail.activePlan ? (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-bold text-gray-900">{detail.activePlan.planName}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {detail.activePlan.currency} {detail.activePlan.effectivePrice?.toLocaleString()}
-                        {cadenceLabel[detail.activePlan.billingCadence] ?? ""}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setEditingPlan(!editingPlan)}
-                      className="text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors"
-                      style={{ color: "var(--primary)", border: "1px solid var(--primary)" }}
-                    >
-                      {editingPlan ? "Cancel" : "Edit"}
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-400">
-                    {new Date(detail.activePlan.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                    {" → "}
-                    {new Date(detail.activePlan.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                  </p>
-                  {editingPlan && (
-                    <div className="mt-3 pt-3 space-y-3" style={{ borderTop: "1px solid var(--border)" }}>
-                      <select
-                        value={selectedPlanId ?? ""}
-                        onChange={(e) => setSelectedPlanId(e.target.value ? Number(e.target.value) : null)}
-                        className="w-full text-sm px-3 py-2.5 rounded-lg outline-none"
-                        style={{ border: "1px solid var(--border)", backgroundColor: "#fafafa" }}
-                      >
-                        <option value="">— Select a plan —</option>
-                        {plans.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} ({p.currency} {p.price}{cadenceLabel[p.billingCadence] ?? ""})
-                          </option>
-                        ))}
-                      </select>
-                      {selectedPlan && (
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">{selectedPlan.currency}</span>
-                          <input
-                            type="number"
-                            value={customPrice}
-                            onChange={(e) => setCustomPrice(e.target.value)}
-                            placeholder={`Default: ${selectedPlan.price}`}
-                            className="w-full text-sm pl-11 pr-3 py-2.5 rounded-lg outline-none"
-                            style={{ border: "1px solid var(--border)", backgroundColor: "#fafafa" }}
-                          />
-                        </div>
-                      )}
+            {editing && (
+              <div className="px-6 py-5 space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Company Name</label>
+                  <input
+                    value={editForm.name}
+                    onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
+                    className="w-full text-sm px-3 py-2 rounded-lg outline-none"
+                    style={{ border: "1px solid var(--border)", backgroundColor: "#fff" }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Email</label>
+                  <input
+                    value={editForm.email}
+                    onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))}
+                    className="w-full text-sm px-3 py-2 rounded-lg outline-none"
+                    style={{ border: "1px solid var(--border)", backgroundColor: "#fff" }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Timezone</label>
+                  <select
+                    value={editForm.timezone}
+                    onChange={(e) => setEditForm((p) => ({ ...p, timezone: e.target.value }))}
+                    className="w-full text-sm px-3 py-2 rounded-lg outline-none"
+                    style={{ border: "1px solid var(--border)", backgroundColor: "#fff" }}
+                  >
+                    {timezoneOptions.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
+                  </select>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={handleCancelEdit}
+                    disabled={actionLoading}
+                    className="flex-1 py-2.5 text-sm font-semibold rounded-lg transition-colors"
+                    style={{ border: "1px solid var(--border)", color: "#4b4b4b" }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveEdit}
+                    disabled={actionLoading || !editForm.name || !editForm.email}
+                    className="flex-1 py-2.5 text-sm font-semibold rounded-lg text-white transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
+                    style={{ backgroundColor: "var(--primary)", opacity: actionLoading ? 0.7 : 1 }}
+                  >
+                    {actionLoading && (
+                      <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                      </svg>
+                    )}
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!editing && (
+              <SlideOverSection title="Current Plan">
+                {detail.activePlan ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-gray-900">{detail.activePlan.planName}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {detail.activePlan.currency} {detail.activePlan.effectivePrice?.toLocaleString()}
+                          {cadenceLabel[detail.activePlan.billingCadence] ?? ""}
+                        </p>
+                      </div>
                       <button
-                        onClick={handleAssign}
-                        disabled={!selectedPlanId || assigning}
-                        className="w-full py-2.5 text-sm font-semibold rounded-lg text-white flex items-center justify-center gap-2"
-                        style={{ backgroundColor: "var(--primary)", opacity: !selectedPlanId || assigning ? 0.5 : 1 }}
+                        onClick={() => setEditingPlan(!editingPlan)}
+                        className="text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                        style={{ color: "var(--primary)", border: "1px solid var(--primary)" }}
                       >
-                        {assigning && (
-                          <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                          </svg>
-                        )}
-                        Save Plan
+                        {editingPlan ? "Cancel" : "Edit"}
                       </button>
                     </div>
-                  )}
-                </div>
-              ) : (
-                <div>
-                  <p className="text-sm text-gray-400 italic mb-3">No plan assigned</p>
-                  {editingPlan ? (
-                    <div className="space-y-3">
-                      <select
-                        value={selectedPlanId ?? ""}
-                        onChange={(e) => setSelectedPlanId(e.target.value ? Number(e.target.value) : null)}
-                        className="w-full text-sm px-3 py-2.5 rounded-lg outline-none"
-                        style={{ border: "1px solid var(--border)", backgroundColor: "#fafafa" }}
-                      >
-                        <option value="">— Select a plan —</option>
-                        {plans.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} ({p.currency} {p.price}{cadenceLabel[p.billingCadence] ?? ""})
-                          </option>
-                        ))}
-                      </select>
-                      {selectedPlan && (
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">{selectedPlan.currency}</span>
-                          <input
-                            type="number"
-                            value={customPrice}
-                            onChange={(e) => setCustomPrice(e.target.value)}
-                            placeholder={`Default: ${selectedPlan.price}`}
-                            className="w-full text-sm pl-11 pr-3 py-2.5 rounded-lg outline-none"
-                            style={{ border: "1px solid var(--border)", backgroundColor: "#fafafa" }}
-                          />
-                        </div>
-                      )}
-                      <button
-                        onClick={handleAssign}
-                        disabled={!selectedPlanId || assigning}
-                        className="w-full py-2.5 text-sm font-semibold rounded-lg text-white flex items-center justify-center gap-2"
-                        style={{ backgroundColor: "var(--primary)", opacity: !selectedPlanId || assigning ? 0.5 : 1 }}
-                      >
-                        {assigning && (
-                          <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                          </svg>
+                    <p className="text-xs text-gray-400">
+                      {new Date(detail.activePlan.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      {" → "}
+                      {new Date(detail.activePlan.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </p>
+                    {editingPlan && (
+                      <div className="mt-3 pt-3 space-y-3" style={{ borderTop: "1px solid var(--border)" }}>
+                        <select
+                          value={selectedPlanId ?? ""}
+                          onChange={(e) => setSelectedPlanId(e.target.value ? Number(e.target.value) : null)}
+                          className="w-full text-sm px-3 py-2.5 rounded-lg outline-none"
+                          style={{ border: "1px solid var(--border)", backgroundColor: "#fafafa" }}
+                        >
+                          <option value="">— Select a plan —</option>
+                          {plans.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name} ({p.currency} {p.price}{cadenceLabel[p.billingCadence] ?? ""})
+                            </option>
+                          ))}
+                        </select>
+                        {selectedPlan && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setShowCustomPrice(!showCustomPrice)}
+                              className="w-full flex items-center justify-between text-sm font-medium text-gray-700 py-1"
+                            >
+                              <span>Set custom price?</span>
+                              <svg
+                                width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+                                strokeLinecap="round" strokeLinejoin="round"
+                                style={{ transform: showCustomPrice ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}
+                              >
+                                <path d="m6 9 6 6 6-6" />
+                              </svg>
+                            </button>
+                            {showCustomPrice && (
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">{selectedPlan.currency}</span>
+                                <input
+                                  type="number"
+                                  value={customPrice}
+                                  onChange={(e) => setCustomPrice(e.target.value)}
+                                  placeholder={`Default: ${selectedPlan.price}`}
+                                  className="w-full text-sm pl-11 pr-3 py-2.5 rounded-lg outline-none"
+                                  style={{ border: "1px solid var(--border)", backgroundColor: "#fafafa" }}
+                                />
+                              </div>
+                            )}
+                          </>
                         )}
+                        <button
+                          onClick={handleAssign}
+                          disabled={!selectedPlanId || assigning}
+                          className="w-full py-2.5 text-sm font-semibold rounded-lg text-white flex items-center justify-center gap-2"
+                          style={{ backgroundColor: "var(--primary)", opacity: !selectedPlanId || assigning ? 0.5 : 1 }}
+                        >
+                          {assigning && (
+                            <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                            </svg>
+                          )}
+                          Save Plan
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-gray-400 italic mb-3">No plan assigned</p>
+                    {editingPlan ? (
+                      <div className="space-y-3">
+                        <select
+                          value={selectedPlanId ?? ""}
+                          onChange={(e) => setSelectedPlanId(e.target.value ? Number(e.target.value) : null)}
+                          className="w-full text-sm px-3 py-2.5 rounded-lg outline-none"
+                          style={{ border: "1px solid var(--border)", backgroundColor: "#fafafa" }}
+                        >
+                          <option value="">— Select a plan —</option>
+                          {plans.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name} ({p.currency} {p.price}{cadenceLabel[p.billingCadence] ?? ""})
+                            </option>
+                          ))}
+                        </select>
+                        {selectedPlan && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setShowCustomPrice(!showCustomPrice)}
+                              className="w-full flex items-center justify-between text-sm font-medium text-gray-700 py-1"
+                            >
+                              <span>Set custom price?</span>
+                              <svg
+                                width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+                                strokeLinecap="round" strokeLinejoin="round"
+                                style={{ transform: showCustomPrice ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}
+                              >
+                                <path d="m6 9 6 6 6-6" />
+                              </svg>
+                            </button>
+                            {showCustomPrice && (
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">{selectedPlan.currency}</span>
+                                <input
+                                  type="number"
+                                  value={customPrice}
+                                  onChange={(e) => setCustomPrice(e.target.value)}
+                                  placeholder={`Default: ${selectedPlan.price}`}
+                                  className="w-full text-sm pl-11 pr-3 py-2.5 rounded-lg outline-none"
+                                  style={{ border: "1px solid var(--border)", backgroundColor: "#fafafa" }}
+                                />
+                              </div>
+                            )}
+                          </>
+                        )}
+                        <button
+                          onClick={handleAssign}
+                          disabled={!selectedPlanId || assigning}
+                          className="w-full py-2.5 text-sm font-semibold rounded-lg text-white flex items-center justify-center gap-2"
+                          style={{ backgroundColor: "var(--primary)", opacity: !selectedPlanId || assigning ? 0.5 : 1 }}
+                        >
+                          {assigning && (
+                            <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                            </svg>
+                          )}
+                          Assign Plan
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setEditingPlan(true)}
+                        className="text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                        style={{ color: "var(--primary)", border: "1px solid var(--primary)" }}
+                      >
                         Assign Plan
                       </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setEditingPlan(true)}
-                      className="text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors"
-                      style={{ color: "var(--primary)", border: "1px solid var(--primary)" }}
-                    >
-                      Assign Plan
-                    </button>
-                  )}
-                </div>
-              )}
-            </SlideOverSection>
+                    )}
+                  </div>
+                )}
+              </SlideOverSection>
+            )}
 
-            <div className="px-6 py-4 flex gap-3 flex-wrap" style={{ borderBottom: "1px solid var(--border)" }}>
-              {status === "ACTIVE" && (
-                <button
-                  onClick={onSuspend}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-                  style={{ border: "1px solid #fecaca", color: "#dc2626", backgroundColor: "#fff5f5" }}
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10" /><line x1="10" x2="10" y1="15" y2="9" /><line x1="14" x2="14" y1="15" y2="9" />
-                  </svg>
-                  Suspend tenant
-                </button>
-              )}
-              {status === "SUSPENDED" && (
-                <button
-                  onClick={onActivate}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-                  style={{ border: "1px solid #bbf7d0", color: "#16a34a", backgroundColor: "#f0fdf4" }}
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polygon points="5 3 19 12 5 21 5 3" />
-                  </svg>
-                  Reactivate tenant
-                </button>
-              )}
-            </div>
-          </>
+
+            {showSuspendForm && (
+              <div className="px-6 py-5 space-y-3" style={{ borderBottom: "1px solid var(--border)" }}>
+                <p className="text-sm font-semibold text-gray-700">Suspend {detail.name}?</p>
+                <textarea
+                  value={suspendReason}
+                  onChange={(e) => setSuspendReason(e.target.value)}
+                  placeholder="Reason for suspension (optional)"
+                  rows={2}
+                  className="w-full text-sm px-3 py-2 rounded-lg outline-none resize-none"
+                  style={{ border: "1px solid var(--border)", backgroundColor: "#fff" }}
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => { setShowSuspendForm(false); setSuspendReason(""); }}
+                    disabled={actionLoading}
+                    className="flex-1 py-2 text-sm font-semibold rounded-lg transition-colors"
+                    style={{ border: "1px solid var(--border)", color: "#4b4b4b" }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSuspend}
+                    disabled={actionLoading}
+                    className="flex-1 py-2 text-sm font-semibold rounded-lg text-white transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
+                    style={{ backgroundColor: "#dc2626", opacity: actionLoading ? 0.7 : 1 }}
+                  >
+                    {actionLoading && (
+                      <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                      </svg>
+                    )}
+                    Confirm Suspend
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {showArchiveForm && (
+              <div className="px-6 py-5 space-y-3" style={{ borderBottom: "1px solid var(--border)" }}>
+                <p className="text-sm font-semibold text-gray-700">Archive {detail.name}?</p>
+                <p className="text-xs text-gray-400">This is a permanent state. The tenant cannot be reactivated.</p>
+                <textarea
+                  value={archiveReason}
+                  onChange={(e) => setArchiveReason(e.target.value)}
+                  placeholder="Reason for archival (optional)"
+                  rows={2}
+                  className="w-full text-sm px-3 py-2 rounded-lg outline-none resize-none"
+                  style={{ border: "1px solid var(--border)", backgroundColor: "#fff" }}
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => { setShowArchiveForm(false); setArchiveReason(""); }}
+                    disabled={actionLoading}
+                    className="flex-1 py-2 text-sm font-semibold rounded-lg transition-colors"
+                    style={{ border: "1px solid var(--border)", color: "#4b4b4b" }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleArchive}
+                    disabled={actionLoading}
+                    className="flex-1 py-2 text-sm font-semibold rounded-lg text-white transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
+                    style={{ backgroundColor: "#6b7280", opacity: actionLoading ? 0.7 : 1 }}
+                  >
+                    {actionLoading && (
+                      <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                      </svg>
+                    )}
+                    Confirm Archive
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!editing && (
+              <SlideOverSection title="Users">
+                {users.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">No users yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {users.map((u) => {
+                      const roleColor: Record<string, string> = {
+                        TENANT_ADMIN: "var(--primary)",
+                        TENANT_USER:  "#6b7280",
+                        SUPER_ADMIN:  "#7c3aed",
+                      };
+                      const statusColor: Record<string, string> = {
+                        ACTIVE:    "#24A37D",
+                        INACTIVE:  "#9ca3af",
+                        SUSPENDED: "#ef4444",
+                      };
+                      return (
+                        <div key={u.id} className="flex items-center gap-3 rounded-lg px-3 py-2.5" style={{ backgroundColor: "#fff", border: "1px solid var(--border)" }}>
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white" style={{ backgroundColor: roleColor[u.role] ?? "#6b7280" }}>
+                            {(u.fullName ?? u.email).charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-800 truncate">{u.fullName ?? <span className="italic text-gray-400">No name</span>}</p>
+                            <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                          </div>
+                          <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                            <span className="text-xs font-medium" style={{ color: roleColor[u.role] ?? "#6b7280" }}>
+                              {u.role.replace("TENANT_", "")}
+                            </span>
+                            <span className="text-xs" style={{ color: statusColor[u.status] ?? "#9ca3af" }}>
+                              {u.status.toLowerCase()}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </SlideOverSection>
+            )}
+
+            {!editing && (
+              <SlideOverSection title="Invitations">
+                {inviteSuccess && (
+                  <div className="mb-3 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                    {inviteSuccess}
+                  </div>
+                )}
+                {inviteError && (
+                  <div className="mb-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                    {inviteError}
+                  </div>
+                )}
+
+                {status === "ACTIVE" && (
+                  <>
+                    {showInviteForm ? (
+                      <div className="mb-4 space-y-2" style={{ animation: "fade-in-up 0.15s ease-out both" }}>
+                        <div className="flex gap-1.5 p-1 rounded-lg" style={{ backgroundColor: "var(--border)" }}>
+                          {(["user", "admin"] as const).map((r) => (
+                            <button
+                              key={r}
+                              type="button"
+                              onClick={() => setInviteRole(r)}
+                              className="flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors capitalize"
+                              style={inviteRole === r
+                                ? { backgroundColor: "#fff", color: "var(--primary)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }
+                                : { color: "#6b7280" }}
+                            >
+                              {r === "admin" ? "Admin" : "User"}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            type="email"
+                            value={inviteEmail}
+                            onChange={(e) => setInviteEmail(e.target.value)}
+                            placeholder={`${inviteRole === "admin" ? "admin" : "user"}@company.com`}
+                            autoFocus
+                            className="flex-1 text-sm px-3 py-2 rounded-lg outline-none"
+                            style={{ border: "1px solid var(--border)", backgroundColor: "#fff" }}
+                            onKeyDown={(e) => e.key === "Enter" && handleSendInvite()}
+                          />
+                          <button
+                            onClick={handleSendInvite}
+                            disabled={inviting || !inviteEmail.trim()}
+                            className="px-3 py-2 text-sm font-semibold rounded-lg text-white flex items-center gap-1.5 flex-shrink-0"
+                            style={{ backgroundColor: "var(--primary)", opacity: inviting || !inviteEmail.trim() ? 0.6 : 1 }}
+                          >
+                            {inviting ? (
+                              <svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                              </svg>
+                            ) : "Send"}
+                          </button>
+                          <button
+                            onClick={() => { setShowInviteForm(false); setInviteEmail(""); setInviteError(null); }}
+                            className="px-2 py-2 text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M18 6 6 18M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2 mb-4">
+                        {(["user", "admin"] as const).map((r) => (
+                          <button
+                            key={r}
+                            onClick={() => { setInviteRole(r); setShowInviteForm(true); setInviteSuccess(null); }}
+                            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors capitalize"
+                            style={{ color: "var(--primary)", border: "1px solid var(--primary)" }}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 5v14M5 12h14" />
+                            </svg>
+                            Invite {r === "admin" ? "Admin" : "User"}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {invitations.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">No invitations yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {invitations.map((inv) => {
+                      const isPending = inv.status === "PENDING";
+                      const statusColor: Record<string, string> = {
+                        PENDING: "#e8a020", ACCEPTED: "#24A37D", REVOKED: "#6b7280", EXPIRED: "#ef4444",
+                      };
+                      return (
+                        <div key={inv.id} className="rounded-lg px-3 py-2.5" style={{ backgroundColor: "#fff", border: "1px solid var(--border)" }}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-gray-800 truncate">{inv.email}</p>
+                              <p className="text-xs text-gray-400 mt-0.5">
+                                {inv.role.replace("_", " ")} ·{" "}
+                                <span style={{ color: statusColor[inv.status] ?? "#6b7280" }}>{inv.status}</span>
+                              </p>
+                            </div>
+                            {isPending && (
+                              <div className="flex gap-1.5 flex-shrink-0">
+                                <button
+                                  onClick={() => handleResendInvitation(inv.id)}
+                                  title="Resend"
+                                  className="text-xs px-2 py-1 rounded font-medium transition-colors"
+                                  style={{ color: "var(--primary)", border: "1px solid var(--primary)" }}
+                                >
+                                  Resend
+                                </button>
+                                <button
+                                  onClick={() => handleRevokeInvitation(inv.id)}
+                                  title="Revoke"
+                                  className="text-xs px-2 py-1 rounded font-medium transition-colors"
+                                  style={{ color: "#dc2626", border: "1px solid #fecaca" }}
+                                >
+                                  Revoke
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </SlideOverSection>
+            )}
+          </div>
         ) : null}
       </div>
     </SlideOver>
@@ -1020,6 +1581,7 @@ export default function TenantsPage() {
     try {
       const updated = await apiPost<ApiTenant>(`/api/v1/tenants/${t.id}/suspend`, { reason: "" }, token);
       setData((prev) => prev.map((x) => (x.id === t.id ? mapTenant(updated) : x)));
+      if (sidebarTenantId === t.id) setSidebarTenantId(null);
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to suspend tenant");
     }
@@ -1030,10 +1592,10 @@ export default function TenantsPage() {
     try {
       const updated = await apiPost<ApiTenant>(`/api/v1/tenants/${t.id}/reactivate`, {}, token);
       setData((prev) => prev.map((x) => (x.id === t.id ? mapTenant(updated) : x)));
+      if (sidebarTenantId === t.id) setSidebarTenantId(null);
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to reactivate tenant");
     }
-    return;
   };
 
   const statCards = [
@@ -1060,12 +1622,12 @@ export default function TenantsPage() {
       </div>
 
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center p-0.5 rounded-lg gap-0.5" style={{ backgroundColor: "var(--border)" }}>
           {(["ALL", "ACTIVE", "SUSPENDED"] as const).map((s) => (
-            <button key={s} onClick={() => setFilterStatus(s)} className="text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            <button key={s} onClick={() => setFilterStatus(s)} className="text-xs font-semibold px-3 py-1.5 rounded-md transition-colors"
               style={filterStatus === s
-                ? { backgroundColor: "var(--nav-active)", color: "var(--primary)", border: "1px solid var(--primary)" }
-                : { border: "1px solid var(--border)", backgroundColor: "#fef7fa", color: "#4b4b4b" }}>
+                ? { backgroundColor: "#fff", color: "var(--primary)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }
+                : { color: "#6b7280" }}>
               {s === "ALL" ? "All" : s === "ACTIVE" ? "Active" : "Suspended"}
             </button>
           ))}
@@ -1122,24 +1684,15 @@ export default function TenantsPage() {
         />
       )}
 
-      {token && sidebarTenantId !== null && (
-        <TenantSidebar
-          tenantId={sidebarTenantId}
-          open={sidebarTenantId !== null}
-          token={token}
-          plans={plans}
-          onClose={() => setSidebarTenantId(null)}
-          onSuspend={() => {
-            const t = data.find((x) => x.id === sidebarTenantId);
-            if (t) handleSuspend(t).then(() => setSidebarTenantId(null));
-          }}
-          onActivate={() => {
-            const t = data.find((x) => x.id === sidebarTenantId);
-            if (t) handleActivate(t).then(() => setSidebarTenantId(null));
-          }}
-          onPlanAssigned={handlePlanAssigned}
-        />
-      )}
+      <TenantSidebar
+        tenantId={sidebarTenantId ?? 0}
+        open={!!token && sidebarTenantId !== null}
+        token={token ?? ""}
+        plans={plans}
+        onClose={() => setSidebarTenantId(null)}
+        onDataChange={handlePlanAssigned}
+        width="50vw"
+      />
     </div>
   );
 }
