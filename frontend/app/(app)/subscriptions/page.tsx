@@ -5,6 +5,7 @@ import { useAuthStore } from "@/store/authStore";
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import SlideOver, { SlideOverField } from "@/components/SlideOver";
 import { cadenceLabel } from "@/lib/cadence";
+import SearchSelect, { SearchOption } from "@/components/SearchSelect";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -34,14 +35,24 @@ type SpringPage<T> = {
   page: { totalElements: number; totalPages: number };
 };
 
+type HistoryEntry = {
+  id: number;
+  actorEmail: string;
+  action: string;
+  oldValue: string | null;
+  newValue: string | null;
+  createdAt: string;
+};
+
 type AssignForm = {
-  customerId: string;
-  productId:  string;
-  planId:     string;
-  customPrice: string;
-  startsAt:   string;
-  endsAt:     string;
-  notes:      string;
+  customerId:   string;
+  customerName: string;
+  productId:    string;
+  planId:       string;
+  customPrice:  string;
+  startsAt:     string;
+  endsAt:       string;
+  notes:        string;
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -66,6 +77,18 @@ function todayInput() {
   return new Date().toISOString().slice(0, 10);
 }
 
+const ACTION_LABEL: Record<string, string> = {
+  CREATE:        "Created",
+  UPDATE:        "Updated",
+  STATUS_CHANGE: "Status changed",
+  DELETE:        "Deleted",
+};
+
+function parseStatus(json: string | null): string | null {
+  if (!json) return null;
+  try { return (JSON.parse(json) as { status?: string }).status ?? null; } catch { return null; }
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<string, { bg: string; color: string }> = {
@@ -88,25 +111,32 @@ const inputStyle = { border: "1px solid var(--border)", backgroundColor: "#fff" 
 const labelCls   = "block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1";
 
 type AssignFormFieldsProps = {
-  form:         AssignForm;
-  onChange:     (k: keyof AssignForm, v: string) => void;
-  customers:    CustomerOption[];
-  products:     ProductOption[];
-  plans:        PlanOption[];
-  plansLoading: boolean;
-  error:        string | null;
+  form:              AssignForm;
+  onChange:          (k: keyof AssignForm, v: string) => void;
+  onSearchCustomers: (q: string) => Promise<SearchOption[]>;
+  products:          ProductOption[];
+  plans:             PlanOption[];
+  plansLoading:      boolean;
+  onCreatePlan:      () => void;
+  error:             string | null;
 };
 
-function AssignFormFields({ form, onChange, customers, products, plans, plansLoading, error }: AssignFormFieldsProps) {
+function AssignFormFields({ form, onChange, onSearchCustomers, products, plans, plansLoading, onCreatePlan, error }: AssignFormFieldsProps) {
   const selectCls = `${inputCls} bg-white`;
   return (
     <div className="space-y-4">
       <div>
         <label className={labelCls}>Customer *</label>
-        <select className={selectCls} style={inputStyle} value={form.customerId} onChange={(e) => onChange("customerId", e.target.value)}>
-          <option value="">Select a customer…</option>
-          {customers.map((c) => <option key={c.id} value={String(c.id)}>{c.name} — {c.email}</option>)}
-        </select>
+        <SearchSelect
+          value={form.customerId}
+          displayValue={form.customerName}
+          placeholder="Search customers…"
+          onSearch={onSearchCustomers}
+          onSelect={(opt) => {
+            onChange("customerId", opt ? opt.id : "");
+            onChange("customerName", opt ? opt.primary : "");
+          }}
+        />
       </div>
       <div>
         <label className={labelCls}>Product *</label>
@@ -121,14 +151,19 @@ function AssignFormFields({ form, onChange, customers, products, plans, plansLoa
           {plansLoading ? (
             <p className="text-sm text-gray-400 py-2">Loading plans…</p>
           ) : (
-            <select className={selectCls} style={inputStyle} value={form.planId} onChange={(e) => onChange("planId", e.target.value)}>
-              <option value="">No plan — use product default price</option>
-              {plans.map((p) => (
-                <option key={p.id} value={String(p.id)}>
-                  {p.name} — {p.currency} {Number(p.price).toFixed(2)} / {cadenceLabel(p.billingCadence)}
-                </option>
-              ))}
-            </select>
+            <div className="flex gap-2">
+              <select className={selectCls} style={inputStyle} value={form.planId} onChange={(e) => onChange("planId", e.target.value)}>
+                <option value="">No plan — use product default price</option>
+                {plans.map((p) => (
+                  <option key={p.id} value={String(p.id)}>
+                    {p.name} — {p.currency} {Number(p.price).toFixed(2)} / {cadenceLabel(p.billingCadence)}
+                  </option>
+                ))}
+              </select>
+              <button type="button" onClick={onCreatePlan} className="flex-shrink-0 px-3 py-2 rounded-lg text-sm font-semibold text-white whitespace-nowrap" style={{ backgroundColor: "var(--primary)" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -157,7 +192,7 @@ function AssignFormFields({ form, onChange, customers, products, plans, plansLoa
 
 const STATUS_FILTERS = ["ALL", "ACTIVE", "PAUSED", "CANCELLED"] as const;
 const PAGE_SIZE = 20;
-const EMPTY_ASSIGN: AssignForm = { customerId: "", productId: "", planId: "", customPrice: "", startsAt: todayInput(), endsAt: "", notes: "" };
+const EMPTY_ASSIGN: AssignForm = { customerId: "", customerName: "", productId: "", planId: "", customPrice: "", startsAt: todayInput(), endsAt: "", notes: "" };
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -191,13 +226,20 @@ export default function SubscriptionsPage() {
   // Assign panel
   const [assigning,  setAssigning]  = useState(false);
   const [assignForm, setAssignForm] = useState<AssignForm>(EMPTY_ASSIGN);
-  const [customers,  setCustomers]  = useState<CustomerOption[]>([]);
   const [products,   setProducts]   = useState<ProductOption[]>([]);
   const [plans,      setPlans]      = useState<PlanOption[]>([]);
   const [plansLoading, setPlansLoading] = useState(false);
 
   const [saving,    setSaving]    = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Plan creation dialog
+  const [planCreateOpen, setPlanCreateOpen] = useState(false);
+  const [planCreateClosing, setPlanCreateClosing] = useState(false);
+  const [newPlanName, setNewPlanName] = useState("");
+  const [newPlanPrice, setNewPlanPrice] = useState("");
+  const [newPlanCadence, setNewPlanCadence] = useState("MONTHLY");
+  const [newPlanCurrency, setNewPlanCurrency] = useState("USD");
 
   // ── Load list ────────────────────────────────────────────────────────────
 
@@ -227,13 +269,19 @@ export default function SubscriptionsPage() {
 
   // ── Assign form helpers ──────────────────────────────────────────────────
 
+  const searchCustomers = async (q: string): Promise<SearchOption[]> => {
+    if (!token || !tid) return [];
+    const params = new URLSearchParams({ size: "10", status: "ACTIVE" });
+    if (q.trim()) params.set("search", q.trim());
+    const d = await apiGet<SpringPage<CustomerOption>>(`/api/v1/tenants/${tid}/customers?${params}`, token);
+    return d.content.map((c) => ({ id: String(c.id), primary: c.name, secondary: c.email }));
+  };
+
   const openAssign = () => {
     setAssigning(true); setSelected(null); setEditing(false);
     setAssignForm({ ...EMPTY_ASSIGN, startsAt: todayInput() });
     setFormError(null);
     if (!token || !tid) return;
-    apiGet<SpringPage<CustomerOption>>(`/api/v1/tenants/${tid}/customers?size=200&status=ACTIVE`, token)
-      .then((d) => setCustomers(d.content)).catch(() => {});
     apiGet<SpringPage<ProductOption>>(`/api/v1/tenants/${tid}/products?size=200&status=ACTIVE`, token)
       .then((d) => setProducts(d.content)).catch(() => {});
   };
@@ -272,10 +320,49 @@ export default function SubscriptionsPage() {
     finally { setSaving(false); }
   };
 
+  const createPlan = async () => {
+    if (!token || !tid || !assignForm.productId) return;
+    if (!newPlanName.trim() || !newPlanPrice) { setFormError("Name and price are required."); return; }
+    setSaving(true); setFormError(null);
+    try {
+      const created = await apiPost<PlanOption>(`/api/v1/tenants/${tid}/products/${assignForm.productId}/plans`, {
+        name: newPlanName.trim(), price: Number(newPlanPrice),
+        currency: newPlanCurrency, billingCadence: newPlanCadence,
+      }, token);
+      setPlanCreateClosing(true);
+      setTimeout(() => { setPlanCreateOpen(false); setPlanCreateClosing(false); setFormError(null); }, 160);
+      const updated = await apiGet<PlanOption[]>(`/api/v1/tenants/${tid}/products/${assignForm.productId}/plans`, token);
+      setPlans(updated);
+      setAssignForm((prev) => ({ ...prev, planId: String(created.id) }));
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : "Failed to create plan.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── History ──────────────────────────────────────────────────────────────
+
+  const [history, setHistory]         = useState<HistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const loadHistory = (sub: Subscription) => {
+    if (!token || !isAdmin) return;
+    setHistoryLoading(true);
+    apiGet<SpringPage<HistoryEntry>>(
+      `/api/v1/audit-logs/tenant?resourceTypes=CUSTOMER_PRODUCT&resourceId=${sub.id}&size=50&sort=createdAt,desc`,
+      token
+    )
+      .then((d) => setHistory(d.content))
+      .catch(() => setHistory([]))
+      .finally(() => setHistoryLoading(false));
+  };
+
   // ── Detail / edit helpers ────────────────────────────────────────────────
 
   const openDetail = (row: Subscription) => {
     setSelected(row); setEditing(false); setAssigning(false); setFormError(null);
+    setHistory([]); loadHistory(row);
   };
 
   const startEdit = () => {
@@ -390,7 +477,7 @@ export default function SubscriptionsPage() {
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(0); load(filter, e.target.value, 0); }}
               className="w-full text-sm pl-9 pr-3 py-2 rounded-lg outline-none"
-              style={{ border: "1px solid var(--border)", backgroundColor: "var(--bg-card)" }}
+              style={{ border: "1px solid var(--border)", backgroundColor: "#eceeec" }}
             />
           </div>
         </div>
@@ -414,7 +501,7 @@ export default function SubscriptionsPage() {
             <table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr style={{ backgroundColor: "var(--bg-card)", borderBottom: "1px solid var(--border)" }}>
-                  {["Customer", "Product / Plan", "Amount", "Period", "Status", ""].map((h) => (
+                  {["Customer", "Product / Plan", "Amount", "Start date", "End date", "Status", ""].map((h) => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -424,7 +511,7 @@ export default function SubscriptionsPage() {
                   <tr
                     key={row.id}
                     className="group cursor-pointer hover:bg-[#eef3ee] transition-colors"
-                    style={{ borderTop: "1px solid var(--border)", backgroundColor: selected?.id === row.id ? "#eef3ee" : "#f8faf8", animation: "fade-in 0.12s ease-out both", animationDelay: `${i * 15}ms` }}
+                    style={{ borderTop: "1px solid var(--border)", backgroundColor: selected?.id === row.id ? "#eef3ee" : "#f8faf8", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms` }}
                     onClick={() => openDetail(row)}
                   >
                     <td className="px-4 py-3 font-medium text-gray-900">{row.customerName}</td>
@@ -435,9 +522,8 @@ export default function SubscriptionsPage() {
                     <td className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">
                       {row.currency} {Number(row.amount).toFixed(2)}
                     </td>
-                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                      {formatDate(row.startsAt)} → {row.endsAt ? formatDate(row.endsAt) : "∞"}
-                    </td>
+                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{formatDate(row.startsAt)}</td>
+                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{row.endsAt ? formatDate(row.endsAt) : <span className="text-gray-300">—</span>}</td>
                     <td className="px-4 py-3"><StatusBadge status={row.status} /></td>
                     <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                       <button onClick={() => openDetail(row)} className="text-gray-300 hover:text-gray-500 transition-colors p-1 rounded">
@@ -481,8 +567,10 @@ export default function SubscriptionsPage() {
             <div className="flex-1 overflow-y-auto px-6 py-5">
               <AssignFormFields
                 form={assignForm} onChange={handleAssignChange}
-                customers={customers} products={products}
+                onSearchCustomers={searchCustomers}
+                products={products}
                 plans={plans} plansLoading={plansLoading}
+                onCreatePlan={() => { setNewPlanName(""); setNewPlanPrice(""); setNewPlanCadence("MONTHLY"); setNewPlanCurrency(assignForm.planId ? plans.find(p => String(p.id) === assignForm.planId)?.currency ?? "USD" : "USD"); setFormError(null); setPlanCreateOpen(true); }}
                 error={formError}
               />
             </div>
@@ -492,8 +580,61 @@ export default function SubscriptionsPage() {
                 {saving ? "Assigning…" : "Assign"}
               </button>
             </div>
-          </>
-        )}
+
+              {/* Plan creation dialog */}
+              {(planCreateOpen || planCreateClosing) && (
+                <div
+                  className="absolute inset-0 z-10 flex items-center justify-center p-6"
+                  style={{ backgroundColor: "rgba(0,0,0,0.32)", backdropFilter: "blur(4px)", animation: `${planCreateClosing ? "fade-out 0.15s ease-out both" : "fade-in 0.15s ease-out both"}` }}
+                  onClick={() => { setPlanCreateClosing(true); setTimeout(() => { setPlanCreateOpen(false); setPlanCreateClosing(false); setFormError(null); }, 160); }}
+                >
+                  <div
+                    className="w-full rounded-2xl overflow-hidden"
+                    style={{ maxWidth: "360px", backgroundColor: "#fff", border: "1px solid var(--border)", boxShadow: "0 8px 40px rgba(0,0,0,0.12)", animation: planCreateClosing ? "dialog-out 0.15s ease-in both" : "dialog-in 0.18s cubic-bezier(0.34,1.56,0.64,1) both" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center justify-between px-5 pt-5 pb-4" style={{ borderBottom: "1px solid var(--border)" }}>
+                      <h3 className="text-base font-bold text-gray-900">Create plan</h3>
+                      <button onClick={() => { setPlanCreateClosing(true); setTimeout(() => { setPlanCreateOpen(false); setPlanCreateClosing(false); setFormError(null); }, 160); }} className="text-gray-400 hover:text-gray-600 transition-colors">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                      </button>
+                    </div>
+                    <div className="px-5 py-4 space-y-4">
+                      <div>
+                        <label className={labelCls}>Plan name *</label>
+                        <input className={inputCls} style={inputStyle} placeholder="e.g. Starter, Pro" value={newPlanName} onChange={(e) => setNewPlanName(e.target.value)} autoFocus />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Price *</label>
+                        <div className="flex items-center gap-2">
+                          <input className={`${inputCls} w-16 text-center`} style={inputStyle} placeholder="USD" value={newPlanCurrency} onChange={(e) => setNewPlanCurrency(e.target.value.toUpperCase())} maxLength={3} />
+                          <input type="number" min="0" step="0.01" className={`${inputCls} flex-1`} style={inputStyle} placeholder="0.00" value={newPlanPrice} onChange={(e) => setNewPlanPrice(e.target.value)} />
+                        </div>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Billing cadence</label>
+                        <div className="flex gap-2 flex-wrap mt-1">
+                          {["WEEKLY", "FORTNIGHT", "MONTHLY", "QUARTERLY", "ANNUALLY"].map((c) => (
+                            <button key={c} onClick={() => setNewPlanCadence(c)} className="text-xs px-3 py-1.5 rounded-md font-medium transition-all"
+                              style={newPlanCadence === c ? { backgroundColor: "var(--primary)", color: "#fff" } : { border: "1px solid var(--border)", color: "#6b7280" }}>
+                              {cadenceLabel(c)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {formError && <p className="text-sm text-red-600">{formError}</p>}
+                    </div>
+                    <div className="px-5 py-4 flex gap-3" style={{ borderTop: "1px solid var(--border)" }}>
+                      <button onClick={() => { setPlanCreateClosing(true); setTimeout(() => { setPlanCreateOpen(false); setPlanCreateClosing(false); setFormError(null); }, 160); }} className="flex-1 py-2 text-sm font-medium rounded-lg text-gray-600" style={{ border: "1px solid var(--border)" }}>Cancel</button>
+                      <button onClick={createPlan} disabled={saving || !newPlanName.trim() || !newPlanPrice} className="flex-1 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-60" style={{ backgroundColor: "var(--primary)" }}>
+                        {saving ? "Creating…" : "Create"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
 
         {/* ── Detail / edit ────────────────────────────────────────────────── */}
         {selected && (
@@ -545,21 +686,15 @@ export default function SubscriptionsPage() {
                   {/* Detail rows */}
                   <div className="px-6 py-2">
                     <SlideOverField label="Product">{selected.productName}</SlideOverField>
-                    {selected.productPlanName && (
-                      <SlideOverField label="Plan">{selected.productPlanName}</SlideOverField>
-                    )}
+                    {selected.productPlanName && <SlideOverField label="Plan">{selected.productPlanName}</SlideOverField>}
                     <SlideOverField label="Amount">
                       <span className="font-semibold">{selected.currency} {Number(selected.amount).toFixed(2)}</span>
                     </SlideOverField>
-                    <SlideOverField label="Starts">
-                      {formatDateTime(selected.startsAt)}
-                    </SlideOverField>
+                    <SlideOverField label="Starts">{formatDate(selected.startsAt)}</SlideOverField>
                     <SlideOverField label="Ends">
-                      {selected.endsAt ? formatDateTime(selected.endsAt) : <span className="text-gray-400">No end date</span>}
+                      {selected.endsAt ? formatDate(selected.endsAt) : <span className="text-gray-400">No end date</span>}
                     </SlideOverField>
-                    {selected.notes && (
-                      <SlideOverField label="Notes"><span className="text-gray-500 italic">{selected.notes}</span></SlideOverField>
-                    )}
+                    {selected.notes && <SlideOverField label="Notes"><span className="text-gray-500 italic">{selected.notes}</span></SlideOverField>}
                     <SlideOverField label="Created">{formatDateTime(selected.createdAt)}</SlideOverField>
                   </div>
 
@@ -596,6 +731,59 @@ export default function SubscriptionsPage() {
                           </button>
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* History */}
+                  {isAdmin && (
+                    <div className="px-6 pb-6 pt-2">
+                      <div style={{ borderTop: "1px solid var(--border)" }} className="pt-5">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">History</p>
+                        {historyLoading ? (
+                          <div className="flex items-center gap-2 text-sm text-gray-400 py-4">
+                            <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+                            Loading…
+                          </div>
+                        ) : history.length === 0 ? (
+                          <p className="text-sm text-gray-400 italic">No history found.</p>
+                        ) : (
+                          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr style={{ backgroundColor: "var(--bg-card)", borderBottom: "1px solid var(--border)" }}>
+                                  <th className="text-left px-3 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Action</th>
+                                  <th className="text-left px-3 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Detail</th>
+                                  <th className="text-left px-3 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">By</th>
+                                  <th className="text-left px-3 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Date</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {history.map((h, i) => {
+                                  const fromStatus = parseStatus(h.oldValue);
+                                  const toStatus   = parseStatus(h.newValue);
+                                  return (
+                                    <tr
+                                      key={h.id}
+                                      style={{ borderTop: "1px solid var(--border)", backgroundColor: "#f8faf8", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms` }}
+                                    >
+                                      <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">
+                                        {ACTION_LABEL[h.action] ?? h.action}
+                                      </td>
+                                      <td className="px-3 py-2.5 text-gray-500 text-xs">
+                                        {h.action === "STATUS_CHANGE" && fromStatus && toStatus
+                                          ? <span>{fromStatus.toLowerCase()} → <span className="font-medium text-gray-700">{toStatus.toLowerCase()}</span></span>
+                                          : "—"}
+                                      </td>
+                                      <td className="px-3 py-2.5 text-gray-500 text-xs truncate max-w-[120px]">{h.actorEmail}</td>
+                                      <td className="px-3 py-2.5 text-gray-500 text-xs whitespace-nowrap">{formatDateTime(h.createdAt)}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </>
