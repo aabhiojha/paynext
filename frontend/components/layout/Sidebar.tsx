@@ -19,6 +19,7 @@ const Icons = {
   plans: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="18" height="18"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>,
   audit: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="18" height="18"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="m12.7076 18.3639-1.4143 1.4142c-1.9526 1.9527-5.1184 1.9527-7.071 0-1.9526-1.9526-1.9526-5.1184 0-7.071l1.4142-1.4142m12.7279 1.4142 1.4142-1.4142c1.9526-1.9527 1.9526-5.1185 0-7.0711s-5.1184-1.9526-7.071 0L11.2933 5.636m-2.7928 9.8639 7-7" /></svg>,
   reminder: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="18" height="18"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9.3542 21c.7051.6224 1.6314 1 2.6458 1a3.984 3.984 0 0 0 2.6458-1M18 8A6 6 0 1 0 6 8c0 3.0902-.7795 5.206-1.6503 6.6054-.7346 1.1805-1.1018 1.7707-1.0884 1.9354.015.1823.0536.2518.2005.3608C3.5945 17 4.1926 17 5.3888 17h13.2224c1.1962 0 1.7944 0 1.927-.0984.147-.109.1856-.1785.2005-.3608.0135-.1647-.3538-.7549-1.0883-1.9354C18.7795 13.206 18 11.0902 18 8" /></svg>,
+  users: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="18" height="18"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm6 9 1.5 1.5L21 11" /></svg>,
   logout: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="16" height="16"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>,
 };
 
@@ -36,6 +37,7 @@ const tenantMainNav = [
   { label: "Customers",       href: "/customers",        icon: Icons.customers     },
   { label: "Subscriptions",   href: "/subscriptions",    icon: Icons.subscriptions },
   { label: "Products & Plans",href: "/products",         icon: Icons.products      },
+  { label: "Users",           href: "/users",            icon: Icons.users         },
   { label: "Audit Log",       href: "/audit-log",        icon: Icons.audit         },
 ];
 
@@ -55,7 +57,7 @@ function NavLink({
   return (
     <Link
       href={item.href}
-      className="flex items-center gap-3 px-3 py-2 rounded-sm text-sm font-medium mb-0.5 transition-colors hover:bg-[#e3eef2]"
+      className="flex items-center gap-3 px-2 py-1.5 rounded-sm text-sm font-medium mb-0.5 transition-colors hover:bg-[#e3eef2]"
       style={
         isActive
           ? { backgroundColor: "var(--nav-active)", color: "var(--nav-active-text)" }
