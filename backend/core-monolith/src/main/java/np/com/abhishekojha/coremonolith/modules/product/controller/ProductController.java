@@ -9,7 +9,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import np.com.abhishekojha.coremonolith.common.enums.ProductStatus;
-import np.com.abhishekojha.coremonolith.modules.subscription.dto.CustomerProductResponse;
+import np.com.abhishekojha.coremonolith.modules.subscription.dto.SubscriptionResponse;
 import np.com.abhishekojha.coremonolith.modules.subscription.service.CustomerProductService;
 import np.com.abhishekojha.coremonolith.modules.product.dto.CreateProductRequest;
 import np.com.abhishekojha.coremonolith.modules.product.dto.ProductResponse;
@@ -98,7 +98,7 @@ public class ProductController {
     @ApiResponse(responseCode = "200", description = "OK")
     @GetMapping("/{productId}/customers")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN', 'TENANT_USER')")
-    public ResponseEntity<Page<CustomerProductResponse>> listCustomers(
+    public ResponseEntity<Page<SubscriptionResponse>> listCustomers(
             @PathVariable Long tenantId,
             @PathVariable Long productId,
             @ParameterObject @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {

@@ -40,7 +40,7 @@ public class TenantInvitationController {
             @ApiResponse(responseCode = "409", description = "Pending invitation already exists for this email")
     })
     @PostMapping("/invite-user")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN', 'SUPER_ADMIN', 'TENANT_USER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<InvitationResponse> inviteUser(
             @PathVariable Long tenantId,
             @Valid @RequestBody InviteRequest req) {
@@ -54,7 +54,7 @@ public class TenantInvitationController {
             @ApiResponse(responseCode = "409", description = "Pending invitation already exists for this email")
     })
     @PostMapping("/invite-admin")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN')")
     public ResponseEntity<InvitationResponse> inviteAdmin(
             @PathVariable Long tenantId,
             @Valid @RequestBody InviteRequest req) {
@@ -64,7 +64,7 @@ public class TenantInvitationController {
     @Operation(summary = "List invitations for a tenant")
     @ApiResponse(responseCode = "200", description = "OK")
     @GetMapping("/invitations")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN', 'TENANT_USER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN')")
     public ResponseEntity<Page<InvitationResponse>> listInvitations(
             @PathVariable Long tenantId,
             @ParameterObject @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
@@ -78,7 +78,7 @@ public class TenantInvitationController {
             @ApiResponse(responseCode = "404", description = "Invitation not found")
     })
     @PostMapping("/invitations/{invitationId}/revoke")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN', 'TENANT_USER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN')")
     public ResponseEntity<Void> revokeInvitation(
             @PathVariable Long tenantId,
             @PathVariable Long invitationId) {
@@ -93,7 +93,7 @@ public class TenantInvitationController {
             @ApiResponse(responseCode = "404", description = "Invitation not found")
     })
     @PostMapping("/invitations/{invitationId}/resend")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN', 'TENANT_USER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN')")
     public ResponseEntity<InvitationResponse> resendInvitation(
             @PathVariable Long tenantId,
             @PathVariable Long invitationId) {

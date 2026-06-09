@@ -4,7 +4,7 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import np.com.abhishekojha.coremonolith.common.enums.AuditAction;
-import np.com.abhishekojha.coremonolith.common.enums.CustomerProductStatus;
+import np.com.abhishekojha.coremonolith.common.enums.SubscriptionStatus;
 import np.com.abhishekojha.coremonolith.common.enums.ReminderStatus;
 import np.com.abhishekojha.coremonolith.config.TenantAccessGuard;
 import np.com.abhishekojha.coremonolith.modules.subscription.model.CustomerProductEntity;
@@ -77,6 +77,13 @@ public class ReminderService {
     }
 
     @Transactional(readOnly = true)
+    public List<ReminderResponse> listByCustomerProduct(Long tenantId, Long customerProductId) {
+        guard.requireTenantAccess(tenantId);
+        return reminderRepository.findAllByCustomerProductIdAndTenantIdOrderByCreatedAtDesc(customerProductId, tenantId)
+                .stream().map(ReminderResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
     public ReminderResponse get(Long tenantId, Long reminderId) {
         guard.requireTenantAccess(tenantId);
         return ReminderResponse.from(
@@ -104,7 +111,7 @@ public class ReminderService {
         // then check whether today (daysUntilExpiry) matches one of them.
         List<CustomerProductEntity> candidates = customerProductRepository
                 .findAllByTenantIdAndStatusAndDeletedAtIsNullAndEndsAtBetween(
-                        tenant.getId(), CustomerProductStatus.ACTIVE, now, lookAheadEnd);
+                        tenant.getId(), SubscriptionStatus.ACTIVE, now, lookAheadEnd);
 
         for (CustomerProductEntity cp : candidates) {
             if (cp.getStartsAt() == null || cp.getEndsAt() == null) continue;
@@ -136,10 +143,10 @@ public class ReminderService {
     public int cancelOverduePlans(TenantEntity tenant) {
         List<CustomerProductEntity> overdue = customerProductRepository
                 .findAllByTenantIdAndStatusAndDeletedAtIsNullAndEndsAtBefore(
-                        tenant.getId(), CustomerProductStatus.ACTIVE, Instant.now());
+                        tenant.getId(), SubscriptionStatus.ACTIVE, Instant.now());
 
         for (CustomerProductEntity cp : overdue) {
-            cp.setStatus(CustomerProductStatus.CANCELLED);
+            cp.setStatus(SubscriptionStatus.CANCELLED);
             auditService.log(AuditAction.STATUS_CHANGE, "CUSTOMER_PRODUCT", cp.getId(),
                     Map.of("status", "ACTIVE"),
                     Map.of("status", "CANCELLED", "reason", "expired"));

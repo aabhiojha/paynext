@@ -19,8 +19,8 @@ public class ReminderScheduler {
     private final TenantRepository tenantRepository;
     private final ReminderService reminderService;
 
-    // Runs every day at 08:00 UTC
-    @Scheduled(cron = "0 0 8 * * *", zone = "UTC")
+    // Runs every hour at minute 0
+    @Scheduled(cron = "0 0 * * * *", zone = "UTC")
     public void runDailyJobs() {
         List<TenantEntity> activeTenants = tenantRepository.findAllByStatusAndDeletedAtIsNull(TenantStatus.ACTIVE);
         log.info("Daily reminder batch — {} active tenant(s)", activeTenants.size());

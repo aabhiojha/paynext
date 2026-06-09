@@ -58,9 +58,9 @@ public class DashboardService {
         return new TenantSummaryResponse(
                 customerRepository.countByTenantIdAndDeletedAtIsNull(tenantId),
                 productRepository.countByTenantIdAndDeletedAtIsNull(tenantId),
-                customerProductRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, CustomerProductStatus.ACTIVE),
-                customerProductRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, CustomerProductStatus.PAUSED),
-                customerProductRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, CustomerProductStatus.CANCELLED)
+                customerProductRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, SubscriptionStatus.ACTIVE),
+                customerProductRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, SubscriptionStatus.PAUSED),
+                customerProductRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, SubscriptionStatus.CANCELLED)
         );
     }
 
@@ -101,7 +101,7 @@ public class DashboardService {
         Instant now = Instant.now();
         Instant windowEnd = now.plus(UPCOMING_WINDOW_DAYS, ChronoUnit.DAYS);
         return customerProductRepository
-                .findAllByTenantIdAndStatusAndDeletedAtIsNullAndEndsAtBetween(tenantId, CustomerProductStatus.ACTIVE, now, windowEnd)
+                .findAllByTenantIdAndStatusAndDeletedAtIsNullAndEndsAtBetween(tenantId, SubscriptionStatus.ACTIVE, now, windowEnd)
                 .stream()
                 .map(UpcomingReminderResponse::from)
                 .toList();
@@ -111,7 +111,7 @@ public class DashboardService {
         guard.requireTenantAccess(tenantId);
         log.info("Fetching overdue plans for tenant={}", tenantId);
         return customerProductRepository
-                .findAllByTenantIdAndStatusAndDeletedAtIsNullAndEndsAtBefore(tenantId, CustomerProductStatus.ACTIVE, Instant.now())
+                .findAllByTenantIdAndStatusAndDeletedAtIsNullAndEndsAtBefore(tenantId, SubscriptionStatus.ACTIVE, Instant.now())
                 .stream()
                 .map(OverduePlanResponse::from)
                 .toList();

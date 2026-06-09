@@ -28,4 +28,6 @@ public interface ReminderRepository extends JpaRepository<ReminderEntity, Long> 
     boolean existsByCustomerProductIdAndDaysBeforeExpiryAndStatusIn(
             Long customerProductId, Integer daysBeforeExpiry, List<ReminderStatus> statuses);
 
+    List<ReminderEntity> findAllByCustomerProductIdAndTenantIdOrderByCreatedAtDesc(
+            Long customerProductId, Long tenantId);
 }

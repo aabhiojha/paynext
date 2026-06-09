@@ -4,7 +4,7 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import np.com.abhishekojha.coremonolith.common.enums.AuditAction;
-import np.com.abhishekojha.coremonolith.common.enums.CustomerProductStatus;
+import np.com.abhishekojha.coremonolith.common.enums.SubscriptionStatus;
 import np.com.abhishekojha.coremonolith.common.enums.CustomerStatus;
 import np.com.abhishekojha.coremonolith.config.TenantAccessGuard;
 import np.com.abhishekojha.coremonolith.modules.audit.service.AuditService;
@@ -109,8 +109,8 @@ public class CustomerService {
 
         // Cancel all non-cancelled plans for this customer
         customerProductRepository
-                .findAllByCustomerIdAndStatusNotAndDeletedAtIsNull(customerId, CustomerProductStatus.CANCELLED)
-                .forEach(cp -> cp.setStatus(CustomerProductStatus.CANCELLED));
+                .findAllByCustomerIdAndStatusNotAndDeletedAtIsNull(customerId, SubscriptionStatus.CANCELLED)
+                .forEach(cp -> cp.setStatus(SubscriptionStatus.CANCELLED));
 
         auditService.log(AuditAction.DELETE, "CUSTOMER", customerId,
                 Map.of("name", customer.getName(), "email", customer.getEmail()), null);

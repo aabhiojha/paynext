@@ -52,7 +52,7 @@ public class AuthService {
     private final AuditService auditService;
 
     public AuthResponse login(LoginRequest req) {
-        UserEntity user = userRepository.findByEmailAndDeletedAtIsNull(req.email())
+        UserEntity user = userRepository.findByEmailIgnoreCaseAndDeletedAtIsNull(req.email())
                 .orElseThrow(() -> {
                     log.warn("Login failed — no account found for email={}", req.email());
                     return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");

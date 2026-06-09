@@ -4,7 +4,7 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import np.com.abhishekojha.coremonolith.common.enums.AuditAction;
-import np.com.abhishekojha.coremonolith.common.enums.CustomerProductStatus;
+import np.com.abhishekojha.coremonolith.common.enums.SubscriptionStatus;
 import np.com.abhishekojha.coremonolith.common.enums.ProductStatus;
 import np.com.abhishekojha.coremonolith.common.enums.UserRole;
 import np.com.abhishekojha.coremonolith.config.TenantAccessGuard;
@@ -79,6 +79,7 @@ public class ProductService {
         return ProductResponse.from(findProduct(tenantId, productId));
     }
 
+    @Transactional
     public ProductResponse update(Long tenantId, Long productId, UpdateProductRequest req) {
         guard.requireTenantAccess(tenantId);
         ProductEntity product = findProduct(tenantId, productId);
@@ -95,12 +96,12 @@ public class ProductService {
             // Pause all ACTIVE customer plans when product is deactivated
             if (prev == ProductStatus.ACTIVE && req.status() == ProductStatus.INACTIVE) {
                 customerProductRepository
-                        .findAllByProductIdAndStatusAndDeletedAtIsNull(productId, CustomerProductStatus.ACTIVE)
-                        .forEach(cp -> cp.setStatus(CustomerProductStatus.PAUSED));
+                        .findAllByProductIdAndStatusAndDeletedAtIsNull(productId, SubscriptionStatus.ACTIVE)
+                        .forEach(cp -> cp.setStatus(SubscriptionStatus.PAUSED));
             }
         }
 
-        auditService.log(AuditAction.UPDATE, "PRODUCT", productId, oldState, ProductResponse.from(product));
+//        auditService.log(AuditAction.UPDATE, "PRODUCT", productId, oldState, ProductResponse.from(product));
         return ProductResponse.from(product);
     }
 
@@ -113,8 +114,8 @@ public class ProductService {
 
         // Cancel all non-cancelled customer plans for this product
         customerProductRepository
-                .findAllByProductIdAndStatusNotAndDeletedAtIsNull(productId, CustomerProductStatus.CANCELLED)
-                .forEach(cp -> cp.setStatus(CustomerProductStatus.CANCELLED));
+                .findAllByProductIdAndStatusNotAndDeletedAtIsNull(productId, SubscriptionStatus.CANCELLED)
+                .forEach(cp -> cp.setStatus(SubscriptionStatus.CANCELLED));
 
         auditService.log(AuditAction.DELETE, "PRODUCT", productId,
                 Map.of("name", product.getName(), "status", product.getStatus().name()), null);

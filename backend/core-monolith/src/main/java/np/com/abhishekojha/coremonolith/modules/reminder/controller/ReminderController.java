@@ -44,6 +44,14 @@ public class ReminderController {
         return ResponseEntity.ok(reminderService.list(tenantId, status, pageable));
     }
 
+    @Operation(summary = "List reminders for a specific subscription")
+    @GetMapping("/by-customer-product/{customerProductId}")
+    public ResponseEntity<List<ReminderResponse>> listByCustomerProduct(
+            @PathVariable Long tenantId,
+            @PathVariable Long customerProductId) {
+        return ResponseEntity.ok(reminderService.listByCustomerProduct(tenantId, customerProductId));
+    }
+
     @Operation(summary = "Get reminder record")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "OK"),
