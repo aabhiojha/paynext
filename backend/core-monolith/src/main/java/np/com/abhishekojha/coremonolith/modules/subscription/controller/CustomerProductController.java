@@ -7,10 +7,11 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import np.com.abhishekojha.coremonolith.common.enums.SubscriptionStatus;
 import np.com.abhishekojha.coremonolith.modules.subscription.dto.AssignProductRequest;
-import np.com.abhishekojha.coremonolith.modules.subscription.dto.CustomerProductResponse;
-import np.com.abhishekojha.coremonolith.modules.subscription.dto.UpdateCustomerProductRequest;
-import np.com.abhishekojha.coremonolith.modules.subscription.dto.UpdateCustomerProductStatusRequest;
+import np.com.abhishekojha.coremonolith.modules.subscription.dto.SubscriptionResponse;
+import np.com.abhishekojha.coremonolith.modules.subscription.dto.UpdateSubscriptionRequest;
+import np.com.abhishekojha.coremonolith.modules.subscription.dto.UpdateSubscriptionStatusRequest;
 import np.com.abhishekojha.coremonolith.modules.subscription.service.CustomerProductService;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
@@ -45,7 +46,7 @@ public class CustomerProductController {
     })
     @PostMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN', 'TENANT_USER')")
-    public ResponseEntity<CustomerProductResponse> assign(
+    public ResponseEntity<SubscriptionResponse> assign(
             @PathVariable Long tenantId,
             @PathVariable Long customerId,
             @Valid @RequestBody AssignProductRequest req) {
@@ -57,7 +58,7 @@ public class CustomerProductController {
     @ApiResponse(responseCode = "200", description = "OK")
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN', 'TENANT_USER')")
-    public ResponseEntity<Page<CustomerProductResponse>> list(
+    public ResponseEntity<Page<SubscriptionResponse>> list(
             @PathVariable Long tenantId,
             @PathVariable Long customerId,
             @ParameterObject @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
@@ -71,7 +72,7 @@ public class CustomerProductController {
     })
     @GetMapping("/{cpId}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN', 'TENANT_USER')")
-    public ResponseEntity<CustomerProductResponse> get(
+    public ResponseEntity<SubscriptionResponse> get(
             @PathVariable Long tenantId,
             @PathVariable Long customerId,
             @PathVariable Long cpId) {
@@ -85,11 +86,11 @@ public class CustomerProductController {
     })
     @PatchMapping("/{cpId}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN', 'TENANT_USER')")
-    public ResponseEntity<CustomerProductResponse> update(
+    public ResponseEntity<SubscriptionResponse> update(
             @PathVariable Long tenantId,
             @PathVariable Long customerId,
             @PathVariable Long cpId,
-            @Valid @RequestBody UpdateCustomerProductRequest req) {
+            @Valid @RequestBody UpdateSubscriptionRequest req) {
         return ResponseEntity.ok(customerProductService.update(tenantId, customerId, cpId, req));
     }
 
@@ -100,11 +101,11 @@ public class CustomerProductController {
     })
     @PatchMapping("/{cpId}/status")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN', 'TENANT_USER')")
-    public ResponseEntity<CustomerProductResponse> updateStatus(
+    public ResponseEntity<SubscriptionResponse> updateStatus(
             @PathVariable Long tenantId,
             @PathVariable Long customerId,
             @PathVariable Long cpId,
-            @Valid @RequestBody UpdateCustomerProductStatusRequest req) {
+            @Valid @RequestBody UpdateSubscriptionStatusRequest req) {
         return ResponseEntity.ok(customerProductService.updateStatus(tenantId, customerId, cpId, req));
     }
 

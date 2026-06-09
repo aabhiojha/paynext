@@ -14,7 +14,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import np.com.abhishekojha.coremonolith.common.enums.CustomerProductStatus;
+import np.com.abhishekojha.coremonolith.common.enums.SubscriptionStatus;
 import np.com.abhishekojha.coremonolith.modules.audit.model.BaseAuditEntity;
 import np.com.abhishekojha.coremonolith.modules.auth.model.UserEntity;
 import np.com.abhishekojha.coremonolith.modules.customer.model.CustomerEntity;
@@ -53,7 +53,7 @@ public class CustomerProductEntity extends BaseAuditEntity {
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false, columnDefinition = "customer_product_status")
-    private CustomerProductStatus status = CustomerProductStatus.ACTIVE;
+    private SubscriptionStatus status = SubscriptionStatus.ACTIVE;
 
     @Column(name = "starts_at", nullable = false)
     private Instant startsAt = Instant.now();

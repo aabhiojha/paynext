@@ -1,6 +1,6 @@
 package np.com.abhishekojha.coremonolith.modules.subscription.repository;
 
-import np.com.abhishekojha.coremonolith.common.enums.CustomerProductStatus;
+import np.com.abhishekojha.coremonolith.common.enums.SubscriptionStatus;
 import np.com.abhishekojha.coremonolith.modules.subscription.model.CustomerProductEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,13 +19,13 @@ public interface CustomerProductRepository extends JpaRepository<CustomerProduct
 
     Page<CustomerProductEntity> findAllByTenantIdAndDeletedAtIsNull(Long tenantId, Pageable pageable);
 
-    Page<CustomerProductEntity> findAllByTenantIdAndStatusAndDeletedAtIsNull(Long tenantId, CustomerProductStatus status, Pageable pageable);
+    Page<CustomerProductEntity> findAllByTenantIdAndStatusAndDeletedAtIsNull(Long tenantId, SubscriptionStatus status, Pageable pageable);
 
     @Query("SELECT cp FROM CustomerProductEntity cp WHERE cp.tenant.id = :tenantId AND cp.deletedAt IS NULL AND (LOWER(cp.customer.name) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(cp.product.name) LIKE LOWER(CONCAT('%', :search, '%')))")
     Page<CustomerProductEntity> searchByTenant(@Param("tenantId") Long tenantId, @Param("search") String search, Pageable pageable);
 
     @Query("SELECT cp FROM CustomerProductEntity cp WHERE cp.tenant.id = :tenantId AND cp.deletedAt IS NULL AND cp.status = :status AND (LOWER(cp.customer.name) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(cp.product.name) LIKE LOWER(CONCAT('%', :search, '%')))")
-    Page<CustomerProductEntity> searchByTenantAndStatus(@Param("tenantId") Long tenantId, @Param("status") CustomerProductStatus status, @Param("search") String search, Pageable pageable);
+    Page<CustomerProductEntity> searchByTenantAndStatus(@Param("tenantId") Long tenantId, @Param("status") SubscriptionStatus status, @Param("search") String search, Pageable pageable);
 
     Page<CustomerProductEntity> findAllByTenantIdAndProductIdAndDeletedAtIsNull(Long tenantId, Long productId, Pageable pageable);
 
@@ -34,9 +34,9 @@ public interface CustomerProductRepository extends JpaRepository<CustomerProduct
     Optional<CustomerProductEntity> findByIdAndTenantIdAndDeletedAtIsNull(Long id, Long tenantId);
 
     List<CustomerProductEntity> findAllByTenantIdAndStatusAndDeletedAtIsNullAndEndsAtBetween(
-            Long tenantId, CustomerProductStatus status, Instant from, Instant to);
+            Long tenantId, SubscriptionStatus status, Instant from, Instant to);
 
-    long countByTenantIdAndStatusAndDeletedAtIsNull(Long tenantId, CustomerProductStatus status);
+    long countByTenantIdAndStatusAndDeletedAtIsNull(Long tenantId, SubscriptionStatus status);
 
     @Query("""
             SELECT cp.product.currency, SUM(cp.product.price), COUNT(cp)
@@ -49,14 +49,14 @@ public interface CustomerProductRepository extends JpaRepository<CustomerProduct
     List<Object[]> sumRevenueByTenantGroupedByCurrency(@Param("tenantId") Long tenantId);
 
     List<CustomerProductEntity> findAllByTenantIdAndStatusAndDeletedAtIsNullAndEndsAtBefore(
-            Long tenantId, CustomerProductStatus status, Instant before);
+            Long tenantId, SubscriptionStatus status, Instant before);
 
     List<CustomerProductEntity> findAllByProductIdAndStatusAndDeletedAtIsNull(
-            Long productId, CustomerProductStatus status);
+            Long productId, SubscriptionStatus status);
 
     List<CustomerProductEntity> findAllByProductIdAndStatusNotAndDeletedAtIsNull(
-            Long productId, CustomerProductStatus excludedStatus);
+            Long productId, SubscriptionStatus excludedStatus);
 
     List<CustomerProductEntity> findAllByCustomerIdAndStatusNotAndDeletedAtIsNull(
-            Long customerId, CustomerProductStatus excludedStatus);
+            Long customerId, SubscriptionStatus excludedStatus);
 }

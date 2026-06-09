@@ -4,16 +4,16 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import np.com.abhishekojha.coremonolith.common.enums.AuditAction;
-import np.com.abhishekojha.coremonolith.common.enums.CustomerProductStatus;
+import np.com.abhishekojha.coremonolith.common.enums.SubscriptionStatus;
 import np.com.abhishekojha.coremonolith.config.TenantAccessGuard;
 import np.com.abhishekojha.coremonolith.modules.audit.service.AuditService;
 import np.com.abhishekojha.coremonolith.modules.auth.model.UserEntity;
 import np.com.abhishekojha.coremonolith.modules.customer.model.CustomerEntity;
 import np.com.abhishekojha.coremonolith.modules.customer.repository.CustomerRepository;
 import np.com.abhishekojha.coremonolith.modules.subscription.dto.AssignProductRequest;
-import np.com.abhishekojha.coremonolith.modules.subscription.dto.CustomerProductResponse;
-import np.com.abhishekojha.coremonolith.modules.subscription.dto.UpdateCustomerProductRequest;
-import np.com.abhishekojha.coremonolith.modules.subscription.dto.UpdateCustomerProductStatusRequest;
+import np.com.abhishekojha.coremonolith.modules.subscription.dto.SubscriptionResponse;
+import np.com.abhishekojha.coremonolith.modules.subscription.dto.UpdateSubscriptionRequest;
+import np.com.abhishekojha.coremonolith.modules.subscription.dto.UpdateSubscriptionStatusRequest;
 import np.com.abhishekojha.coremonolith.modules.subscription.model.CustomerProductEntity;
 import np.com.abhishekojha.coremonolith.modules.subscription.repository.CustomerProductRepository;
 import np.com.abhishekojha.coremonolith.modules.product.model.ProductEntity;
@@ -48,7 +48,7 @@ public class CustomerProductService {
     private final TenantAccessGuard guard;
     private final AuditService auditService;
 
-    public CustomerProductResponse assign(Long tenantId, Long customerId, AssignProductRequest req) {
+    public SubscriptionResponse assign(Long tenantId, Long customerId, AssignProductRequest req) {
         UserEntity userEntity = guard.requireTenantAccess(tenantId);
         TenantEntity tenant = tenantRepository.findByIdAndDeletedAtIsNull(tenantId)
                 .orElseThrow(() -> new EntityNotFoundException("Tenant not found: " + tenantId));
@@ -87,46 +87,46 @@ public class CustomerProductService {
         auditService.log(AuditAction.CREATE, "CUSTOMER_PRODUCT", cp.getId(),
                 null, Map.of("customerId", customerId, "productId", req.productId()));
         log.debug("Plan assigned id={} customerId={} productId={} tenantId={}", cp.getId(), customerId, req.productId(), tenantId);
-        return CustomerProductResponse.from(cp);
+        return SubscriptionResponse.from(cp);
     }
 
     @Transactional(readOnly = true)
-    public Page<CustomerProductResponse> listByCustomer(Long tenantId, Long customerId, Pageable pageable) {
+    public Page<SubscriptionResponse> listByCustomer(Long tenantId, Long customerId, Pageable pageable) {
         guard.requireTenantAccess(tenantId);
         requireCustomerExists(tenantId, customerId);
         return customerProductRepository
                 .findAllByTenantIdAndCustomerIdAndDeletedAtIsNull(tenantId, customerId, pageable)
-                .map(CustomerProductResponse::from);
+                .map(SubscriptionResponse::from);
     }
 
     @Transactional(readOnly = true)
-    public CustomerProductResponse get(Long tenantId, Long customerId, Long cpId) {
+    public SubscriptionResponse get(Long tenantId, Long customerId, Long cpId) {
         guard.requireTenantAccess(tenantId);
-        return CustomerProductResponse.from(findCp(tenantId, customerId, cpId));
+        return SubscriptionResponse.from(findCp(tenantId, customerId, cpId));
     }
 
-    public CustomerProductResponse update(Long tenantId, Long customerId, Long cpId, UpdateCustomerProductRequest req) {
+    public SubscriptionResponse update(Long tenantId, Long customerId, Long cpId, UpdateSubscriptionRequest req) {
         guard.requireTenantAccess(tenantId);
         CustomerProductEntity cp = findCp(tenantId, customerId, cpId);
-        CustomerProductResponse oldState = CustomerProductResponse.from(cp);
+        SubscriptionResponse oldState = SubscriptionResponse.from(cp);
 
         if (req.startsAt() != null) cp.setStartsAt(req.startsAt());
         if (req.endsAt() != null) cp.setEndsAt(req.endsAt());
         if (req.notes() != null) cp.setNotes(req.notes());
 
-        auditService.log(AuditAction.UPDATE, "CUSTOMER_PRODUCT", cpId, oldState, CustomerProductResponse.from(cp));
-        return CustomerProductResponse.from(cp);
+        auditService.log(AuditAction.UPDATE, "CUSTOMER_PRODUCT", cpId, oldState, SubscriptionResponse.from(cp));
+        return SubscriptionResponse.from(cp);
     }
 
-    public CustomerProductResponse updateStatus(Long tenantId, Long customerId, Long cpId, UpdateCustomerProductStatusRequest req) {
+    public SubscriptionResponse updateStatus(Long tenantId, Long customerId, Long cpId, UpdateSubscriptionStatusRequest req) {
         guard.requireTenantAccess(tenantId);
         CustomerProductEntity cp = findCp(tenantId, customerId, cpId);
-        CustomerProductResponse oldState = CustomerProductResponse.from(cp);
+        SubscriptionResponse oldState = SubscriptionResponse.from(cp);
 
         cp.setStatus(req.status());
 
-        auditService.log(AuditAction.STATUS_CHANGE, "CUSTOMER_PRODUCT", cpId, oldState, CustomerProductResponse.from(cp));
-        return CustomerProductResponse.from(cp);
+        auditService.log(AuditAction.STATUS_CHANGE, "CUSTOMER_PRODUCT", cpId, oldState, SubscriptionResponse.from(cp));
+        return SubscriptionResponse.from(cp);
     }
 
     public void delete(Long tenantId, Long customerId, Long cpId) {
@@ -141,25 +141,25 @@ public class CustomerProductService {
     }
 
     @Transactional(readOnly = true)
-    public Page<CustomerProductResponse> listByTenant(Long tenantId, CustomerProductStatus status, String search, Pageable pageable) {
+    public Page<SubscriptionResponse> listByTenant(Long tenantId, SubscriptionStatus status, String search, Pageable pageable) {
         guard.requireTenantAccess(tenantId);
         String q = (search != null && !search.isBlank()) ? search.trim() : null;
         if (q != null) {
-            if (status != null) return customerProductRepository.searchByTenantAndStatus(tenantId, status, q, pageable).map(CustomerProductResponse::from);
-            return customerProductRepository.searchByTenant(tenantId, q, pageable).map(CustomerProductResponse::from);
+            if (status != null) return customerProductRepository.searchByTenantAndStatus(tenantId, status, q, pageable).map(SubscriptionResponse::from);
+            return customerProductRepository.searchByTenant(tenantId, q, pageable).map(SubscriptionResponse::from);
         }
-        if (status != null) return customerProductRepository.findAllByTenantIdAndStatusAndDeletedAtIsNull(tenantId, status, pageable).map(CustomerProductResponse::from);
-        return customerProductRepository.findAllByTenantIdAndDeletedAtIsNull(tenantId, pageable).map(CustomerProductResponse::from);
+        if (status != null) return customerProductRepository.findAllByTenantIdAndStatusAndDeletedAtIsNull(tenantId, status, pageable).map(SubscriptionResponse::from);
+        return customerProductRepository.findAllByTenantIdAndDeletedAtIsNull(tenantId, pageable).map(SubscriptionResponse::from);
     }
 
     @Transactional(readOnly = true)
-    public Page<CustomerProductResponse> listByProduct(Long tenantId, Long productId, Pageable pageable) {
+    public Page<SubscriptionResponse> listByProduct(Long tenantId, Long productId, Pageable pageable) {
         guard.requireTenantAccess(tenantId);
         productRepository.findByIdAndTenantIdAndDeletedAtIsNull(productId, tenantId)
                 .orElseThrow(() -> new EntityNotFoundException("Product not found: " + productId));
         return customerProductRepository
                 .findAllByTenantIdAndProductIdAndDeletedAtIsNull(tenantId, productId, pageable)
-                .map(CustomerProductResponse::from);
+                .map(SubscriptionResponse::from);
     }
 
     private CustomerProductEntity findCp(Long tenantId, Long customerId, Long cpId) {

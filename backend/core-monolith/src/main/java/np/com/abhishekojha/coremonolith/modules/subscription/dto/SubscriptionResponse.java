@@ -5,7 +5,7 @@ import np.com.abhishekojha.coremonolith.modules.subscription.model.CustomerProdu
 import java.math.BigDecimal;
 import java.time.Instant;
 
-public record CustomerProductResponse(
+public record SubscriptionResponse(
         Long id,
         Long tenantId,
         Long customerId,
@@ -23,7 +23,7 @@ public record CustomerProductResponse(
         Instant createdAt,
         Instant updatedAt
 ) {
-    public static CustomerProductResponse from(CustomerProductEntity cp) {
+    public static SubscriptionResponse from(CustomerProductEntity cp) {
         // Price resolution: custom_price → plan price → product default price
         BigDecimal amount;
         String currency;
@@ -38,7 +38,7 @@ public record CustomerProductResponse(
             currency = cp.getProduct().getCurrency();
         }
 
-        return new CustomerProductResponse(
+        return new SubscriptionResponse(
                 cp.getId(),
                 cp.getTenant().getId(),
                 cp.getCustomer().getId(),

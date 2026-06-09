@@ -5,8 +5,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import np.com.abhishekojha.coremonolith.common.enums.CustomerProductStatus;
-import np.com.abhishekojha.coremonolith.modules.subscription.dto.CustomerProductResponse;
+import np.com.abhishekojha.coremonolith.common.enums.SubscriptionStatus;
+import np.com.abhishekojha.coremonolith.modules.subscription.dto.SubscriptionResponse;
 import np.com.abhishekojha.coremonolith.modules.subscription.service.CustomerProductService;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
@@ -33,9 +33,9 @@ public class TenantCustomerProductController {
     @ApiResponse(responseCode = "200", description = "OK")
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN', 'TENANT_USER')")
-    public ResponseEntity<Page<CustomerProductResponse>> listAll(
+    public ResponseEntity<Page<SubscriptionResponse>> listAll(
             @PathVariable Long tenantId,
-            @RequestParam(required = false) CustomerProductStatus status,
+            @RequestParam(required = false) SubscriptionStatus status,
             @RequestParam(required = false) String search,
             @ParameterObject @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
         return ResponseEntity.ok(customerProductService.listByTenant(tenantId, status, search, pageable));
