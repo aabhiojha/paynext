@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore, type AuthUser, type UserRole } from "@/store/authStore";
 import { apiGet, apiPost } from "@/lib/api";
@@ -22,7 +22,7 @@ type AcceptResponse = {
   tenantId: number | null;
 };
 
-export default function AcceptInvitePage() {
+function AcceptInviteContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
   const router = useRouter();
@@ -201,5 +201,13 @@ export default function AcceptInvitePage() {
         <a href="/login" className="font-semibold" style={{ color: "var(--primary)" }}>Sign in</a>
       </p>
     </div>
+  );
+}
+
+export default function AcceptInvitePage() {
+  return (
+    <Suspense>
+      <AcceptInviteContent />
+    </Suspense>
   );
 }

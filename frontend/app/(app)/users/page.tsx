@@ -346,7 +346,7 @@ export default function UsersPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm min-w-[540px]">
                     <thead>
-                      <tr style={{ backgroundColor: "var(--bg-card)", borderBottom: "1px solid var(--border)" }}>
+                      <tr style={{ backgroundColor: "var(--bg-card)" }}>
                         {["User", "Role", "Status", "Joined", ""].map((h) => (
                           <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                         ))}
@@ -425,7 +425,7 @@ export default function UsersPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[560px]">
                   <thead>
-                    <tr style={{ backgroundColor: "var(--bg-card)", borderBottom: "1px solid var(--border)" }}>
+                    <tr style={{ backgroundColor: "var(--bg-card)" }}>
                       {["Email", "Role", "Status", "Sent", "Expires", ""].map((h) => (
                         <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                       ))}
@@ -437,7 +437,7 @@ export default function UsersPage() {
                       return (
                         <tr
                           key={inv.id}
-                          className="hover:bg-[#f8faf8] transition-colors"
+                          className="hover:bg-[#eef3ee] transition-colors"
                           style={{ borderTop: "1px solid var(--border)", backgroundColor: "#f8faf8", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms` }}
                         >
                           <td className="px-4 py-3 font-medium text-gray-900">{inv.email}</td>

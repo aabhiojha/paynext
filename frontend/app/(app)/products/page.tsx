@@ -302,11 +302,11 @@ export default function ProductsPage() {
             No products found.
           </div>
         ) : (
-          <div className="rounded-xl" style={{ border: "1px solid var(--border)" }}>
+          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
             <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ backgroundColor: "var(--bg-card)", borderBottom: "1px solid var(--border)" }}>
+                <tr style={{ backgroundColor: "var(--bg-card)" }}>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Price</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Cadence</th>

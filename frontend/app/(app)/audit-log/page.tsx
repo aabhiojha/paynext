@@ -141,10 +141,10 @@ export default function AuditLogPage() {
             return (
               <div
                 key={log.id}
-                style={{ borderTop: i > 0 ? "1px solid var(--border)" : undefined, animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms` }}
+                style={{ borderTop: i > 0 ? "1px solid var(--border)" : undefined, backgroundColor: "#f8faf8", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms` }}
               >
                 <button
-                  className="w-full text-left flex items-start gap-4 px-5 py-3.5 hover:bg-[#f8faf8] transition-colors"
+                  className="w-full text-left flex items-start gap-4 px-5 py-3.5 hover:bg-[#eef3ee] transition-colors"
                   onClick={() => hasDetails && setExpanded(isOpen ? null : log.id)}
                 >
                   {/* Action badge */}

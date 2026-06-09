@@ -501,7 +501,7 @@ export default function SubscriptionsPage() {
             <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[640px]">
               <thead>
-                <tr style={{ backgroundColor: "var(--bg-card)", borderBottom: "1px solid var(--border)" }}>
+                <tr style={{ backgroundColor: "var(--bg-card)" }}>
                   {["Customer", "Product / Plan", "Amount", "Start date", "End date", "Status", ""].map((h) => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
