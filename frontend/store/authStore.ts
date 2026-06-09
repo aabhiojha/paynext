@@ -18,6 +18,7 @@ type AuthState = {
   isAuthenticated: boolean;
   login: (user: AuthUser, token: string, refreshToken: string) => void;
   logout: () => void;
+  updateUser: (patch: Partial<AuthUser>) => void;
 };
 
 export const useAuthStore = create<AuthState>()(
@@ -33,6 +34,9 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () =>
         set({ user: null, token: null, refreshToken: null, isAuthenticated: false }),
+
+      updateUser: (patch) =>
+        set((s) => s.user ? { user: { ...s.user, ...patch } } : {}),
     }),
     {
       name: "paynext-auth",

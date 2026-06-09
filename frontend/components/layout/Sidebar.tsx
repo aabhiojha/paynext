@@ -176,8 +176,37 @@ export default function Sidebar() {
 
       <div className="flex-1" />
 
+      {/* Profile link */}
+      <div className="px-3 pb-1">
+        <Link
+          href="/profile"
+          className="flex items-center gap-2.5 px-2 py-2 rounded-lg transition-colors hover:bg-[#e3eef2] group"
+          style={pathname === "/profile" ? { backgroundColor: "var(--nav-active)" } : {}}
+        >
+          <div
+            className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0"
+            style={{ backgroundColor: "var(--primary)" }}
+          >
+            {user?.fullName
+              ? user.fullName.trim().split(" ").filter(Boolean).length >= 2
+                ? (user.fullName.trim().split(" ")[0][0] + user.fullName.trim().split(" ").filter(Boolean).slice(-1)[0][0]).toUpperCase()
+                : user.fullName.trim().slice(0, 2).toUpperCase()
+              : user?.email?.slice(0, 2).toUpperCase() ?? "?"}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p
+              className="text-xs font-semibold truncate leading-tight"
+              style={pathname === "/profile" ? { color: "var(--nav-active-text)" } : { color: "#111" }}
+            >
+              {user?.fullName || user?.email?.split("@")[0] || "My profile"}
+            </p>
+            <p className="text-[10px] text-gray-400 truncate leading-tight">{user?.email}</p>
+          </div>
+        </Link>
+      </div>
+
       {/* Sign out */}
-      <div className="px-3 pb-3">
+      <div className="px-3 pb-3 pt-0.5">
         <button
           onClick={handleLogout}
           className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
