@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useAuthStore } from "@/store/authStore";
 import { apiGet, apiPatch, apiPost } from "@/lib/api";
 import SlideOver, { SlideOverField, SlideOverHeader, SlideOverSection } from "@/components/SlideOver";
+import Pagination from "@/components/Pagination";
 
 function useColumnResize(initialWidths: number[]) {
   const [widths, setWidths] = useState(initialWidths);
@@ -1492,6 +1493,10 @@ export default function TenantsPage() {
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [sidebarTenantId, setSidebarTenantId] = useState<number | null>(null);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const PAGE_SIZE = 20;
 
   const handleSort = useCallback((field: string) => {
     setSortField((prev) => {
@@ -1504,14 +1509,32 @@ export default function TenantsPage() {
     });
   }, []);
 
+  const loadTenants = useCallback((p = 0, status = filterStatus) => {
+    if (!token) return;
+    setLoading(true);
+    const params = new URLSearchParams({ size: String(PAGE_SIZE), page: String(p), sort: "createdAt,desc" });
+    if (status !== "ALL") params.set("status", status);
+    apiGet<ApiTenantPage>(`/api/v1/tenants?${params}`, token)
+      .then((res) => {
+        setData(res.content.map(mapTenant));
+        setTotal(res.page.totalElements);
+        setTotalPages(res.page.totalPages);
+        setPage(p);
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [token, filterStatus]);
+
   useEffect(() => {
     if (!token) return;
     Promise.all([
-      apiGet<ApiTenantPage>("/api/v1/tenants?size=100&sort=createdAt,desc", token),
+      apiGet<ApiTenantPage>(`/api/v1/tenants?size=${PAGE_SIZE}&page=0&sort=createdAt,desc`, token),
       apiGet<ApiPlan[]>("/api/v1/platform-plans?activeOnly=true", token),
     ])
       .then(([tenantPage, planList]) => {
         setData(tenantPage.content.map(mapTenant));
+        setTotal(tenantPage.page.totalElements);
+        setTotalPages(tenantPage.page.totalPages);
         setPlans(
           planList.map((p) => ({
             id: p.id,
@@ -1550,11 +1573,8 @@ export default function TenantsPage() {
   }, []);
 
   const handlePlanAssigned = useCallback(() => {
-    if (!token) return;
-    apiGet<ApiTenantPage>("/api/v1/tenants?size=100&sort=createdAt,desc", token)
-      .then((page) => setData(page.content.map(mapTenant)))
-      .catch(() => {});
-  }, [token]);
+    loadTenants(page, filterStatus);
+  }, [loadTenants, page, filterStatus]);
 
   const handleCreate = async (form: CreateForm) => {
     if (!token) return;
@@ -1567,8 +1587,8 @@ export default function TenantsPage() {
         planId: form.selectedPlanId ?? null,
         customPlanPrice: form.customPrice ? parseFloat(form.customPrice) : null,
       }, token);
-      setData((prev) => [mapTenant(created), ...prev]);
       setShowCreate(false);
+      loadTenants(0, filterStatus);
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to create tenant");
     } finally {
@@ -1599,7 +1619,7 @@ export default function TenantsPage() {
   };
 
   const statCards = [
-    { label: "Total Tenants", value: data.length      },
+    { label: "Total Tenants", value: total            },
     { label: "Active",        value: active.length    },
     { label: "Suspended",     value: suspended.length },
     { label: "On a Plan",     value: onPlans.length   },
@@ -1624,7 +1644,7 @@ export default function TenantsPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
         <div className="flex items-center p-0.5 rounded-lg gap-0.5" style={{ backgroundColor: "var(--border)" }}>
           {(["ALL", "ACTIVE", "SUSPENDED"] as const).map((s) => (
-            <button key={s} onClick={() => setFilterStatus(s)} className="text-xs font-semibold px-3 py-1.5 rounded-md transition-colors"
+            <button key={s} onClick={() => { setFilterStatus(s); loadTenants(0, s); }} className="text-xs font-semibold px-3 py-1.5 rounded-md transition-colors"
               style={filterStatus === s
                 ? { backgroundColor: "#fff", color: "var(--primary)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }
                 : { color: "#6b7280" }}>
@@ -1670,9 +1690,15 @@ export default function TenantsPage() {
       )}
 
       {!loading && !error && (
-        <p className="mt-4 text-sm text-gray-500">
-          {filtered.length} tenant{filtered.length !== 1 ? "s" : ""}
-        </p>
+        <div className="mt-4">
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalElements={total}
+            pageSize={PAGE_SIZE}
+            onChange={(p) => loadTenants(p, filterStatus)}
+          />
+        </div>
       )}
 
       {showCreate && (

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import SlideOver, { SlideOverField } from "@/components/SlideOver";
+import Pagination from "@/components/Pagination";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -202,7 +203,7 @@ function FormFields({ name, onName, email, onEmail, phone, onPhone, address, onA
         <div><label className={labelCls}>Name *</label><input className={inputCls} style={inputStyle} value={name} onChange={(e) => onName(e.target.value)} placeholder="Full name" /></div>
         <div><label className={labelCls}>Email *</label><input type="email" className={inputCls} style={inputStyle} value={email} onChange={(e) => onEmail(e.target.value)} placeholder="email@example.com" /></div>
       </div>
-      <div><label className={labelCls}>Phone</label><input className={inputCls} style={inputStyle} value={phone} onChange={(e) => onPhone(e.target.value)} placeholder="+1 555 000 0000" /></div>
+      <div><label className={labelCls}>Phone</label><input className={inputCls} style={inputStyle} value={phone} onChange={(e) => onPhone(e.target.value)} placeholder="+977 980000000" /></div>
       <div><label className={labelCls}>Address</label><textarea rows={2} className={inputCls} style={inputStyle} value={address} onChange={(e) => onAddress(e.target.value)} placeholder="Street, city, country" /></div>
       <div><label className={labelCls}>Notes</label><textarea rows={3} className={inputCls} style={inputStyle} value={notes} onChange={(e) => onNotes(e.target.value)} placeholder="Internal notes…" /></div>
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -487,15 +488,14 @@ export default function CustomersPage() {
           </div>
         )}
 
-        {/* Pagination */}
-        {!loading && totalPages > 1 && (
-          <div className="flex items-center justify-between text-sm text-gray-500">
-            <span>Page {page + 1} of {totalPages}</span>
-            <div className="flex gap-2">
-              <button disabled={page === 0} onClick={() => { const p = page - 1; setPage(p); load(filter, search, p); }} className="px-3 py-1.5 rounded-lg font-medium disabled:opacity-40" style={{ border: "1px solid var(--border)", backgroundColor: "var(--bg-card)" }}>Prev</button>
-              <button disabled={page >= totalPages - 1} onClick={() => { const p = page + 1; setPage(p); load(filter, search, p); }} className="px-3 py-1.5 rounded-lg font-medium disabled:opacity-40" style={{ border: "1px solid var(--border)", backgroundColor: "var(--bg-card)" }}>Next</button>
-            </div>
-          </div>
+        {!loading && (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalElements={total}
+            pageSize={PAGE_SIZE}
+            onChange={(p) => { setPage(p); load(filter, search, p); }}
+          />
         )}
       </div>
 

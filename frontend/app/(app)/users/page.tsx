@@ -5,6 +5,7 @@ import { useAuthStore } from "@/store/authStore";
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import SlideOver, { SlideOverField } from "@/components/SlideOver";
 import Dialog from "@/components/Dialog";
+import Pagination from "@/components/Pagination";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -126,8 +127,12 @@ export default function UsersPage() {
   const [tab, setTab] = useState<Tab>("users");
 
   // ── Users list ───────────────────────────────────────────────────────────
+  const PAGE_SIZE = 20;
   const [users, setUsers]             = useState<TenantUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
+  const [usersPage, setUsersPage]     = useState(0);
+  const [usersTotalPages, setUsersTotalPages] = useState(1);
+  const [usersTotal, setUsersTotal]   = useState(0);
   const [selected, setSelected]       = useState<TenantUser | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [acting, setActing]           = useState(false);
@@ -144,11 +149,18 @@ export default function UsersPage() {
 
   // ── Loaders ──────────────────────────────────────────────────────────────
 
-  const loadUsers = useCallback(() => {
+  const loadUsers = useCallback((p = 0) => {
     if (!token || !tid) return;
     setUsersLoading(true);
-    apiGet<{ content: TenantUser[] }>(`/api/v1/tenants/${tid}/users?size=100&sort=createdAt,desc`, token)
-      .then((d) => setUsers(d.content))
+    apiGet<{ content: TenantUser[]; page: { totalElements: number; totalPages: number } }>(
+      `/api/v1/tenants/${tid}/users?size=${PAGE_SIZE}&page=${p}&sort=createdAt,desc`, token
+    )
+      .then((d) => {
+        setUsers(d.content);
+        setUsersTotal(d.page.totalElements);
+        setUsersTotalPages(d.page.totalPages);
+        setUsersPage(p);
+      })
       .catch(() => {})
       .finally(() => setUsersLoading(false));
   }, [token, tid]);
@@ -251,7 +263,7 @@ export default function UsersPage() {
 
   // ── Derived stats ─────────────────────────────────────────────────────────
 
-  const totalUsers  = users.length;
+  const totalUsers  = usersTotal || users.length;
   const adminCount  = users.filter((u) => u.role === "TENANT_ADMIN").length;
   const memberCount = users.filter((u) => u.role === "TENANT_USER").length;
   const disabledCount = users.filter((u) => u.status !== "ACTIVE").length;
@@ -329,50 +341,59 @@ export default function UsersPage() {
               <p className="text-sm">No users found.</p>
             </div>
           ) : (
-            <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[540px]">
-                  <thead>
-                    <tr style={{ backgroundColor: "var(--bg-card)", borderBottom: "1px solid var(--border)" }}>
-                      {["User", "Role", "Status", "Joined", ""].map((h) => (
-                        <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.map((u, i) => (
-                      <tr
-                        key={u.id}
-                        className="group cursor-pointer hover:bg-[#eef3ee] transition-colors"
-                        style={{ borderTop: "1px solid var(--border)", backgroundColor: selected?.id === u.id ? "#eef3ee" : "#f8faf8", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms` }}
-                        onClick={() => { setSelected(u); setActionError(null); }}
-                      >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <Avatar name={u.fullName} email={u.email} role={u.role} />
-                            <div className="min-w-0">
-                              <p className="font-medium text-gray-900 truncate">{u.fullName ?? <span className="text-gray-400 italic">No name</span>}</p>
-                              <p className="text-xs text-gray-400 truncate">{u.email}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">{roleBadge(u.role)}</td>
-                        <td className="px-4 py-3">{statusBadge(u.status)}</td>
-                        <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{formatDate(u.createdAt)}</td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setSelected(u); setActionError(null); }}
-                            className="text-gray-300 hover:text-gray-500 transition-colors p-1 rounded"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
-                          </button>
-                        </td>
+            <>
+              <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm min-w-[540px]">
+                    <thead>
+                      <tr style={{ backgroundColor: "var(--bg-card)", borderBottom: "1px solid var(--border)" }}>
+                        {["User", "Role", "Status", "Joined", ""].map((h) => (
+                          <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {users.map((u, i) => (
+                        <tr
+                          key={u.id}
+                          className="group cursor-pointer hover:bg-[#eef3ee] transition-colors"
+                          style={{ borderTop: "1px solid var(--border)", backgroundColor: selected?.id === u.id ? "#eef3ee" : "#f8faf8", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms` }}
+                          onClick={() => { setSelected(u); setActionError(null); }}
+                        >
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <Avatar name={u.fullName} email={u.email} role={u.role} />
+                              <div className="min-w-0">
+                                <p className="font-medium text-gray-900 truncate">{u.fullName ?? <span className="text-gray-400 italic">No name</span>}</p>
+                                <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">{roleBadge(u.role)}</td>
+                          <td className="px-4 py-3">{statusBadge(u.status)}</td>
+                          <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{formatDate(u.createdAt)}</td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setSelected(u); setActionError(null); }}
+                              className="text-gray-300 hover:text-gray-500 transition-colors p-1 rounded"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+              <Pagination
+                page={usersPage}
+                totalPages={usersTotalPages}
+                totalElements={usersTotal}
+                pageSize={PAGE_SIZE}
+                onChange={(p) => loadUsers(p)}
+              />
+            </>
           )
         )}
 

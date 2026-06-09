@@ -6,6 +6,7 @@ import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import SlideOver, { SlideOverField } from "@/components/SlideOver";
 import { cadenceLabel } from "@/lib/cadence";
 import SearchSelect, { SearchOption } from "@/components/SearchSelect";
+import Pagination from "@/components/Pagination";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -538,15 +539,14 @@ export default function SubscriptionsPage() {
           </div>
         )}
 
-        {/* Pagination */}
-        {!loading && totalPages > 1 && (
-          <div className="flex items-center justify-between text-sm text-gray-500">
-            <span>Page {page + 1} of {totalPages}</span>
-            <div className="flex gap-2">
-              <button disabled={page === 0} onClick={() => { const p = page - 1; setPage(p); load(filter, search, p); }} className="px-3 py-1.5 rounded-lg font-medium disabled:opacity-40" style={{ border: "1px solid var(--border)", backgroundColor: "var(--bg-card)" }}>Prev</button>
-              <button disabled={page >= totalPages - 1} onClick={() => { const p = page + 1; setPage(p); load(filter, search, p); }} className="px-3 py-1.5 rounded-lg font-medium disabled:opacity-40" style={{ border: "1px solid var(--border)", backgroundColor: "var(--bg-card)" }}>Next</button>
-            </div>
-          </div>
+        {!loading && (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalElements={total}
+            pageSize={PAGE_SIZE}
+            onChange={(p) => { setPage(p); load(filter, search, p); }}
+          />
         )}
       </div>
 

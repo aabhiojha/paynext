@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { apiGet } from "@/lib/api";
+import Pagination from "@/components/Pagination";
 
 type AuditLog = {
   id: number;
@@ -201,16 +202,13 @@ export default function AuditLogPage() {
         </div>
       )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between text-sm text-gray-500">
-          <span>Page {page + 1} of {totalPages} · {total.toLocaleString()} events</span>
-          <div className="flex gap-2">
-            <button disabled={page === 0} onClick={() => { const p = page - 1; setPage(p); load(p); }} className="px-3 py-1.5 rounded-lg font-medium disabled:opacity-40" style={{ border: "1px solid var(--border)", backgroundColor: "var(--bg-card)" }}>Prev</button>
-            <button disabled={page >= totalPages - 1} onClick={() => { const p = page + 1; setPage(p); load(p); }} className="px-3 py-1.5 rounded-lg font-medium disabled:opacity-40" style={{ border: "1px solid var(--border)", backgroundColor: "var(--bg-card)" }}>Next</button>
-          </div>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        totalElements={total}
+        pageSize={PAGE_SIZE}
+        onChange={(p) => { setPage(p); load(p); }}
+      />
     </div>
   );
 }
