@@ -124,7 +124,7 @@ export function SlideOverField({ label, children }: { label: string; children: R
   return (
     <div className="flex items-start gap-4 py-3" style={{ borderBottom: "1px solid #f3f4f6" }}>
       <span className="text-sm text-gray-400 flex-shrink-0 w-28 pt-0.5">{label}</span>
-      <span className="text-sm text-gray-800 font-medium flex-1 min-w-0">{children}</span>
+      <span className="text-sm text-gray-900 font-semibold flex-1 min-w-0">{children}</span>
     </div>
   );
 }

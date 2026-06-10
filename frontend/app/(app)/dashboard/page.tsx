@@ -85,7 +85,8 @@ function relativeTime(iso: string) {
 }
 
 function prettyAction(action: string) {
-  return action.charAt(0) + action.slice(1).toLowerCase().replace(/_/g, " ");
+  const verb = action.includes(".") ? action.split(".").pop()! : action;
+  return verb.charAt(0) + verb.slice(1).toLowerCase().replace(/_/g, " ");
 }
 
 function prettyResource(type: string) {
@@ -93,9 +94,10 @@ function prettyResource(type: string) {
 }
 
 function actionColor(action: string): string {
-  if (action.includes("CREAT") || action.includes("ADD")) return "#24A37D";
+  if (action.includes("CREAT") || action.includes("ADD") || action.includes("ASSIGN")) return "#24A37D";
   if (action.includes("DELET") || action.includes("REMOV") || action.includes("CANCEL") || action.includes("ARCHIV")) return "#dc2626";
-  if (action.includes("SUSPEND")) return "#f59e0b";
+  if (action.includes("SUSPEND") || action.includes("PAUS") || action.includes("DISABL")) return "#f59e0b";
+  if (action.includes("LOGIN") || action.includes("LOGOUT")) return "#6366f1";
   return "#6b7280";
 }
 
@@ -256,7 +258,7 @@ function ReminderStatusPanel({ stats, loading }: { stats: ReminderStats | null; 
 
 function ActivityIcon({ action }: { action: string }) {
   const color = actionColor(action);
-  if (action.includes("CREAT") || action.includes("ADD")) {
+  if (action.includes("CREAT") || action.includes("ADD") || action.includes("ASSIGN")) {
     return (
       <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: "#dcfce7" }}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -380,7 +382,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Subscription Management</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-sm text-gray-500 mt-0.5">{dateStr}</p>
         </div>
       </div>
