@@ -1,5 +1,7 @@
 package np.com.abhishekojha.coremonolith.modules.customer.repository;
 
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import np.com.abhishekojha.coremonolith.common.enums.CustomerStatus;
 import np.com.abhishekojha.coremonolith.modules.customer.model.CustomerEntity;
 import org.springframework.data.domain.Page;
@@ -27,4 +29,6 @@ public interface CustomerRepository extends JpaRepository<CustomerEntity, Long> 
     boolean existsByTenantIdAndEmailAndDeletedAtIsNull(Long tenantId, String email);
 
     long countByTenantIdAndDeletedAtIsNull(Long tenantId);
+
+    boolean existsByTenantIdAndPhoneAndDeletedAtIsNull(Long tenantId, @NotBlank @Email String email);
 }

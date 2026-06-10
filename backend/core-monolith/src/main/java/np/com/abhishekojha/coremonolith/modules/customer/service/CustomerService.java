@@ -47,6 +47,10 @@ public class CustomerService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "CUSTOMER_EMAIL_ALREADY_EXISTS");
         }
 
+        if (customerRepository.existsByTenantIdAndPhoneAndDeletedAtIsNull(tenantId, req.email())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "CUSTOMER_EMAIL_ALREADY_EXISTS");
+        }
+
         CustomerEntity customer = new CustomerEntity();
         customer.setTenant(tenant);
         customer.setName(req.name());
