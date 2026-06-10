@@ -21,14 +21,35 @@ type Customer = {
 
 type Subscription = {
   id: number;
+  productId: number;
   productName: string;
+  productPlanId: number | null;
   productPlanName: string | null;
   amount: number;
   currency: string;
   status: string;
   startsAt: string;
   endsAt: string | null;
+  notes: string | null;
 };
+
+type Product = {
+  id: number;
+  name: string;
+  price: number;
+  currency: string;
+  status: string;
+};
+
+type Plan = {
+  id: number;
+  productId: number;
+  name: string;
+  price: number;
+  currency: string;
+};
+
+const SUBSCRIPTION_STATUSES = ["ACTIVE", "PAUSED", "CANCELLED"] as const;
 
 type Reminder = {
   id: number;
@@ -52,6 +73,18 @@ function formatDate(iso: string) {
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString("en-US", { month: "numeric", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function toDatetimeLocal(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function fromDatetimeLocal(value: string): string | null {
+  if (!value) return null;
+  return new Date(value).toISOString();
 }
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
@@ -137,21 +170,6 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function SubStatusBadge({ status }: { status: string }) {
-  const map: Record<string, { bg: string; text: string }> = {
-    ACTIVE:    { bg: "#dcfce7", text: "#15803d" },
-    PAUSED:    { bg: "#f3f4f6", text: "#6b7280" },
-    CANCELLED: { bg: "#fee2e2", text: "#b91c1c" },
-    EXPIRED:   { bg: "#fef3c7", text: "#b45309" },
-  };
-  const s = map[status] ?? { bg: "#f3f4f6", text: "#6b7280" };
-  return (
-    <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: s.bg, color: s.text }}>
-      {status.charAt(0) + status.slice(1).toLowerCase()}
-    </span>
-  );
-}
-
 function SortIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline ml-1.5 opacity-40">
@@ -211,6 +229,154 @@ function FormFields({ name, onName, email, onEmail, phone, onPhone, address, onA
   );
 }
 
+type SubscriptionFormData = {
+  productId: number | null;
+  planId: number | null;
+  customPrice: string;
+  startsAt: string;
+  endsAt: string;
+  notes: string;
+};
+
+function SubscriptionModal({
+  mode,
+  products,
+  plans,
+  onProductChange,
+  form,
+  setForm,
+  onClose,
+  onSubmit,
+  saving,
+  error,
+}: {
+  mode: "create" | "edit";
+  products: Product[];
+  plans: Plan[];
+  onProductChange: (productId: number) => void;
+  form: SubscriptionFormData;
+  setForm: React.Dispatch<React.SetStateAction<SubscriptionFormData>>;
+  onClose: () => void;
+  onSubmit: () => void;
+  saving: boolean;
+  error: string | null;
+}) {
+  const [closing, setClosing] = useState(false);
+  const close = () => { setClosing(true); setTimeout(onClose, 150); };
+
+  return (
+    <div
+      className="absolute inset-0 z-10 flex items-center justify-center p-5"
+      style={{ backgroundColor: "rgba(0,0,0,0.32)", backdropFilter: "blur(4px)", animation: closing ? "fade-out 0.15s ease-out both" : "fade-in 0.15s ease-out both" }}
+      onClick={close}
+    >
+      <div
+        className="w-full rounded-2xl overflow-hidden flex flex-col"
+        style={{ maxWidth: "440px", maxHeight: "85dvh", backgroundColor: "#fff", border: "1px solid var(--border)", boxShadow: "0 8px 40px rgba(0,0,0,0.12)", animation: closing ? "dialog-out 0.15s ease-in both" : "dialog-in 0.18s cubic-bezier(0.34,1.56,0.64,1) both" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-6 pt-5 pb-4 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+          <h3 className="text-base font-bold text-gray-900">{mode === "create" ? "Add Subscription" : "Edit Subscription"}</h3>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          {mode === "create" && (
+            <>
+              <div>
+                <label className={labelCls}>Product *</label>
+                <select
+                  className={inputCls}
+                  style={inputStyle}
+                  value={form.productId ?? ""}
+                  onChange={(e) => onProductChange(Number(e.target.value))}
+                >
+                  <option value="">Select a product…</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.currency} {Number(p.price).toFixed(2)})</option>
+                  ))}
+                </select>
+              </div>
+
+              {plans.length > 0 && (
+                <div>
+                  <label className={labelCls}>Plan</label>
+                  <select
+                    className={inputCls}
+                    style={inputStyle}
+                    value={form.planId ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, planId: e.target.value ? Number(e.target.value) : null }))}
+                  >
+                    <option value="">No plan (use product price)</option>
+                    {plans.map((pl) => (
+                      <option key={pl.id} value={pl.id}>{pl.name} ({pl.currency} {Number(pl.price).toFixed(2)})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className={labelCls}>Custom Price (optional)</label>
+                <input
+                  type="number" step="0.01" min="0"
+                  className={inputCls} style={inputStyle}
+                  value={form.customPrice}
+                  onChange={(e) => setForm((f) => ({ ...f, customPrice: e.target.value }))}
+                  placeholder="Leave blank to use product/plan price"
+                />
+              </div>
+            </>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls}>Starts At</label>
+              <input
+                type="datetime-local"
+                className={inputCls} style={inputStyle}
+                value={form.startsAt}
+                onChange={(e) => setForm((f) => ({ ...f, startsAt: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Ends At</label>
+              <input
+                type="datetime-local"
+                className={inputCls} style={inputStyle}
+                value={form.endsAt}
+                onChange={(e) => setForm((f) => ({ ...f, endsAt: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Notes</label>
+            <textarea
+              rows={3} className={inputCls} style={inputStyle}
+              value={form.notes}
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+              placeholder="Internal notes…"
+            />
+          </div>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+        </div>
+
+        <div className="px-6 py-4 flex gap-3 flex-shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
+          <button onClick={close} className="flex-1 py-2 text-sm font-medium rounded-lg text-gray-600" style={{ border: "1px solid var(--border)" }}>Cancel</button>
+          <button
+            onClick={onSubmit}
+            disabled={saving || (mode === "create" && !form.productId)}
+            className="flex-1 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-60"
+            style={{ backgroundColor: "var(--primary)" }}
+          >
+            {saving ? "Saving…" : mode === "create" ? "Add Subscription" : "Save Changes"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CustomersPage() {
@@ -243,6 +409,19 @@ export default function CustomersPage() {
   const [expandedSubId, setExpandedSubId] = useState<number | null>(null);
   const [reminders,     setReminders]     = useState<Reminder[]>([]);
   const [remLoading,    setRemLoading]    = useState(false);
+
+  // Subscription modal
+  const [showSubModal, setShowSubModal] = useState(false);
+  const [subMode,      setSubMode]      = useState<"create" | "edit">("create");
+  const [editingSubId, setEditingSubId] = useState<number | null>(null);
+  const [subProducts,  setSubProducts]  = useState<Product[]>([]);
+  const [subPlans,     setSubPlans]     = useState<Plan[]>([]);
+  const [subForm,      setSubForm]      = useState<SubscriptionFormData>({
+    productId: null, planId: null, customPrice: "", startsAt: "", endsAt: "", notes: "",
+  });
+  const [subSaving,    setSubSaving]    = useState(false);
+  const [subError,     setSubError]     = useState<string | null>(null);
+  const [statusUpdating, setStatusUpdating] = useState<number | null>(null);
 
   // Form
   const [editName,    setEditName]    = useState("");
@@ -299,6 +478,96 @@ export default function CustomersPage() {
       .then((d) => setReminders(d))
       .catch(() => setReminders([]))
       .finally(() => setRemLoading(false));
+  };
+
+  const loadSubPlans = (productId: number, token_: string, tid_: number) => {
+    apiGet<Plan[]>(`/api/v1/tenants/${tid_}/products/${productId}/plans`, token_)
+      .then(setSubPlans)
+      .catch(() => setSubPlans([]));
+  };
+
+  const handleSubProductChange = (productId: number) => {
+    setSubForm((f) => ({ ...f, productId, planId: null }));
+    if (token && tid) loadSubPlans(productId, token, tid);
+  };
+
+  const openAddSubscription = () => {
+    if (!token || !tid) return;
+    setSubMode("create");
+    setEditingSubId(null);
+    setSubForm({ productId: null, planId: null, customPrice: "", startsAt: "", endsAt: "", notes: "" });
+    setSubPlans([]);
+    setSubError(null);
+    apiGet<SpringPage<Product>>(`/api/v1/tenants/${tid}/products?status=ACTIVE&size=100`, token)
+      .then((d) => setSubProducts(d.content))
+      .catch(() => setSubProducts([]));
+    setShowSubModal(true);
+  };
+
+  const openEditSubscription = (sub: Subscription) => {
+    setSubMode("edit");
+    setEditingSubId(sub.id);
+    setSubForm({
+      productId: sub.productId,
+      planId: sub.productPlanId,
+      customPrice: "",
+      startsAt: toDatetimeLocal(sub.startsAt),
+      endsAt: toDatetimeLocal(sub.endsAt),
+      notes: sub.notes ?? "",
+    });
+    setSubError(null);
+    setShowSubModal(true);
+  };
+
+  const closeSubModal = () => { setShowSubModal(false); setSubError(null); };
+
+  const saveSubscription = async () => {
+    if (!token || !tid || !selected) return;
+    setSubSaving(true); setSubError(null);
+    try {
+      if (subMode === "create") {
+        if (!subForm.productId) { setSubError("Please select a product."); setSubSaving(false); return; }
+        await apiPost(`/api/v1/tenants/${tid}/customers/${selected.id}/products`, {
+          productId: subForm.productId,
+          planId: subForm.planId,
+          customPrice: subForm.customPrice ? Number(subForm.customPrice) : null,
+          startsAt: fromDatetimeLocal(subForm.startsAt),
+          endsAt: fromDatetimeLocal(subForm.endsAt),
+          notes: subForm.notes.trim() || null,
+        }, token);
+      } else if (editingSubId) {
+        await apiPatch(`/api/v1/tenants/${tid}/customers/${selected.id}/products/${editingSubId}`, {
+          startsAt: fromDatetimeLocal(subForm.startsAt),
+          endsAt: fromDatetimeLocal(subForm.endsAt),
+          notes: subForm.notes.trim() || null,
+        }, token);
+      }
+      closeSubModal();
+      loadSubscriptions(selected.id);
+    } catch (e) {
+      setSubError(e instanceof Error ? e.message : "Failed to save subscription.");
+    } finally {
+      setSubSaving(false);
+    }
+  };
+
+  const changeSubStatus = async (sub: Subscription, status: string) => {
+    if (!token || !tid || !selected || status === sub.status) return;
+    setStatusUpdating(sub.id);
+    try {
+      await apiPatch(`/api/v1/tenants/${tid}/customers/${selected.id}/products/${sub.id}/status`, { status }, token);
+      setSubscriptions((prev) => prev.map((s) => (s.id === sub.id ? { ...s, status } : s)));
+    } catch { /* ignore */ }
+    finally { setStatusUpdating(null); }
+  };
+
+  const deleteSubscription = async (sub: Subscription) => {
+    if (!token || !tid || !selected) return;
+    if (!confirm(`Remove ${sub.productName} subscription? This cannot be undone.`)) return;
+    try {
+      await apiDelete(`/api/v1/tenants/${tid}/customers/${selected.id}/products/${sub.id}`, token);
+      loadSubscriptions(selected.id);
+    } catch { /* ignore */ }
   };
 
   const openCustomer = (c: Customer) => {
@@ -582,7 +851,17 @@ export default function CustomersPage() {
 
                   {/* Subscriptions */}
                   <div className="px-6 py-5">
-                    <h3 className="text-base font-semibold text-gray-900 mb-4">Subscriptions</h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-base font-semibold text-gray-900">Subscriptions</h3>
+                      <button
+                        onClick={openAddSubscription}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
+                        style={{ backgroundColor: "var(--primary)" }}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
+                        Add Subscription
+                      </button>
+                    </div>
                     {subsLoading ? (
                       <div className="py-8 text-center text-sm text-gray-400">Loading…</div>
                     ) : subscriptions.length === 0 ? (
@@ -599,6 +878,7 @@ export default function CustomersPage() {
                                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Amount</th>
                                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Period</th>
+                                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide"></th>
                               </tr>
                             </thead>
                             <tbody>
@@ -622,14 +902,46 @@ export default function CustomersPage() {
                                       </div>
                                     </td>
                                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{s.currency} {Number(s.amount).toFixed(2)}</td>
-                                    <td className="px-4 py-3"><SubStatusBadge status={s.status} /></td>
+                                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                                      <select
+                                        value={s.status}
+                                        disabled={statusUpdating === s.id}
+                                        onChange={(e) => changeSubStatus(s, e.target.value)}
+                                        className="text-xs font-semibold px-2 py-1 rounded outline-none cursor-pointer disabled:opacity-60"
+                                        style={{ ...(({
+                                          ACTIVE:    { backgroundColor: "#dcfce7", color: "#15803d" },
+                                          PAUSED:    { backgroundColor: "#f3f4f6", color: "#6b7280" },
+                                          CANCELLED: { backgroundColor: "#fee2e2", color: "#b91c1c" },
+                                          EXPIRED:   { backgroundColor: "#fef3c7", color: "#b45309" },
+                                        } as Record<string, React.CSSProperties>)[s.status] ?? { backgroundColor: "#f3f4f6", color: "#6b7280" }), border: "none" }}
+                                      >
+                                        {SUBSCRIPTION_STATUSES.map((st) => (
+                                          <option key={st} value={st}>{st.charAt(0) + st.slice(1).toLowerCase()}</option>
+                                        ))}
+                                        {!SUBSCRIPTION_STATUSES.includes(s.status as typeof SUBSCRIPTION_STATUSES[number]) && (
+                                          <option value={s.status}>{s.status.charAt(0) + s.status.slice(1).toLowerCase()}</option>
+                                        )}
+                                      </select>
+                                    </td>
                                     <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
                                       {formatDate(s.startsAt)}{s.endsAt ? ` → ${formatDate(s.endsAt)}` : " → ∞"}
+                                    </td>
+                                    <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                                      <div className="flex items-center justify-end gap-1">
+                                        <button onClick={() => openEditSubscription(s)} className="text-gray-300 hover:text-gray-500 transition-colors p-1 rounded" title="Edit subscription">
+                                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z" /></svg>
+                                        </button>
+                                        {isAdmin && (
+                                          <button onClick={() => deleteSubscription(s)} className="text-gray-300 hover:text-red-500 transition-colors p-1 rounded" title="Delete subscription">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>
+                                          </button>
+                                        )}
+                                      </div>
                                     </td>
                                   </tr>
                                   {expandedSubId === s.id && (
                                     <tr>
-                                      <td colSpan={4} className="px-0 py-0" style={{ borderTop: "1px solid var(--border)" }}>
+                                      <td colSpan={5} className="px-0 py-0" style={{ borderTop: "1px solid var(--border)" }}>
                                         <div className="px-6 py-4" style={{ backgroundColor: "#f8faf8" }}>
                                           {remLoading ? (
                                             <div className="flex items-center gap-2 text-sm text-gray-400 py-2">
@@ -683,6 +995,21 @@ export default function CustomersPage() {
                 </>
               )}
             </div>
+
+            {showSubModal && (
+              <SubscriptionModal
+                mode={subMode}
+                products={subProducts}
+                plans={subPlans}
+                onProductChange={handleSubProductChange}
+                form={subForm}
+                setForm={setSubForm}
+                onClose={closeSubModal}
+                onSubmit={saveSubscription}
+                saving={subSaving}
+                error={subError}
+              />
+            )}
           </>
         ) : null}
       </SlideOver>

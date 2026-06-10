@@ -32,7 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/tenants/{tenantId}/customers/{customerId}/products")
 @RequiredArgsConstructor
-@Tag(name = "Customer Products", description = "Customer plan (product assignment) management")
+@Tag(name = "Subscriptions", description = "SubScription (product assignment) management")
 @SecurityRequirement(name = "bearerAuth")
 public class CustomerProductController {
 
@@ -115,7 +115,7 @@ public class CustomerProductController {
             @ApiResponse(responseCode = "404", description = "Not found")
     })
     @DeleteMapping("/{cpId}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN', 'TENANT_USER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'TENANT_ADMIN')")
     public ResponseEntity<Void> delete(
             @PathVariable Long tenantId,
             @PathVariable Long customerId,
