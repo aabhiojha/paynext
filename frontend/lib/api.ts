@@ -1,4 +1,4 @@
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8090";
+export const API_BASE = "";
 
 export async function apiPost<T>(path: string, body: unknown, token?: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {

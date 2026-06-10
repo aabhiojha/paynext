@@ -46,5 +46,3 @@ app:
   jwt:
     secret: fac50670a12e0028cd78296f6c6bf9b8909248052469098dba20bd94579c4f90
     expiration-seconds: 84600
-  cors:
-    allowed-origins: http://localhost:3000

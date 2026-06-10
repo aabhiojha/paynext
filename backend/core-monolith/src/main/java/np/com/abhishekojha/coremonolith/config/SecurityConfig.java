@@ -1,7 +1,6 @@
 package np.com.abhishekojha.coremonolith.config;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -31,8 +30,12 @@ public class SecurityConfig {
     private final SecurityExceptionHandler securityExceptionHandler;
     private final TenantSubscriptionFilter tenantSubscriptionFilter;
 
-    @Value("${app.cors.allowed-origins}")
-    private List<String> allowedOrigins;
+    private static final List<String> ALLOWED_ORIGINS = List.of(
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "https://paynext-demo.abhishekojha.com.np",
+            "http://192.168.1.20:3000"
+    );
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -64,7 +67,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(allowedOrigins);
+        config.setAllowedOrigins(ALLOWED_ORIGINS);
         config.setAllowedMethods(List.of("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
         config.setExposedHeaders(List.of("Authorization"));
