@@ -52,9 +52,10 @@ public class ProductService {
         product.setBillingCadence(req.billingCadence());
         productRepository.save(product);
 
-        auditService.log(AuditAction.CREATE, "PRODUCT", product.getId(), null,
+        auditService.log(AuditAction.PRODUCT_CREATED, "PRODUCT", product.getId(), null,
                 Map.of("name", product.getName(), "price", product.getPrice(),
-                        "currency", product.getCurrency(), "billingCadence", product.getBillingCadence().name()));
+                        "currency", product.getCurrency(), "billingCadence", product.getBillingCadence().name()),
+                "Created product " + product.getName());
         log.debug("Product created id={} tenantId={}", product.getId(), tenantId);
         return ProductResponse.from(product);
     }
@@ -101,7 +102,8 @@ public class ProductService {
             }
         }
 
-//        auditService.log(AuditAction.UPDATE, "PRODUCT", productId, oldState, ProductResponse.from(product));
+        auditService.log(AuditAction.PRODUCT_UPDATED, "PRODUCT", productId, oldState, ProductResponse.from(product),
+                "Updated product " + product.getName());
         return ProductResponse.from(product);
     }
 
@@ -117,8 +119,9 @@ public class ProductService {
                 .findAllByProductIdAndStatusNotAndDeletedAtIsNull(productId, SubscriptionStatus.CANCELLED)
                 .forEach(cp -> cp.setStatus(SubscriptionStatus.CANCELLED));
 
-        auditService.log(AuditAction.DELETE, "PRODUCT", productId,
-                Map.of("name", product.getName(), "status", product.getStatus().name()), null);
+        auditService.log(AuditAction.PRODUCT_DELETED, "PRODUCT", productId,
+                Map.of("name", product.getName(), "status", product.getStatus().name()), null,
+                "Deleted product " + product.getName());
         log.debug("Product deleted id={} tenantId={}", productId, tenantId);
     }
 

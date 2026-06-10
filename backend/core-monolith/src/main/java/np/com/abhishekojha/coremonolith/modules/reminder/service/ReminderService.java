@@ -202,9 +202,10 @@ public class ReminderService {
 
         for (CustomerProductEntity cp : overdue) {
             cp.setStatus(SubscriptionStatus.CANCELLED);
-            auditService.log(null, AuditAction.STATUS_CHANGE, "CUSTOMER_PRODUCT", cp.getId(),
+            auditService.log(null, AuditAction.SUBSCRIPTION_AUTO_CANCELLED, "CUSTOMER_PRODUCT", cp.getId(),
                     Map.of("status", "ACTIVE"),
-                    Map.of("status", "CANCELLED", "reason", "expired"));
+                    Map.of("status", "CANCELLED", "reason", "expired"),
+                    "Auto-cancelled subscription for " + cp.getCustomer().getName() + " (" + cp.getProduct().getName() + ") — expired");
             log.info("Auto-cancelled overdue plan id={} endsAt={} customer={}",
                     cp.getId(), cp.getEndsAt(), cp.getCustomer().getId());
         }

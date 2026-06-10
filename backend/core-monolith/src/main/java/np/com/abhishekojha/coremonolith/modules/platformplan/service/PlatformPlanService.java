@@ -37,8 +37,9 @@ public class PlatformPlanService {
         plan.setBillingCadence(req.billingCadence());
 
         planRepository.save(plan);
-        auditService.log(AuditAction.CREATE, "PLATFORM_PLAN", plan.getId(), null,
-                Map.of("name", plan.getName(), "price", plan.getPrice().toString()));
+        auditService.log(AuditAction.PLATFORM_PLAN_CREATED, "PLATFORM_PLAN", plan.getId(), null,
+                Map.of("name", plan.getName(), "price", plan.getPrice().toString()),
+                "Created platform plan " + plan.getName());
         log.info("Platform plan created id={} name={}", plan.getId(), plan.getName());
         return PlatformPlanResponse.from(plan);
     }
@@ -70,15 +71,17 @@ public class PlatformPlanService {
         if (req.billingCadence() != null) plan.setBillingCadence(req.billingCadence());
 
         PlatformPlanResponse newState = PlatformPlanResponse.from(plan);
-        auditService.log(AuditAction.UPDATE, "PLATFORM_PLAN", id, oldState, newState);
+        auditService.log(AuditAction.PLATFORM_PLAN_UPDATED, "PLATFORM_PLAN", id, oldState, newState,
+                "Updated platform plan " + plan.getName());
         return newState;
     }
 
     public PlatformPlanResponse archive(Long id) {
         PlatformPlanEntity plan = findActive(id);
         plan.setStatus(PlatformPlanStatus.ARCHIVED);
-        auditService.log(AuditAction.STATUS_CHANGE, "PLATFORM_PLAN", id,
-                Map.of("status", "ACTIVE"), Map.of("status", "ARCHIVED"));
+        auditService.log(AuditAction.PLATFORM_PLAN_ARCHIVED, "PLATFORM_PLAN", id,
+                Map.of("status", "ACTIVE"), Map.of("status", "ARCHIVED"),
+                "Archived platform plan " + plan.getName());
         log.info("Platform plan archived id={}", id);
         return PlatformPlanResponse.from(plan);
     }

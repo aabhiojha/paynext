@@ -73,8 +73,9 @@ public class InvitationService {
         UserInvitationEntity inv = findInvitation(tenantId, invitationId);
         requirePending(inv);
         inv.setStatus(InvitationStatus.REVOKED);
-        auditService.log(AuditAction.STATUS_CHANGE, "INVITATION", invitationId,
-                Map.of("status", "PENDING"), Map.of("status", "REVOKED"));
+        auditService.log(AuditAction.INVITATION_REVOKED, "INVITATION", invitationId,
+                Map.of("status", "PENDING"), Map.of("status", "REVOKED"),
+                "Revoked invitation for " + inv.getEmail() + " (" + inv.getRole() + ")");
         log.info("Invitation revoked invitationId={} tenantId={}", invitationId, tenantId);
     }
 
@@ -110,8 +111,9 @@ public class InvitationService {
         invitation.setExpiresAt(now.plus(INVITE_TTL_DAYS, ChronoUnit.DAYS));
         invitation.setCreatedAt(now);
         invitationRepository.save(invitation);
-        auditService.log(AuditAction.CREATE, "INVITATION", invitation.getId(),
-                null, Map.of("email", email, "role", role.name(), "tenantId", tenant.getId()));
+        auditService.log(AuditAction.INVITATION_CREATED, "INVITATION", invitation.getId(),
+                null, Map.of("email", email, "role", role.name(), "tenantId", tenant.getId()),
+                "Invited " + email + " as " + role.name() + " to " + tenant.getName());
         log.info("Invitation created invitationId={} role={} tenantId={}", invitation.getId(), role, tenant.getId());
 
         InviteNotificationPayload payload = new InviteNotificationPayload(

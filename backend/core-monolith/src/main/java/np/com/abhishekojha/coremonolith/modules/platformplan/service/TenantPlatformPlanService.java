@@ -58,9 +58,10 @@ public class TenantPlatformPlanService {
 
         tenantPlanRepository.save(assignment);
 
-        auditService.log(AuditAction.CREATE, "TENANT_PLATFORM_PLAN", assignment.getId(), null,
+        auditService.log(AuditAction.TENANT_PLAN_ASSIGNED, "TENANT_PLATFORM_PLAN", assignment.getId(), null,
                 Map.of("tenantId", tenantId.toString(), "planId", plan.getId().toString(),
-                        "planName", plan.getName()));
+                        "planName", plan.getName()),
+                "Assigned " + plan.getName() + " plan to " + tenant.getName());
         log.info("Assigned plan={} to tenant={} id={}", plan.getName(), tenantId, assignment.getId());
         return TenantPlatformPlanResponse.from(assignment);
     }

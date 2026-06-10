@@ -84,8 +84,12 @@ public class CustomerProductService {
         if (req.notes() != null) cp.setNotes(req.notes());
         customerProductRepository.save(cp);
 
-        auditService.log(AuditAction.CREATE, "CUSTOMER_PRODUCT", cp.getId(),
-                null, Map.of("customerId", customerId, "productId", req.productId()));
+        String planName = cp.getProductPlan() != null ? cp.getProductPlan().getName() : null;
+        String desc = planName != null
+                ? "Assigned " + cp.getCustomer().getName() + " to " + cp.getProduct().getName() + " (" + planName + ")"
+                : "Assigned " + cp.getCustomer().getName() + " to " + cp.getProduct().getName();
+        auditService.log(AuditAction.SUBSCRIPTION_CREATED, "CUSTOMER_PRODUCT", cp.getId(),
+                null, Map.of("customerId", customerId, "productId", req.productId()), desc);
         log.debug("Plan assigned id={} customerId={} productId={} tenantId={}", cp.getId(), customerId, req.productId(), tenantId);
         return SubscriptionResponse.from(cp);
     }
@@ -114,7 +118,9 @@ public class CustomerProductService {
         if (req.endsAt() != null) cp.setEndsAt(req.endsAt());
         if (req.notes() != null) cp.setNotes(req.notes());
 
-        auditService.log(AuditAction.UPDATE, "CUSTOMER_PRODUCT", cpId, oldState, SubscriptionResponse.from(cp));
+        String planLabel = cp.getProductPlan() != null ? " (" + cp.getProductPlan().getName() + ")" : "";
+        auditService.log(AuditAction.SUBSCRIPTION_UPDATED, "CUSTOMER_PRODUCT", cpId, oldState, SubscriptionResponse.from(cp),
+                "Updated subscription for " + cp.getCustomer().getName() + " (" + cp.getProduct().getName() + planLabel + ")");
         return SubscriptionResponse.from(cp);
     }
 
@@ -125,7 +131,19 @@ public class CustomerProductService {
 
         cp.setStatus(req.status());
 
-        auditService.log(AuditAction.STATUS_CHANGE, "CUSTOMER_PRODUCT", cpId, oldState, SubscriptionResponse.from(cp));
+        String statusVerb = switch (req.status()) {
+            case ACTIVE -> "Activated";
+            case PAUSED -> "Paused";
+            case CANCELLED -> "Cancelled";
+        };
+        AuditAction statusAction = switch (req.status()) {
+            case ACTIVE -> AuditAction.SUBSCRIPTION_ACTIVATED;
+            case PAUSED -> AuditAction.SUBSCRIPTION_PAUSED;
+            case CANCELLED -> AuditAction.SUBSCRIPTION_CANCELLED;
+        };
+        String planLabel = cp.getProductPlan() != null ? " (" + cp.getProductPlan().getName() + ")" : "";
+        auditService.log(statusAction, "CUSTOMER_PRODUCT", cpId, oldState, SubscriptionResponse.from(cp),
+                statusVerb + " subscription for " + cp.getCustomer().getName() + " (" + cp.getProduct().getName() + planLabel + ")");
         return SubscriptionResponse.from(cp);
     }
 
@@ -135,8 +153,10 @@ public class CustomerProductService {
         cp.setDeletedAt(Instant.now());
         cp.setDeletedBy(guard.currentUser());
 
-        auditService.log(AuditAction.DELETE, "CUSTOMER_PRODUCT", cpId,
-                Map.of("customerId", customerId, "productId", cp.getProduct().getId()), null);
+        String planLabel = cp.getProductPlan() != null ? " (" + cp.getProductPlan().getName() + ")" : "";
+        auditService.log(AuditAction.SUBSCRIPTION_DELETED, "CUSTOMER_PRODUCT", cpId,
+                Map.of("customerId", customerId, "productId", cp.getProduct().getId()), null,
+                "Deleted subscription for " + cp.getCustomer().getName() + " (" + cp.getProduct().getName() + planLabel + ")");
         log.debug("Plan deleted id={} customerId={} tenantId={}", cpId, customerId, tenantId);
     }
 

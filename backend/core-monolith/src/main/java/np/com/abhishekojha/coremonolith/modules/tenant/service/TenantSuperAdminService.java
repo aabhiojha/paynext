@@ -44,9 +44,10 @@ public class TenantSuperAdminService {
         tenant.setTimezone(req.timezone());
         tenantRepository.save(tenant);
 
-        auditService.log(AuditAction.CREATE, "TENANT", tenant.getId(), null,
+        auditService.log(AuditAction.TENANT_CREATED, "TENANT", tenant.getId(), null,
                 Map.of("name", tenant.getName(), "slug", tenant.getSlug(),
-                        "companyEmail", tenant.getCompanyEmail()));
+                        "companyEmail", tenant.getCompanyEmail()),
+                "Created tenant " + tenant.getName() + " (" + tenant.getCompanyEmail() + ")");
         log.info("Tenant created id={} slug={}", tenant.getId(), tenant.getSlug());
 
         TenantPlatformPlanResponse activePlan = null;
@@ -83,7 +84,8 @@ public class TenantSuperAdminService {
 
         TenantResponse newState = TenantResponse.from(tenant,
                 tenantPlatformPlanService.findActivePlan(id).orElse(null));
-        auditService.log(AuditAction.UPDATE, "TENANT", id, oldState, newState);
+        auditService.log(AuditAction.TENANT_UPDATED, "TENANT", id, oldState, newState,
+                "Updated tenant " + tenant.getName());
         return newState;
     }
 
@@ -91,9 +93,10 @@ public class TenantSuperAdminService {
         TenantEntity tenant = findActive(id);
         tenant.setStatus(TenantStatus.SUSPENDED);
         tenant.setSuspensionReason(req.reason());
-        auditService.log(AuditAction.STATUS_CHANGE, "TENANT", id,
+        auditService.log(AuditAction.TENANT_SUSPENDED, "TENANT", id,
                 Map.of("status", "ACTIVE"),
-                statusChangePayload("SUSPENDED", req.reason()));
+                statusChangePayload("SUSPENDED", req.reason()),
+                "Suspended tenant " + tenant.getName());
         log.info("Tenant suspended id={}", id);
         return TenantResponse.from(tenant,
                 tenantPlatformPlanService.findActivePlan(id).orElse(null));
@@ -109,9 +112,10 @@ public class TenantSuperAdminService {
         tenant.setStatus(TenantStatus.ARCHIVED);
         tenant.setArchivedAt(Instant.now());
         tenant.setArchivalReason(req.reason());
-        auditService.log(AuditAction.STATUS_CHANGE, "TENANT", id,
+        auditService.log(AuditAction.TENANT_ARCHIVED, "TENANT", id,
                 Map.of("status", previousStatus),
-                statusChangePayload("ARCHIVED", req.reason()));
+                statusChangePayload("ARCHIVED", req.reason()),
+                "Archived tenant " + tenant.getName());
         log.info("Tenant archived id={} previousStatus={}", id, previousStatus);
         return TenantResponse.from(tenant,
                 tenantPlatformPlanService.findActivePlan(id).orElse(null));
@@ -122,8 +126,9 @@ public class TenantSuperAdminService {
         TenantEntity tenant = findSuspended(tenantId);
         String previousStatus = tenant.getStatus().name();
         tenant.setStatus(TenantStatus.ACTIVE);
-        auditService.log(AuditAction.STATUS_CHANGE, "TENANT", tenant.getId(),
-                Map.of("status", previousStatus), Map.of("status", "ACTIVE"));
+        auditService.log(AuditAction.TENANT_REACTIVATED, "TENANT", tenant.getId(),
+                Map.of("status", previousStatus), Map.of("status", "ACTIVE"),
+                "Reactivated tenant " + tenant.getName());
         log.info("Tenant reactivated id={} previousStatus={}", tenant.getId(), previousStatus);
         return TenantResponse.from(tenant,
                 tenantPlatformPlanService.findActivePlan(tenantId).orElse(null));

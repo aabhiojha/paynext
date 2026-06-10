@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import np.com.abhishekojha.coremonolith.common.enums.AuditAction;
 import np.com.abhishekojha.coremonolith.common.enums.SubscriptionStatus;
 import np.com.abhishekojha.coremonolith.common.enums.CustomerStatus;
+import np.com.abhishekojha.coremonolith.common.util.TextFormatUtils;
 import np.com.abhishekojha.coremonolith.config.TenantAccessGuard;
 import np.com.abhishekojha.coremonolith.modules.audit.service.AuditService;
 import np.com.abhishekojha.coremonolith.modules.customer.dto.CreateCustomerRequest;
@@ -53,15 +54,16 @@ public class CustomerService {
 
         CustomerEntity customer = new CustomerEntity();
         customer.setTenant(tenant);
-        customer.setName(req.name());
+        customer.setName(TextFormatUtils.toTitleCase(req.name()));
         customer.setEmail(req.email());
         customer.setPhone(req.phone());
         customer.setAddress(req.address());
         customer.setNotes(req.notes());
         customerRepository.save(customer);
 
-        auditService.log(AuditAction.CREATE, "CUSTOMER", customer.getId(), null,
-                Map.of("name", customer.getName(), "email", customer.getEmail()));
+        auditService.log(AuditAction.CUSTOMER_CREATED, "CUSTOMER", customer.getId(), null,
+                Map.of("name", customer.getName(), "email", customer.getEmail()),
+                "Created customer " + customer.getName() + " (" + customer.getEmail() + ")");
         log.debug("Customer created id={} tenantId={}", customer.getId(), tenantId);
         return CustomerResponse.from(customer);
     }
@@ -95,12 +97,13 @@ public class CustomerService {
             }
             customer.setEmail(req.email());
         }
-        if (req.name() != null) customer.setName(req.name());
+        if (req.name() != null) customer.setName(TextFormatUtils.toTitleCase(req.name()));
         if (req.phone() != null) customer.setPhone(req.phone());
         if (req.address() != null) customer.setAddress(req.address());
         if (req.notes() != null) customer.setNotes(req.notes());
 
-        auditService.log(AuditAction.UPDATE, "CUSTOMER", customerId, oldState, CustomerResponse.from(customer));
+        auditService.log(AuditAction.CUSTOMER_UPDATED, "CUSTOMER", customerId, oldState, CustomerResponse.from(customer),
+                "Updated customer " + customer.getName());
         return CustomerResponse.from(customer);
     }
 
@@ -116,8 +119,9 @@ public class CustomerService {
                 .findAllByCustomerIdAndStatusNotAndDeletedAtIsNull(customerId, SubscriptionStatus.CANCELLED)
                 .forEach(cp -> cp.setStatus(SubscriptionStatus.CANCELLED));
 
-        auditService.log(AuditAction.DELETE, "CUSTOMER", customerId,
-                Map.of("name", customer.getName(), "email", customer.getEmail()), null);
+        auditService.log(AuditAction.CUSTOMER_DELETED, "CUSTOMER", customerId,
+                Map.of("name", customer.getName(), "email", customer.getEmail()), null,
+                "Deleted customer " + customer.getName() + " (" + customer.getEmail() + ")");
         log.debug("Customer deleted id={} tenantId={}", customerId, tenantId);
     }
 
