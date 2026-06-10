@@ -220,6 +220,16 @@ export default function ProductsPage() {
     }
   };
 
+  const deleteProduct = async () => {
+    if (!token || !tid || !selected) return;
+    if (!confirm(`Delete product "${selected.name}"? This cannot be undone.`)) return;
+    try {
+      await apiDelete(`/api/v1/tenants/${tid}/products/${selected.id}`, token);
+      setSelected(null);
+      load();
+    } catch { /* ignore */ }
+  };
+
   const deletePlan = async (plan: Plan) => {
     if (!token || !tid || !selected) return;
     if (!confirm(`Delete plan "${plan.name}"? This cannot be undone.`)) return;
@@ -449,8 +459,9 @@ export default function ProductsPage() {
                         Edit product
                       </button>
                       <button
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-600"
-                        style={{ border: "1px solid var(--border)" }}
+                        onClick={deleteProduct}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                        style={{ border: "1px solid #fecaca" }}
                       >
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>
                         Delete product

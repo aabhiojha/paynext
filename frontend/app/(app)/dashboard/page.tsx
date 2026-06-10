@@ -348,7 +348,7 @@ export default function DashboardPage() {
       apiGet<TenantSummary>(`/api/v1/tenants/${tid}/dashboard/summary`, token),
       apiGet<RevenueTotals>(`/api/v1/tenants/${tid}/dashboard/revenue`, token),
       apiGet<ApiUpcoming[]>(`/api/v1/tenants/${tid}/dashboard/upcoming-reminders`, token),
-      apiGet<ReminderStats>(`/api/v1/tenants/${tid}/dashboard/reminder-stats`, token),
+      apiGet<ReminderStats>(`/api/v1/tenants/${tid}/dashboard/reminders`, token),
       apiGet<AuditLog[]>(`/api/v1/tenants/${tid}/dashboard/recent-activity`, token),
       apiGet<OverduePlan[]>(`/api/v1/tenants/${tid}/dashboard/overdue`, token),
     ]).then(([sum, rev, upcomingRes, statsRes, logsRes, overdueRes]) => {
