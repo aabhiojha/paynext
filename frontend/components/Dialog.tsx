@@ -54,8 +54,8 @@ export default function Dialog({
       <div
         className="fixed inset-0 z-50"
         style={{
-          backgroundColor: "rgba(0,0,0,0.32)",
-          backdropFilter: "blur(4px)",
+          backgroundColor: "rgba(129, 127, 127, 0.32)",
+          backdropFilter: "blur(0.5px)",
           animation: entering ? "fade-in 0.15s ease both" : "fade-out 0.18s ease both",
           pointerEvents: entering ? "auto" : "none",
         }}

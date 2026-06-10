@@ -735,7 +735,7 @@ function EditPlanModal({
   return (
     <div
       className="absolute inset-0 z-10 flex items-center justify-center p-5"
-      style={{ backgroundColor: "rgba(0,0,0,0.32)", backdropFilter: "blur(4px)", animation: closing ? "fade-out 0.15s ease-out both" : "fade-in 0.15s ease-out both" }}
+      style={{ backgroundColor: "rgba(0,0,0,0.32)", backdropFilter: "blur(2px)", animation: closing ? "fade-out 0.15s ease-out both" : "fade-in 0.15s ease-out both" }}
       onClick={close}
     >
       <div
@@ -842,7 +842,7 @@ function InviteUserModal({
   return (
     <div
       className="absolute inset-0 z-10 flex items-center justify-center p-5"
-      style={{ backgroundColor: "rgba(0,0,0,0.32)", backdropFilter: "blur(4px)", animation: closing ? "fade-out 0.15s ease-out both" : "fade-in 0.15s ease-out both" }}
+      style={{ backgroundColor: "rgba(0,0,0,0.32)", backdropFilter: "blur(2px)", animation: closing ? "fade-out 0.15s ease-out both" : "fade-in 0.15s ease-out both" }}
       onClick={close}
     >
       <div

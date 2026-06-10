@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import SlideOver, { SlideOverField } from "@/components/SlideOver";
-import { cadenceLabel } from "@/lib/cadence";
+import { addCadence, cadenceLabel } from "@/lib/cadence";
 import SearchSelect, { SearchOption } from "@/components/SearchSelect";
 import Pagination from "@/components/Pagination";
 
@@ -28,7 +28,7 @@ type Subscription = {
 };
 
 type CustomerOption  = { id: number; name: string; email: string };
-type ProductOption   = { id: number; name: string; currency: string; price: number };
+type ProductOption   = { id: number; name: string; currency: string; price: number; billingCadence: string };
 type PlanOption      = { id: number; name: string; price: number; currency: string; billingCadence: string };
 
 type SpringPage<T> = {
@@ -120,9 +120,10 @@ type AssignFormFieldsProps = {
   plansLoading:      boolean;
   onCreatePlan:      () => void;
   error:             string | null;
+  endsAtAuto:        boolean;
 };
 
-function AssignFormFields({ form, onChange, onSearchCustomers, products, plans, plansLoading, onCreatePlan, error }: AssignFormFieldsProps) {
+function AssignFormFields({ form, onChange, onSearchCustomers, products, plans, plansLoading, onCreatePlan, error, endsAtAuto }: AssignFormFieldsProps) {
   const selectCls = `${inputCls} bg-white`;
   return (
     <div className="space-y-4">
@@ -180,6 +181,9 @@ function AssignFormFields({ form, onChange, onSearchCustomers, products, plans, 
         <div>
           <label className={labelCls}>End date <span className="normal-case font-normal text-gray-400">(optional)</span></label>
           <input type="date" className={inputCls} style={inputStyle} value={form.endsAt} onChange={(e) => onChange("endsAt", e.target.value)} />
+          {endsAtAuto && form.endsAt && (
+            <p className="text-xs text-gray-400 mt-1">Auto-set from billing cadence</p>
+          )}
         </div>
       </div>
       <div>
@@ -220,6 +224,7 @@ export default function SubscriptionsPage() {
   // Detail panel
   const [selected, setSelected] = useState<Subscription | null>(null);
   const [editing,  setEditing]  = useState(false);
+  const [editClosing, setEditClosing] = useState(false);
   const [editStartsAt, setEditStartsAt] = useState("");
   const [editEndsAt,   setEditEndsAt]   = useState("");
   const [editNotes,    setEditNotes]    = useState("");
@@ -230,6 +235,7 @@ export default function SubscriptionsPage() {
   const [products,   setProducts]   = useState<ProductOption[]>([]);
   const [plans,      setPlans]      = useState<PlanOption[]>([]);
   const [plansLoading, setPlansLoading] = useState(false);
+  const [endsAtAuto, setEndsAtAuto] = useState(true);
 
   const [saving,    setSaving]    = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -281,20 +287,44 @@ export default function SubscriptionsPage() {
   const openAssign = () => {
     setAssigning(true); setSelected(null); setEditing(false);
     setAssignForm({ ...EMPTY_ASSIGN, startsAt: todayInput() });
+    setEndsAtAuto(true);
     setFormError(null);
     if (!token || !tid) return;
     apiGet<SpringPage<ProductOption>>(`/api/v1/tenants/${tid}/products?size=200&status=ACTIVE`, token)
       .then((d) => setProducts(d.content)).catch(() => {});
   };
 
+  // Auto-fill "End date" from "Start date" + the selected plan's (or product's)
+  // billing cadence, until the user manually edits the field.
+  const computeEndsAt = (startsAt: string, productId: string, planId: string, plansList: PlanOption[]): string => {
+    if (!startsAt) return "";
+    const cadence = plansList.find((p) => String(p.id) === planId)?.billingCadence
+      ?? products.find((p) => String(p.id) === productId)?.billingCadence;
+    if (!cadence) return "";
+    return addCadence(startsAt, cadence).toISOString().slice(0, 10);
+  };
+
   const handleAssignChange = (k: keyof AssignForm, v: string) => {
+    if (k === "endsAt") setEndsAtAuto(false);
     setAssignForm((prev) => {
       const next = { ...prev, [k]: v };
-      if (k === "productId" && v) {
+      if (k === "productId") {
         next.planId = "";
-        setPlans([]); setPlansLoading(true);
-        apiGet<PlanOption[]>(`/api/v1/tenants/${tid}/products/${v}/plans`, token!)
-          .then((d) => setPlans(d)).catch(() => {}).finally(() => setPlansLoading(false));
+        setPlans([]);
+        if (v) {
+          setPlansLoading(true);
+          apiGet<PlanOption[]>(`/api/v1/tenants/${tid}/products/${v}/plans`, token!)
+            .then((d) => {
+              setPlans(d);
+              if (endsAtAuto) {
+                setAssignForm((f) => ({ ...f, endsAt: computeEndsAt(f.startsAt, f.productId, f.planId, d) }));
+              }
+            })
+            .catch(() => {}).finally(() => setPlansLoading(false));
+        }
+      }
+      if (endsAtAuto && (k === "startsAt" || k === "productId" || k === "planId")) {
+        next.endsAt = computeEndsAt(next.startsAt, next.productId, next.planId, k === "productId" ? [] : plans);
       }
       return next;
     });
@@ -372,6 +402,11 @@ export default function SubscriptionsPage() {
     setEditEndsAt(selected.endsAt ? toDateInput(selected.endsAt) : "");
     setEditNotes(selected.notes ?? "");
     setFormError(null); setEditing(true);
+  };
+
+  const closeEdit = () => {
+    setEditClosing(true);
+    setTimeout(() => { setEditing(false); setEditClosing(false); setFormError(null); }, 160);
   };
 
   const saveEdit = async () => {
@@ -570,6 +605,7 @@ export default function SubscriptionsPage() {
                 onSearchCustomers={searchCustomers}
                 products={products}
                 plans={plans} plansLoading={plansLoading}
+                endsAtAuto={endsAtAuto}
                 onCreatePlan={() => { setNewPlanName(""); setNewPlanPrice(""); setNewPlanCadence("MONTHLY"); setNewPlanCurrency(assignForm.planId ? plans.find(p => String(p.id) === assignForm.planId)?.currency ?? "USD" : "USD"); setFormError(null); setPlanCreateOpen(true); }}
                 error={formError}
               />
@@ -585,7 +621,7 @@ export default function SubscriptionsPage() {
               {(planCreateOpen || planCreateClosing) && (
                 <div
                   className="absolute inset-0 z-10 flex items-center justify-center p-6"
-                  style={{ backgroundColor: "rgba(0,0,0,0.32)", backdropFilter: "blur(4px)", animation: `${planCreateClosing ? "fade-out 0.15s ease-out both" : "fade-in 0.15s ease-out both"}` }}
+                  style={{ backgroundColor: "rgba(0,0,0,0.08)", animation: `${planCreateClosing ? "fade-out 0.15s ease-out both" : "fade-in 0.15s ease-out both"}` }}
                   onClick={() => { setPlanCreateClosing(true); setTimeout(() => { setPlanCreateOpen(false); setPlanCreateClosing(false); setFormError(null); }, 160); }}
                 >
                   <div
@@ -607,7 +643,7 @@ export default function SubscriptionsPage() {
                       <div>
                         <label className={labelCls}>Price *</label>
                         <div className="flex items-center gap-2">
-                          <input className={`${inputCls} w-16 text-center`} style={inputStyle} placeholder="USD" value={newPlanCurrency} onChange={(e) => setNewPlanCurrency(e.target.value.toUpperCase())} maxLength={3} />
+                          <input className={`${inputCls} !w-20 text-center flex-shrink-0`} style={inputStyle} placeholder="USD" value={newPlanCurrency} onChange={(e) => setNewPlanCurrency(e.target.value.toUpperCase())} maxLength={3} />
                           <input type="number" min="0" step="0.01" className={`${inputCls} flex-1`} style={inputStyle} placeholder="0.00" value={newPlanPrice} onChange={(e) => setNewPlanPrice(e.target.value)} />
                         </div>
                       </div>
@@ -643,14 +679,8 @@ export default function SubscriptionsPage() {
             <div className="px-6 pt-6 pb-5 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "#fff" }}>
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
-                  {editing && (
-                    <button onClick={() => setEditing(false)} className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 mb-2 transition-colors">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
-                      Back
-                    </button>
-                  )}
                   <h2 className="text-xl font-bold text-gray-900">{selected.customerName}</h2>
-                  {!editing && <div className="mt-2"><StatusBadge status={selected.status} /></div>}
+                  <div className="mt-2"><StatusBadge status={selected.status} /></div>
                 </div>
                 <button onClick={closePanel} className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0 mt-0.5">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
@@ -658,31 +688,8 @@ export default function SubscriptionsPage() {
               </div>
             </div>
 
-            <div key={editing ? "edit" : "detail"} className="flex-1 overflow-y-auto" style={{ animation: "slide-in-from-right 0.2s cubic-bezier(0.25,0.46,0.45,0.94) both" }}>
-              {editing ? (
-                <div className="px-6 py-5 space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelCls}>Start date *</label>
-                      <input type="date" className={inputCls} style={inputStyle} value={editStartsAt} onChange={(e) => setEditStartsAt(e.target.value)} />
-                    </div>
-                    <div>
-                      <label className={labelCls}>End date <span className="normal-case font-normal text-gray-400">(optional)</span></label>
-                      <input type="date" className={inputCls} style={inputStyle} value={editEndsAt} onChange={(e) => setEditEndsAt(e.target.value)} />
-                    </div>
-                  </div>
-                  <div>
-                    <label className={labelCls}>Notes</label>
-                    <textarea rows={4} className={inputCls} style={inputStyle} value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Internal notes…" />
-                  </div>
-                  {formError && <p className="text-sm text-red-600">{formError}</p>}
-                  <div className="flex gap-3 pt-2">
-                    <button onClick={() => setEditing(false)} className="flex-1 py-2 text-sm font-medium rounded-lg text-gray-600" style={{ border: "1px solid var(--border)" }}>Cancel</button>
-                    <button onClick={saveEdit} disabled={saving} className="flex-1 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-60" style={{ backgroundColor: "var(--primary)" }}>{saving ? "Saving…" : "Save"}</button>
-                  </div>
-                </div>
-              ) : (
-                <>
+            <div key={selected.id} className="flex-1 overflow-y-auto" style={{ animation: "slide-in-from-right 0.2s cubic-bezier(0.25,0.46,0.45,0.94) both" }}>
+              <>
                   {/* Detail rows */}
                   <div className="px-6 py-2">
                     <SlideOverField label="Product">{selected.productName}</SlideOverField>
@@ -787,8 +794,50 @@ export default function SubscriptionsPage() {
                     </div>
                   )}
                 </>
-              )}
             </div>
+
+            {/* Edit dialog */}
+            {(editing || editClosing) && (
+              <div
+                className="absolute inset-0 z-10 flex items-center justify-center p-6"
+                style={{ backgroundColor: "rgba(0,0,0,0.08)", animation: editClosing ? "fade-out 0.15s ease-out both" : "fade-in 0.15s ease-out both" }}
+                onClick={closeEdit}
+              >
+                <div
+                  className="w-full rounded-2xl overflow-hidden"
+                  style={{ maxWidth: "400px", backgroundColor: "#fff", border: "1px solid var(--border)", boxShadow: "0 8px 40px rgba(0,0,0,0.12)", animation: editClosing ? "dialog-out 0.15s ease-in both" : "dialog-in 0.18s cubic-bezier(0.34,1.56,0.64,1) both" }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between px-5 pt-5 pb-4" style={{ borderBottom: "1px solid var(--border)" }}>
+                    <h3 className="text-base font-bold text-gray-900">Edit Subscription</h3>
+                    <button onClick={closeEdit} className="text-gray-400 hover:text-gray-600 transition-colors">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                  <div className="px-5 py-4 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className={labelCls}>Start date *</label>
+                        <input type="date" className={inputCls} style={inputStyle} value={editStartsAt} onChange={(e) => setEditStartsAt(e.target.value)} />
+                      </div>
+                      <div>
+                        <label className={labelCls}>End date <span className="normal-case font-normal text-gray-400">(optional)</span></label>
+                        <input type="date" className={inputCls} style={inputStyle} value={editEndsAt} onChange={(e) => setEditEndsAt(e.target.value)} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className={labelCls}>Notes</label>
+                      <textarea rows={4} className={inputCls} style={inputStyle} value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Internal notes…" />
+                    </div>
+                    {formError && <p className="text-sm text-red-600">{formError}</p>}
+                  </div>
+                  <div className="px-5 py-4 flex gap-3" style={{ borderTop: "1px solid var(--border)" }}>
+                    <button onClick={closeEdit} className="flex-1 py-2 text-sm font-medium rounded-lg text-gray-600" style={{ border: "1px solid var(--border)" }}>Cancel</button>
+                    <button onClick={saveEdit} disabled={saving} className="flex-1 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-60" style={{ backgroundColor: "var(--primary)" }}>{saving ? "Saving…" : "Save"}</button>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
       </SlideOver>

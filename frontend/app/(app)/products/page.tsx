@@ -582,7 +582,7 @@ export default function ProductsPage() {
             {(planDialogMode !== null || planDialogClosing) && (
               <div
                 className="absolute inset-0 z-10 flex items-center justify-center p-6"
-                style={{ backgroundColor: "rgba(0,0,0,0.32)", backdropFilter: "blur(4px)", animation: `${planDialogClosing ? "fade-out 0.15s ease-out both" : "fade-in 0.15s ease-out both"}` }}
+                style={{ backgroundColor: "rgba(0,0,0,0.08)", animation: `${planDialogClosing ? "fade-out 0.15s ease-out both" : "fade-in 0.15s ease-out both"}` }}
                 onClick={closePlanDialog}
               >
                 <div
@@ -608,7 +608,7 @@ export default function ProductsPage() {
                     <div>
                       <label className={labelCls}>Price *</label>
                       <div className="flex items-center gap-2">
-                        <input className={`${inputCls} w-16 text-center`} style={inputStyle} placeholder="USD" value={planCurrency} onChange={(e) => setPlanCurrency(e.target.value.toUpperCase())} maxLength={3} />
+                        <input className={`${inputCls} !w-20 text-center flex-shrink-0`} style={inputStyle} placeholder="USD" value={planCurrency} onChange={(e) => setPlanCurrency(e.target.value.toUpperCase())} maxLength={3} />
                         <input type="number" min="0" step="0.01" className={`${inputCls} flex-1`} style={inputStyle} placeholder="0.00" value={planPrice} onChange={(e) => setPlanPrice(e.target.value)} />
                       </div>
                     </div>
@@ -640,7 +640,7 @@ export default function ProductsPage() {
             {(productEditOpen || productEditClosing) && selected && (
               <div
                 className="absolute inset-0 z-10 flex items-center justify-center p-6"
-                style={{ backgroundColor: "rgba(0,0,0,0.32)", backdropFilter: "blur(4px)", animation: `${productEditClosing ? "fade-out 0.15s ease-out both" : "fade-in 0.15s ease-out both"}` }}
+                style={{ backgroundColor: "rgba(0,0,0,0.08)", animation: `${productEditClosing ? "fade-out 0.15s ease-out both" : "fade-in 0.15s ease-out both"}` }}
                 onClick={closeProductEdit}
               >
                 <div
