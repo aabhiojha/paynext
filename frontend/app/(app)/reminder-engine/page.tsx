@@ -5,6 +5,8 @@ import { useAuthStore } from "@/store/authStore";
 import { apiGet, apiPost } from "@/lib/api";
 import Pagination from "@/components/Pagination";
 
+const PAGE_SIZE = 15;
+
 type Reminder = {
   id: number;
   customerName: string;
@@ -92,7 +94,6 @@ export default function ReminderEnginePage() {
   const [upcoming, setUpcoming] = useState<UpcomingReminder[]>([]);
   const [upcomingLoading, setUpcomingLoading] = useState(true);
 
-  const PAGE_SIZE = 25;
   const tid = user?.tenantId;
 
   const load = (f = filter, p = page) => {
@@ -115,7 +116,7 @@ export default function ReminderEnginePage() {
       .finally(() => setUpcomingLoading(false));
   };
 
-  useEffect(() => { load(); loadUpcoming(); }, [token, user]);
+  useEffect(() => { setPage(0); load(filter, 0); loadUpcoming(); }, [token, user]);
 
   const handleFilter = (f: string) => { setFilter(f); setPage(0); load(f, 0); };
 
@@ -143,7 +144,7 @@ export default function ReminderEnginePage() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
-    <div className="px-6 py-8 md:px-10 max-w-6xl mx-auto space-y-6" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
+    <div className="px-6 py-8 md:px-10 max-w-6xl mx-auto space-y-6 min-h-full flex flex-col" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
@@ -260,7 +261,11 @@ export default function ReminderEnginePage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+      <div className="rounded-xl overflow-hidden flex-1 min-h-0 flex flex-col" style={{ border: "1px solid var(--border)" }}>
+        <div className="px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+          <h2 className="text-base font-bold text-gray-900">Reminder History</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Past reminders that have been sent</p>
+        </div>
         {loading ? (
           <div className="flex items-center justify-center py-16 text-gray-400">
             <svg className="animate-spin mr-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
@@ -271,11 +276,12 @@ export default function ReminderEnginePage() {
             No reminders found.
           </div>
         ) : (
+          <div className="overflow-auto flex-1 min-h-0">
           <table className="w-full">
-            <thead>
-              <tr style={{ backgroundColor: "var(--bg-card)" }}>
+            <thead className="sticky top-0 z-10">
+              <tr>
                 {["Customer", "Product", "Milestone", "Status", "Sent At", ""].map((h, i) => (
-                  <th key={i} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  <th key={i} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide" style={{ backgroundColor: "var(--bg-card)" }}>
                     {h}
                   </th>
                 ))}
@@ -306,6 +312,7 @@ export default function ReminderEnginePage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

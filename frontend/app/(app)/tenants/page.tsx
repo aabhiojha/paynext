@@ -7,6 +7,8 @@ import { apiGet, apiPatch, apiPost } from "@/lib/api";
 import SlideOver, { SlideOverField, SlideOverHeader, SlideOverSection } from "@/components/SlideOver";
 import Pagination from "@/components/Pagination";
 
+const PAGE_SIZE = 15;
+
 function useColumnResize(initialWidths: number[]) {
   const [widths, setWidths] = useState(initialWidths);
   const dragging = useRef<{ col: number; startX: number; startW: number } | null>(null);
@@ -279,19 +281,19 @@ function TenantsTable({
   const { widths, onMouseDown } = useColumnResize(cols);
 
   return (
-    <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-      <div className="overflow-x-auto">
+    <div className="rounded-lg overflow-hidden flex-1 min-h-0 flex flex-col" style={{ border: "1px solid var(--border)" }}>
+      <div className="overflow-auto flex-1 min-h-0">
         <table style={{ tableLayout: "fixed", width: "100%", minWidth: widths.reduce((a, b) => a + b, 0) }}>
           <colgroup>{widths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
-          <thead>
-            <tr style={{ backgroundColor: "var(--bg-card)" }}>
+          <thead className="sticky top-0 z-10">
+            <tr>
               {colHeaders.map((h, i) => {
                 const active = sortField === h.label;
                 return (
                   <th
                     key={i}
                     className="relative text-left px-4 py-3 text-sm font-semibold text-gray-700 select-none overflow-hidden"
-                    style={h.sortable ? { cursor: "pointer" } : undefined}
+                    style={{ ...(h.sortable ? { cursor: "pointer" } : {}), backgroundColor: "var(--bg-card)" }}
                     onClick={h.sortable ? () => onSort(h.label) : undefined}
                   >
                     <span className="truncate flex items-center pr-2">
@@ -1533,7 +1535,6 @@ export default function TenantsPage() {
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
-  const PAGE_SIZE = 20;
 
   const handleSort = useCallback((field: string) => {
     setSortField((prev) => {
@@ -1663,7 +1664,7 @@ export default function TenantsPage() {
   ];
 
   return (
-    <div className="font-sans px-6 py-8 md:px-12 md:py-10 max-w-6xl mx-auto" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
+    <div className="font-sans px-6 py-8 md:px-12 md:py-10 max-w-6xl mx-auto min-h-full flex flex-col" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
       <div className="mb-8 border-l-4 pl-5 py-1" style={{ borderColor: "var(--primary)" }}>
         <p className="text-sm mb-1" style={{ color: "var(--primary)" }}>Super Admin</p>
         <h1 className="text-3xl font-bold" style={{ color: "#212529" }}>Tenants</h1>
@@ -1701,6 +1702,7 @@ export default function TenantsPage() {
         </button>
       </div>
 
+      <div className="flex-1 min-h-0 flex flex-col">
       {loading ? (
         <div className="flex items-center justify-center py-20 text-gray-400">
           <svg className="animate-spin mr-3" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -1725,6 +1727,7 @@ export default function TenantsPage() {
       ) : (
         <TenantsTable data={sorted} onSuspend={handleSuspend} onActivate={handleActivate} onSelect={handleSelectTenant} sortField={sortField} sortDir={sortDir} onSort={handleSort} />
       )}
+      </div>
 
       {!loading && !error && (
         <div className="mt-4">

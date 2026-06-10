@@ -7,6 +7,8 @@ import SlideOver, { SlideOverField } from "@/components/SlideOver";
 import Pagination from "@/components/Pagination";
 import { addCadence } from "@/lib/cadence";
 
+const PAGE_SIZE = 15;
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type Customer = {
@@ -167,7 +169,7 @@ const CUSTOMER_STATUS_COLORS: Record<string, { bg: string; color: string }> = {
 function StatusBadge({ status }: { status: string }) {
   const s = CUSTOMER_STATUS_COLORS[status] ?? { bg: "#9ca3af", color: "#fff" };
   return (
-    <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold" style={{ backgroundColor: s.bg, color: s.color }}>
+    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold" style={{ backgroundColor: s.bg, color: s.color }}>
       {status.charAt(0) + status.slice(1).toLowerCase()}
     </span>
   );
@@ -202,7 +204,6 @@ const TABLE_HEADERS: { label: string; icon?: React.ReactNode; sortable?: boolean
 ];
 
 const STATUS_FILTERS = ["ALL", "ACTIVE", "DELETED"] as const;
-const PAGE_SIZE = 20;
 
 const inputCls   = "w-full text-sm px-3 py-2 rounded-lg outline-none";
 const inputStyle = { border: "1px solid var(--border)", backgroundColor: "#fff" };
@@ -476,7 +477,7 @@ export default function CustomersPage() {
     });
   }, [token, tid]);
 
-  useEffect(() => { load(); }, [token, user]);
+  useEffect(() => { setPage(0); load(filter, search, 0); }, [token, user]);
 
   const loadSubscriptions = (customerId: number) => {
     if (!token || !tid) return;
@@ -663,7 +664,7 @@ export default function CustomersPage() {
 
   return (
     <>
-      <div className="px-6 py-8 md:px-10 max-w-7xl mx-auto space-y-6" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
+      <div className="px-6 py-8 md:px-10 max-w-7xl mx-auto space-y-6 min-h-full flex flex-col" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -682,17 +683,7 @@ export default function CustomersPage() {
             </button>
           )}
         </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((s, i) => (
-            <div key={s.label} className="rounded-xl p-5" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", animation: "fade-in-up 0.2s ease-out both", animationDelay: `${i * 30}ms` }}>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{s.label}</p>
-              <p className="text-2xl font-bold text-gray-900 tabular-nums">{loading ? "—" : s.value.toLocaleString()}</p>
-            </div>
-          ))}
-        </div>
-
+        
         {/* Filter + Search */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
           <div className="flex items-center gap-1 p-1 rounded-lg" style={{ backgroundColor: "var(--border)" }}>
@@ -725,6 +716,7 @@ export default function CustomersPage() {
         </div>
 
         {/* Table */}
+        <div className="flex-1 min-h-0 flex flex-col">
         {loading ? (
           <div className="flex items-center justify-center py-16 text-gray-400">
             <svg className="animate-spin mr-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
@@ -738,14 +730,14 @@ export default function CustomersPage() {
             <p className="text-sm">No customers found.</p>
           </div>
         ) : (
-          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-            <div className="overflow-x-auto">
+          <div className="rounded-xl overflow-hidden flex-1 min-h-0 flex flex-col" style={{ border: "1px solid var(--border)" }}>
+            <div className="overflow-auto flex-1 min-h-0">
               <table style={{ tableLayout: "fixed", width: "100%", minWidth: widths.reduce((a, b) => a + b, 0) }}>
                 <colgroup>{widths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
-                <thead>
-                  <tr style={{ backgroundColor: "var(--bg-card)" }}>
+                <thead className="sticky top-0 z-10">
+                  <tr>
                     {TABLE_HEADERS.map((h, i) => (
-                      <th key={i} className="relative text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide select-none overflow-hidden">
+                      <th key={i} className="relative text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide select-none overflow-hidden" style={{ backgroundColor: "var(--bg-card)" }}>
                         <span className="truncate flex items-center pr-2">{h.icon}{h.label}{h.sortable && <SortIcon />}</span>
                         {i < TABLE_HEADERS.length - 1 && <ResizeHandle onMouseDown={(e) => onMouseDown(i, e)} />}
                       </th>
@@ -766,7 +758,7 @@ export default function CustomersPage() {
                       <td className="px-4 py-3 overflow-hidden"><StatusBadge status={c.status} /></td>
                       <td className="px-4 py-3 text-sm text-gray-600 truncate overflow-hidden">{formatDate(c.createdAt)}</td>
                       <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => openCustomer(c)} className="text-gray-300 hover:text-gray-500 transition-colors p-1 rounded">
+                        <button onClick={() => openCustomer(c)} className="text-gray-400 hover:text-gray-700 transition-colors p-1 rounded">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
                         </button>
                       </td>
@@ -777,6 +769,7 @@ export default function CustomersPage() {
             </div>
           </div>
         )}
+        </div>
 
         {!loading && (
           <Pagination
@@ -918,7 +911,7 @@ export default function CustomersPage() {
                                         </svg>
                                         <div>
                                           <p className="font-medium text-gray-900">{s.productName}</p>
-                                          {s.productPlanName && <p className="text-xs text-gray-400">{s.productPlanName}</p>}
+                                          {s.productPlanName && <p className="text-xs text-gray-500">{s.productPlanName}</p>}
                                         </div>
                                       </div>
                                     </td>
@@ -990,7 +983,7 @@ export default function CustomersPage() {
                                                       <td className="px-3 py-2 text-gray-500">{formatDate(r.createdAt)}</td>
                                                       <td className="px-3 py-2 text-gray-500">{r.sentAt ? formatDate(r.sentAt) : "—"}</td>
                                                       <td className="px-3 py-2">
-                                                        <span className="text-xs font-semibold px-2 py-0.5 rounded"
+                                                        <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
                                                           style={r.status === "SENT" ? { backgroundColor: "#dcfce7", color: "#166534" } : r.status === "FAILED" ? { backgroundColor: "#fee2e2", color: "#991b1b" } : { backgroundColor: "#f3f4f6", color: "#6b7280" }}>
                                                           {r.status.charAt(0) + r.status.slice(1).toLowerCase()}
                                                         </span>

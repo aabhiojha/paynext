@@ -7,6 +7,8 @@ import SlideOver, { SlideOverField } from "@/components/SlideOver";
 import Dialog from "@/components/Dialog";
 import Pagination from "@/components/Pagination";
 
+const PAGE_SIZE = 15;
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type TenantUser = {
@@ -127,7 +129,6 @@ export default function UsersPage() {
   const [tab, setTab] = useState<Tab>("users");
 
   // ── Users list ───────────────────────────────────────────────────────────
-  const PAGE_SIZE = 20;
   const [users, setUsers]             = useState<TenantUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersPage, setUsersPage]     = useState(0);
@@ -278,7 +279,7 @@ export default function UsersPage() {
 
   return (
     <>
-      <div className="px-6 py-8 md:px-10 max-w-7xl mx-auto space-y-6" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
+      <div className="px-6 py-8 md:px-10 max-w-7xl mx-auto space-y-6 min-h-full flex flex-col" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -297,16 +298,7 @@ export default function UsersPage() {
             </button>
           )}
         </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((s, i) => (
-            <div key={s.label} className="rounded-xl p-5" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", animation: "fade-in-up 0.2s ease-out both", animationDelay: `${i * 30}ms` }}>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{s.label}</p>
-              <p className="text-2xl font-bold text-gray-900 tabular-nums">{usersLoading ? "—" : s.value}</p>
-            </div>
-          ))}
-        </div>
+        
 
         {/* Tabs — invitations tab is admin-only */}
         {isAdmin && (
@@ -328,7 +320,8 @@ export default function UsersPage() {
 
         {/* ── Users tab ─────────────────────────────────────────────────────── */}
         {tab === "users" && (
-          usersLoading ? (
+          <div className="flex-1 min-h-0 flex flex-col">
+          {usersLoading ? (
             <div className="flex items-center justify-center py-16 text-gray-400">
               <svg className="animate-spin mr-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
               Loading…
@@ -342,13 +335,13 @@ export default function UsersPage() {
             </div>
           ) : (
             <>
-              <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-                <div className="overflow-x-auto">
+              <div className="rounded-xl overflow-hidden flex-1 min-h-0 flex flex-col" style={{ border: "1px solid var(--border)" }}>
+                <div className="overflow-auto flex-1 min-h-0">
                   <table className="w-full text-sm min-w-[540px]">
-                    <thead>
-                      <tr style={{ backgroundColor: "var(--bg-card)" }}>
+                    <thead className="sticky top-0 z-10">
+                      <tr>
                         {["User", "Role", "Status", "Joined", ""].map((h) => (
-                          <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                          <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style={{ backgroundColor: "var(--bg-card)" }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -394,7 +387,8 @@ export default function UsersPage() {
                 onChange={(p) => loadUsers(p)}
               />
             </>
-          )
+          )}
+          </div>
         )}
 
         {/* ── Invitations tab ───────────────────────────────────────────────── */}
