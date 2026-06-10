@@ -167,18 +167,6 @@ export default function LoginPage() {
           </button>
         </form>
       </div>
-
-      {/* Dev hint */}
-      <div className="mt-5 rounded-xl p-4 text-xs" style={{ backgroundColor: "#fff8ef", border: "1px solid var(--border)" }}>
-        <p className="font-semibold text-gray-700 mb-2">Dev credentials</p>
-        <div className="space-y-1 text-gray-500">
-          <p>
-            <span className="font-medium text-gray-700">Super Admin</span>
-            {" — "}admin@paynext.com / Admin@1234
-          </p>
-          <p className="text-gray-400 text-xs">Tenant admins are created via invite flow</p>
-        </div>
-      </div>
     </div>
   );
 }

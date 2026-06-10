@@ -708,6 +708,217 @@ function CreateTenantModal({
   return createPortal(modal, document.body);
 }
 
+function EditPlanModal({
+  plans,
+  currentPlanId,
+  tenantName,
+  onClose,
+  onSubmit,
+  saving,
+}: {
+  plans: Plan[];
+  currentPlanId: number | null;
+  tenantName: string;
+  onClose: () => void;
+  onSubmit: (planId: number | null, customPrice: string) => void;
+  saving: boolean;
+}) {
+  const [selectedPlanId, setSelectedPlanId] = useState<number | null>(currentPlanId);
+  const [customPrice, setCustomPrice] = useState("");
+  const [showCustomPrice, setShowCustomPrice] = useState(false);
+  const [closing, setClosing] = useState(false);
+  useEffect(() => { setShowCustomPrice(false); setCustomPrice(""); }, [selectedPlanId]);
+
+  const close = () => { setClosing(true); setTimeout(onClose, 150); };
+  const selectedPlan = plans.find((p) => p.id === selectedPlanId) ?? null;
+
+  return (
+    <div
+      className="absolute inset-0 z-10 flex items-center justify-center p-5"
+      style={{ backgroundColor: "rgba(0,0,0,0.32)", backdropFilter: "blur(4px)", animation: closing ? "fade-out 0.15s ease-out both" : "fade-in 0.15s ease-out both" }}
+      onClick={close}
+    >
+      <div
+        className="w-full rounded-2xl overflow-hidden flex flex-col"
+        style={{ maxWidth: "440px", maxHeight: "85dvh", backgroundColor: "#fff", border: "1px solid var(--border)", boxShadow: "0 8px 40px rgba(0,0,0,0.12)", animation: closing ? "dialog-out 0.15s ease-in both" : "dialog-in 0.18s cubic-bezier(0.34,1.56,0.64,1) both" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+          <div>
+            <h3 className="text-base font-bold text-gray-900">Edit Plan</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              For <span className="font-semibold text-gray-700">{tenantName}</span>
+            </p>
+          </div>
+          <button onClick={close} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-3">
+          {plans.length === 0 ? (
+            <p className="text-sm text-gray-400 italic">No active plans available.</p>
+          ) : (
+            <>
+              {plans.map((plan) => (
+                <PlanCard
+                  key={plan.id}
+                  plan={plan}
+                  selected={selectedPlanId === plan.id}
+                  onSelect={() => setSelectedPlanId(selectedPlanId === plan.id ? null : plan.id)}
+                />
+              ))}
+              <NoPlanCard selected={selectedPlanId === null} onSelect={() => setSelectedPlanId(null)} />
+            </>
+          )}
+          {selectedPlan && (
+            <div className="rounded-xl p-4" style={{ backgroundColor: "#fafafa", border: "1px solid var(--border)" }}>
+              <button
+                type="button"
+                onClick={() => setShowCustomPrice(!showCustomPrice)}
+                className="w-full flex items-center justify-between text-sm font-medium text-gray-700"
+              >
+                <span>Set custom price?</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ transform: showCustomPrice ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+              {showCustomPrice && (
+                <div className="mt-3 relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">{selectedPlan.currency}</span>
+                  <input
+                    type="number"
+                    value={customPrice}
+                    onChange={(e) => setCustomPrice(e.target.value)}
+                    placeholder={`Default: ${selectedPlan.price}`}
+                    className="w-full text-sm pl-11 pr-3 py-2 rounded-lg outline-none"
+                    style={{ border: "1px solid var(--border)", backgroundColor: "#fff" }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3 px-5 py-4 flex-shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
+          <button onClick={close} disabled={saving} className="flex-1 py-2 text-sm font-semibold rounded-lg transition-colors" style={{ border: "1px solid var(--border)", color: "#4b4b4b" }}>
+            Cancel
+          </button>
+          <button
+            onClick={() => onSubmit(selectedPlanId, customPrice)}
+            disabled={saving}
+            className="flex-1 py-2 text-sm font-semibold rounded-lg text-white flex items-center justify-center gap-2"
+            style={{ backgroundColor: "var(--primary)", opacity: saving ? 0.7 : 1 }}
+          >
+            {saving && <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>}
+            Save Plan
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InviteUserModal({
+  onClose,
+  onSubmit,
+  inviting,
+  error,
+}: {
+  onClose: () => void;
+  onSubmit: (email: string, role: "admin" | "user") => void;
+  inviting: boolean;
+  error: string | null;
+}) {
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"admin" | "user">("user");
+  const [closing, setClosing] = useState(false);
+
+  const close = () => { setClosing(true); setTimeout(onClose, 150); };
+
+  return (
+    <div
+      className="absolute inset-0 z-10 flex items-center justify-center p-5"
+      style={{ backgroundColor: "rgba(0,0,0,0.32)", backdropFilter: "blur(4px)", animation: closing ? "fade-out 0.15s ease-out both" : "fade-in 0.15s ease-out both" }}
+      onClick={close}
+    >
+      <div
+        className="w-full rounded-2xl overflow-hidden"
+        style={{ maxWidth: "380px", backgroundColor: "#fff", border: "1px solid var(--border)", boxShadow: "0 8px 40px rgba(0,0,0,0.12)", animation: closing ? "dialog-out 0.15s ease-in both" : "dialog-in 0.18s cubic-bezier(0.34,1.56,0.64,1) both" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 pt-5 pb-4" style={{ borderBottom: "1px solid var(--border)" }}>
+          <div>
+            <h3 className="text-base font-bold text-gray-900">Invite User</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Send an invitation link via email</p>
+          </div>
+          <button onClick={close} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          {error && (
+            <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>
+          )}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Role</label>
+            <div className="flex gap-1.5 p-1 rounded-lg" style={{ backgroundColor: "var(--border)" }}>
+              {(["user", "admin"] as const).map((r) => (
+                <button key={r} type="button" onClick={() => setRole(r)}
+                  className="flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors"
+                  style={role === r
+                    ? { backgroundColor: "#fff", color: "var(--primary)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }
+                    : { color: "#6b7280" }}>
+                  {r === "admin" ? "Admin" : "User"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Email address</label>
+            <div className="relative">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                <rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+              </svg>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={`${role === "admin" ? "admin" : "user"}@company.com`}
+                autoFocus
+                className="w-full text-sm pl-9 pr-4 py-2.5 rounded-lg outline-none"
+                style={{ border: "1px solid var(--border)", backgroundColor: "#fafafa" }}
+                onKeyDown={(e) => e.key === "Enter" && email.trim() && onSubmit(email, role)}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-3 px-5 py-4" style={{ borderTop: "1px solid var(--border)" }}>
+          <button onClick={close} disabled={inviting} className="flex-1 py-2 text-sm font-semibold rounded-lg" style={{ border: "1px solid var(--border)", color: "#4b4b4b" }}>
+            Cancel
+          </button>
+          <button
+            onClick={() => onSubmit(email, role)}
+            disabled={inviting || !email.trim()}
+            className="flex-1 py-2 text-sm font-semibold rounded-lg text-white flex items-center justify-center gap-2"
+            style={{ backgroundColor: "var(--primary)", opacity: inviting || !email.trim() ? 0.6 : 1 }}
+          >
+            {inviting && <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>}
+            Send Invite
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TenantSidebar({
   tenantId,
   open,
@@ -729,11 +940,7 @@ function TenantSidebar({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [assigning, setAssigning] = useState(false);
-  const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
-  const [customPrice, setCustomPrice] = useState("");
-  const [showCustomPrice, setShowCustomPrice] = useState(false);
-  const [editingPlan, setEditingPlan] = useState(false);
-  useEffect(() => { setShowCustomPrice(false); setCustomPrice(""); }, [selectedPlanId]);
+  const [showPlanModal, setShowPlanModal] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", email: "", timezone: "UTC" });
   const [suspendReason, setSuspendReason] = useState("");
@@ -744,10 +951,8 @@ function TenantSidebar({
 
   const [users, setUsers] = useState<TenantUser[]>([]);
 
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"admin" | "user">("user");
   const [inviting, setInviting] = useState(false);
-  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [invitations, setInvitations] = useState<InvitationItem[]>([]);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
@@ -769,7 +974,6 @@ function TenantSidebar({
     ])
       .then(([t, invPage, userPage]) => {
         setDetail(t);
-        setSelectedPlanId(t.activePlan?.planId ?? null);
         setEditForm({ name: t.name, email: t.companyEmail, timezone: t.timezone });
         setInvitations(invPage.content);
         setUsers(userPage.content);
@@ -781,30 +985,27 @@ function TenantSidebar({
   useEffect(() => {
     if (!open) return;
     setEditing(false);
-    setEditingPlan(false);
+    setShowPlanModal(false);
     setShowSuspendForm(false);
     setShowArchiveForm(false);
     setSuspendReason("");
     setArchiveReason("");
-    setShowInviteForm(false);
-    setInviteEmail("");
-    setInviteRole("user");
+    setShowInviteModal(false);
     setInviteError(null);
     setInviteSuccess(null);
     reload();
   }, [reload]);
 
-  const selectedPlan = plans.find((p) => p.id === selectedPlanId) ?? null;
-
-  const handleAssign = async () => {
-    if (!selectedPlanId || !token || !detail) return;
+  const handleAssign = async (planId: number | null, customPrice: string) => {
+    if (!planId || !token || !detail) return;
     setAssigning(true);
     try {
       await apiPost<TenantPlatformPlanResponse>(
         `/api/v1/tenants/${tenantId}/platform-plan`,
-        { planId: selectedPlanId, customPrice: customPrice ? parseFloat(customPrice) : null, startDate: null, endDate: null },
+        { planId, customPrice: customPrice ? parseFloat(customPrice) : null, startDate: null, endDate: null },
         token
       );
+      setShowPlanModal(false);
       await reload();
       onDataChange();
     } catch (e) {
@@ -880,17 +1081,15 @@ function TenantSidebar({
     }
   };
 
-  const handleSendInvite = async () => {
-    if (!inviteEmail.trim()) return;
+  const handleSendInvite = async (email: string, role: "admin" | "user") => {
     setInviting(true);
     setInviteError(null);
     setInviteSuccess(null);
-    const endpoint = inviteRole === "admin" ? "invite-admin" : "invite-user";
+    const endpoint = role === "admin" ? "invite-admin" : "invite-user";
     try {
-      await apiPost(`/api/v1/tenants/${tenantId}/${endpoint}`, { email: inviteEmail.trim() }, token);
-      setInviteSuccess(`Invite sent to ${inviteEmail.trim()}`);
-      setInviteEmail("");
-      setShowInviteForm(false);
+      await apiPost(`/api/v1/tenants/${tenantId}/${endpoint}`, { email: email.trim() }, token);
+      setInviteSuccess(`Invite sent to ${email.trim()}`);
+      setShowInviteModal(false);
       reloadInvitations();
     } catch (e) {
       setInviteError(e instanceof Error ? e.message : "Failed to send invite.");
@@ -1073,11 +1272,11 @@ function TenantSidebar({
                         </p>
                       </div>
                       <button
-                        onClick={() => setEditingPlan(!editingPlan)}
+                        onClick={() => setShowPlanModal(true)}
                         className="text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors"
                         style={{ color: "var(--primary)", border: "1px solid var(--primary)" }}
                       >
-                        {editingPlan ? "Cancel" : "Edit"}
+                        Edit
                       </button>
                     </div>
                     <p className="text-xs text-gray-400">
@@ -1085,140 +1284,17 @@ function TenantSidebar({
                       {" → "}
                       {new Date(detail.activePlan.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                     </p>
-                    {editingPlan && (
-                      <div className="mt-3 pt-3 space-y-3" style={{ borderTop: "1px solid var(--border)" }}>
-                        <select
-                          value={selectedPlanId ?? ""}
-                          onChange={(e) => setSelectedPlanId(e.target.value ? Number(e.target.value) : null)}
-                          className="w-full text-sm px-3 py-2.5 rounded-lg outline-none"
-                          style={{ border: "1px solid var(--border)", backgroundColor: "#fafafa" }}
-                        >
-                          <option value="">— Select a plan —</option>
-                          {plans.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name} ({p.currency} {p.price}{cadenceLabel[p.billingCadence] ?? ""})
-                            </option>
-                          ))}
-                        </select>
-                        {selectedPlan && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => setShowCustomPrice(!showCustomPrice)}
-                              className="w-full flex items-center justify-between text-sm font-medium text-gray-700 py-1"
-                            >
-                              <span>Set custom price?</span>
-                              <svg
-                                width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-                                strokeLinecap="round" strokeLinejoin="round"
-                                style={{ transform: showCustomPrice ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}
-                              >
-                                <path d="m6 9 6 6 6-6" />
-                              </svg>
-                            </button>
-                            {showCustomPrice && (
-                              <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">{selectedPlan.currency}</span>
-                                <input
-                                  type="number"
-                                  value={customPrice}
-                                  onChange={(e) => setCustomPrice(e.target.value)}
-                                  placeholder={`Default: ${selectedPlan.price}`}
-                                  className="w-full text-sm pl-11 pr-3 py-2.5 rounded-lg outline-none"
-                                  style={{ border: "1px solid var(--border)", backgroundColor: "#fafafa" }}
-                                />
-                              </div>
-                            )}
-                          </>
-                        )}
-                        <button
-                          onClick={handleAssign}
-                          disabled={!selectedPlanId || assigning}
-                          className="w-full py-2.5 text-sm font-semibold rounded-lg text-white flex items-center justify-center gap-2"
-                          style={{ backgroundColor: "var(--primary)", opacity: !selectedPlanId || assigning ? 0.5 : 1 }}
-                        >
-                          {assigning && (
-                            <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                            </svg>
-                          )}
-                          Save Plan
-                        </button>
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <div>
                     <p className="text-sm text-gray-400 italic mb-3">No plan assigned</p>
-                    {editingPlan ? (
-                      <div className="space-y-3">
-                        <select
-                          value={selectedPlanId ?? ""}
-                          onChange={(e) => setSelectedPlanId(e.target.value ? Number(e.target.value) : null)}
-                          className="w-full text-sm px-3 py-2.5 rounded-lg outline-none"
-                          style={{ border: "1px solid var(--border)", backgroundColor: "#fafafa" }}
-                        >
-                          <option value="">— Select a plan —</option>
-                          {plans.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name} ({p.currency} {p.price}{cadenceLabel[p.billingCadence] ?? ""})
-                            </option>
-                          ))}
-                        </select>
-                        {selectedPlan && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => setShowCustomPrice(!showCustomPrice)}
-                              className="w-full flex items-center justify-between text-sm font-medium text-gray-700 py-1"
-                            >
-                              <span>Set custom price?</span>
-                              <svg
-                                width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-                                strokeLinecap="round" strokeLinejoin="round"
-                                style={{ transform: showCustomPrice ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}
-                              >
-                                <path d="m6 9 6 6 6-6" />
-                              </svg>
-                            </button>
-                            {showCustomPrice && (
-                              <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">{selectedPlan.currency}</span>
-                                <input
-                                  type="number"
-                                  value={customPrice}
-                                  onChange={(e) => setCustomPrice(e.target.value)}
-                                  placeholder={`Default: ${selectedPlan.price}`}
-                                  className="w-full text-sm pl-11 pr-3 py-2.5 rounded-lg outline-none"
-                                  style={{ border: "1px solid var(--border)", backgroundColor: "#fafafa" }}
-                                />
-                              </div>
-                            )}
-                          </>
-                        )}
-                        <button
-                          onClick={handleAssign}
-                          disabled={!selectedPlanId || assigning}
-                          className="w-full py-2.5 text-sm font-semibold rounded-lg text-white flex items-center justify-center gap-2"
-                          style={{ backgroundColor: "var(--primary)", opacity: !selectedPlanId || assigning ? 0.5 : 1 }}
-                        >
-                          {assigning && (
-                            <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                            </svg>
-                          )}
-                          Assign Plan
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setEditingPlan(true)}
-                        className="text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors"
-                        style={{ color: "var(--primary)", border: "1px solid var(--primary)" }}
-                      >
-                        Assign Plan
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setShowPlanModal(true)}
+                      className="text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                      style={{ color: "var(--primary)", border: "1px solid var(--primary)" }}
+                    >
+                      Assign Plan
+                    </button>
                   </div>
                 )}
               </SlideOverSection>
@@ -1356,75 +1432,16 @@ function TenantSidebar({
                 )}
 
                 {status === "ACTIVE" && (
-                  <>
-                    {showInviteForm ? (
-                      <div className="mb-4 space-y-2" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
-                        <div className="flex gap-1.5 p-1 rounded-lg" style={{ backgroundColor: "var(--border)" }}>
-                          {(["user", "admin"] as const).map((r) => (
-                            <button
-                              key={r}
-                              type="button"
-                              onClick={() => setInviteRole(r)}
-                              className="flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors capitalize"
-                              style={inviteRole === r
-                                ? { backgroundColor: "#fff", color: "var(--primary)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }
-                                : { color: "#6b7280" }}
-                            >
-                              {r === "admin" ? "Admin" : "User"}
-                            </button>
-                          ))}
-                        </div>
-                        <div className="flex gap-2">
-                          <input
-                            type="email"
-                            value={inviteEmail}
-                            onChange={(e) => setInviteEmail(e.target.value)}
-                            placeholder={`${inviteRole === "admin" ? "admin" : "user"}@company.com`}
-                            autoFocus
-                            className="flex-1 text-sm px-3 py-2 rounded-lg outline-none"
-                            style={{ border: "1px solid var(--border)", backgroundColor: "#fff" }}
-                            onKeyDown={(e) => e.key === "Enter" && handleSendInvite()}
-                          />
-                          <button
-                            onClick={handleSendInvite}
-                            disabled={inviting || !inviteEmail.trim()}
-                            className="px-3 py-2 text-sm font-semibold rounded-lg text-white flex items-center gap-1.5 flex-shrink-0"
-                            style={{ backgroundColor: "var(--primary)", opacity: inviting || !inviteEmail.trim() ? 0.6 : 1 }}
-                          >
-                            {inviting ? (
-                              <svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                              </svg>
-                            ) : "Send"}
-                          </button>
-                          <button
-                            onClick={() => { setShowInviteForm(false); setInviteEmail(""); setInviteError(null); }}
-                            className="px-2 py-2 text-gray-400 hover:text-gray-600 transition-colors"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M18 6 6 18M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex gap-2 mb-4">
-                        {(["user", "admin"] as const).map((r) => (
-                          <button
-                            key={r}
-                            onClick={() => { setInviteRole(r); setShowInviteForm(true); setInviteSuccess(null); }}
-                            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors capitalize"
-                            style={{ color: "var(--primary)", border: "1px solid var(--primary)" }}
-                          >
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M12 5v14M5 12h14" />
-                            </svg>
-                            Invite {r === "admin" ? "Admin" : "User"}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </>
+                  <button
+                    onClick={() => { setInviteSuccess(null); setInviteError(null); setShowInviteModal(true); }}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors mb-4"
+                    style={{ color: "var(--primary)", border: "1px solid var(--primary)" }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                    Invite User
+                  </button>
                 )}
 
                 {invitations.length === 0 ? (
@@ -1477,6 +1494,26 @@ function TenantSidebar({
           </div>
         ) : null}
       </div>
+
+      {showPlanModal && detail && (
+        <EditPlanModal
+          plans={plans}
+          currentPlanId={detail.activePlan?.planId ?? null}
+          tenantName={detail.name}
+          onClose={() => setShowPlanModal(false)}
+          onSubmit={handleAssign}
+          saving={assigning}
+        />
+      )}
+
+      {showInviteModal && (
+        <InviteUserModal
+          onClose={() => { setShowInviteModal(false); setInviteError(null); }}
+          onSubmit={handleSendInvite}
+          inviting={inviting}
+          error={inviteError}
+        />
+      )}
     </SlideOver>
   );
 }
