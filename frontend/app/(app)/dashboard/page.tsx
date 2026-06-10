@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { apiGet } from "@/lib/api";
+import { titleCase } from "@/lib/format";
 
 function useCountUp(target: number, duration = 450) {
   const [val, setVal] = useState(0);
@@ -157,7 +158,7 @@ function RenewalTable({ rows, loading }: { rows: ApiUpcoming[]; loading: boolean
     );
   }
   return (
-    <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+    <div className="rounded-lg overflow-hidden overflow-x-auto" style={{ border: "1px solid var(--border)" }}>
       <table className="w-full">
         <thead>
           <tr style={{ backgroundColor: "var(--bg-card)", borderBottom: "1px solid var(--border)" }}>
@@ -180,7 +181,7 @@ function RenewalTable({ rows, loading }: { rows: ApiUpcoming[]; loading: boolean
               }}
             >
               <td className="px-4 py-2.5 text-sm font-medium text-gray-900 max-w-[140px] truncate">{row.customerName}</td>
-              <td className="px-4 py-2.5 text-sm text-gray-600 max-w-[120px] truncate">{row.productName}</td>
+              <td className="px-4 py-2.5 text-sm text-gray-600 max-w-[120px] truncate">{titleCase(row.productName)}</td>
               <td className="px-4 py-2.5 text-sm text-gray-700 whitespace-nowrap">{formatShortDate(row.endsAt)}</td>
               <td className="px-4 py-2.5 text-sm font-semibold text-gray-900 whitespace-nowrap">
                 {row.currency} {Number(row.amount).toLocaleString()}

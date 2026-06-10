@@ -9,6 +9,7 @@ import {
 } from "@/components/Icons";
 import SlideOver, { SlideOverField } from "@/components/SlideOver";
 import { addCadence, cadenceLabel } from "@/lib/cadence";
+import { titleCase } from "@/lib/format";
 import SearchSelect, { SearchOption } from "@/components/SearchSelect";
 import Pagination from "@/components/Pagination";
 
@@ -154,7 +155,7 @@ function AssignFormFields({ form, onChange, onSearchCustomers, products, plans, 
         <label className={labelCls}>Product *</label>
         <select className={selectCls} style={inputStyle} value={form.productId} onChange={(e) => onChange("productId", e.target.value)}>
           <option value="">Select a product…</option>
-          {products.map((p) => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
+          {products.map((p) => <option key={p.id} value={String(p.id)}>{titleCase(p.name)}</option>)}
         </select>
       </div>
       {form.productId && (
@@ -168,7 +169,7 @@ function AssignFormFields({ form, onChange, onSearchCustomers, products, plans, 
                 <option value="">No plan — use product default price</option>
                 {plans.map((p) => (
                   <option key={p.id} value={String(p.id)}>
-                    {p.name} — {p.currency} {Number(p.price).toFixed(2)} / {cadenceLabel(p.billingCadence)}
+                    {titleCase(p.name)} — {p.currency} {Number(p.price).toFixed(2)} / {cadenceLabel(p.billingCadence)}
                   </option>
                 ))}
               </select>
@@ -608,8 +609,8 @@ export default function SubscriptionsPage() {
                   >
                     <td className="px-4 py-3 font-medium text-gray-900">{row.customerName}</td>
                     <td className="px-4 py-3">
-                      <p className="text-gray-900">{row.productName}</p>
-                      {row.productPlanName && <p className="text-xs text-gray-500">{row.productPlanName}</p>}
+                      <p className="text-gray-900">{titleCase(row.productName)}</p>
+                      {row.productPlanName && <p className="text-xs text-gray-500">{titleCase(row.productPlanName)}</p>}
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-gray-900 whitespace-nowrap tabular-nums">
                       {row.currency} {Number(row.amount).toFixed(2)}
@@ -749,8 +750,8 @@ export default function SubscriptionsPage() {
               <>
                   {/* Detail rows */}
                   <div className="px-6 py-2">
-                    <SlideOverField label="Product">{selected.productName}</SlideOverField>
-                    {selected.productPlanName && <SlideOverField label="Plan">{selected.productPlanName}</SlideOverField>}
+                    <SlideOverField label="Product">{titleCase(selected.productName)}</SlideOverField>
+                    {selected.productPlanName && <SlideOverField label="Plan">{titleCase(selected.productPlanName)}</SlideOverField>}
                     <SlideOverField label="Amount">
                       <span className="font-semibold">{selected.currency} {Number(selected.amount).toFixed(2)}</span>
                     </SlideOverField>

@@ -5,6 +5,7 @@ import { useAuthStore } from "@/store/authStore";
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import SlideOver, { SlideOverHeader, SlideOverField } from "@/components/SlideOver";
 import { cadenceLabel, cadenceBadgeStyle } from "@/lib/cadence";
+import { titleCase } from "@/lib/format";
 import Pagination from "@/components/Pagination";
 
 const PAGE_SIZE = 15;
@@ -223,7 +224,7 @@ export default function ProductsPage() {
 
   const deleteProduct = async () => {
     if (!token || !tid || !selected) return;
-    if (!confirm(`Delete product "${selected.name}"? This cannot be undone.`)) return;
+    if (!confirm(`Delete product "${titleCase(selected.name)}"? This cannot be undone.`)) return;
     try {
       await apiDelete(`/api/v1/tenants/${tid}/products/${selected.id}`, token);
       setSelected(null);
@@ -233,7 +234,7 @@ export default function ProductsPage() {
 
   const deletePlan = async (plan: Plan) => {
     if (!token || !tid || !selected) return;
-    if (!confirm(`Delete plan "${plan.name}"? This cannot be undone.`)) return;
+    if (!confirm(`Delete plan "${titleCase(plan.name)}"? This cannot be undone.`)) return;
     setPlanDropdownId(null);
     try {
       await apiDelete(`/api/v1/tenants/${tid}/products/${selected.id}/plans/${plan.id}`, token);
@@ -335,7 +336,7 @@ export default function ProductsPage() {
                     style={{ borderTop: "1px solid var(--border)", backgroundColor: selected?.id === p.id ? "#eef3ee" : "#f8faf8", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms` }}
                   >
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{p.name}</div>
+                      <div className="font-medium text-gray-900">{titleCase(p.name)}</div>
                       {p.description && <div className="text-xs text-gray-400 mt-0.5 line-clamp-1">{p.description}</div>}
                     </td>
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{p.currency} {Number(p.price).toLocaleString()}</td>
@@ -411,7 +412,7 @@ export default function ProductsPage() {
             <div className="px-6 pt-6 pb-5 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "#fff" }}>
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-xl font-bold text-gray-900 leading-snug">{selected.name}</h2>
+                  <h2 className="text-xl font-bold text-gray-900 leading-snug">{titleCase(selected.name)}</h2>
                   <span
                     className="inline-block mt-2 text-xs font-semibold px-2.5 py-0.5 rounded"
                     style={STATUS_STYLE[selected.status] ?? { backgroundColor: "#f3f4f6", color: "#6b7280" }}
@@ -528,7 +529,7 @@ export default function ProductsPage() {
                                     className="hover:bg-[#eef3ee] transition-colors"
                                     style={{ borderTop: "1px solid var(--border)", backgroundColor: "#f8faf8", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms` }}
                                   >
-                                    <td className="px-4 py-3 font-medium text-gray-900">{pl.name}</td>
+                                    <td className="px-4 py-3 font-medium text-gray-900">{titleCase(pl.name)}</td>
                                     <td className="px-4 py-3 text-gray-600">{pl.currency} {Number(pl.price).toFixed(2)}</td>
                                     <td className="px-4 py-3">
                                       <span className="text-xs font-semibold px-2.5 py-1 rounded" style={cadenceBadgeStyle(pl.billingCadence)}>

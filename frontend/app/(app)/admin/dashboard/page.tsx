@@ -188,7 +188,7 @@ function TenantsTable({ rows, loading }: { rows: TenantRow[]; loading: boolean }
                 <th key={i} className="relative text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide select-none overflow-hidden">
                   <span className="truncate flex items-center pr-2">{h.label}{h.sortable && <SortIcon />}</span>
                   {i < headers.length - 1 && (
-                    <div onMouseDown={(e) => onMouseDown(i, e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-pink-200 transition-colors" />
+                    <div onMouseDown={(e) => onMouseDown(i, e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-[#bcd9e8] transition-colors" />
                   )}
                 </th>
               ))}

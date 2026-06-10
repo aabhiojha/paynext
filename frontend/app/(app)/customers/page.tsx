@@ -6,6 +6,7 @@ import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import SlideOver, { SlideOverField } from "@/components/SlideOver";
 import Pagination from "@/components/Pagination";
 import { addCadence } from "@/lib/cadence";
+import { titleCase } from "@/lib/format";
 
 const PAGE_SIZE = 15;
 
@@ -311,7 +312,7 @@ function SubscriptionModal({
                 >
                   <option value="">Select a product…</option>
                   {products.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name} ({p.currency} {Number(p.price).toFixed(2)})</option>
+                    <option key={p.id} value={p.id}>{titleCase(p.name)} ({p.currency} {Number(p.price).toFixed(2)})</option>
                   ))}
                 </select>
               </div>
@@ -327,7 +328,7 @@ function SubscriptionModal({
                   >
                     <option value="">No plan (use product price)</option>
                     {plans.map((pl) => (
-                      <option key={pl.id} value={pl.id}>{pl.name} ({pl.currency} {Number(pl.price).toFixed(2)})</option>
+                      <option key={pl.id} value={pl.id}>{titleCase(pl.name)} ({pl.currency} {Number(pl.price).toFixed(2)})</option>
                     ))}
                   </select>
                 </div>
@@ -585,7 +586,7 @@ export default function CustomersPage() {
 
   const deleteSubscription = async (sub: Subscription) => {
     if (!token || !tid || !selected) return;
-    if (!confirm(`Remove ${sub.productName} subscription? This cannot be undone.`)) return;
+    if (!confirm(`Remove ${titleCase(sub.productName)} subscription? This cannot be undone.`)) return;
     try {
       await apiDelete(`/api/v1/tenants/${tid}/customers/${selected.id}/products/${sub.id}`, token);
       loadSubscriptions(selected.id);
@@ -910,8 +911,8 @@ export default function CustomersPage() {
                                           <path d="m9 18 6-6-6-6" />
                                         </svg>
                                         <div>
-                                          <p className="font-medium text-gray-900">{s.productName}</p>
-                                          {s.productPlanName && <p className="text-xs text-gray-500">{s.productPlanName}</p>}
+                                          <p className="font-medium text-gray-900">{titleCase(s.productName)}</p>
+                                          {s.productPlanName && <p className="text-xs text-gray-500">{titleCase(s.productPlanName)}</p>}
                                         </div>
                                       </div>
                                     </td>

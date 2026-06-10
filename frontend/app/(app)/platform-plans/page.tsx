@@ -100,7 +100,7 @@ function ResizeHandle({ onMouseDown }: { onMouseDown: (e: React.MouseEvent) => v
   return (
     <div
       onMouseDown={onMouseDown}
-      className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-pink-200 transition-colors"
+      className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-[#bcd9e8] transition-colors"
     />
   );
 }

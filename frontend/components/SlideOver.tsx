@@ -41,6 +41,13 @@ export default function SlideOver({
     return () => { if (timer.current) clearTimeout(timer.current); };
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
   if (!mounted || phase === "hidden") return null;
 
   const entering = phase === "entering";
@@ -61,6 +68,8 @@ export default function SlideOver({
         onClick={onClose}
       />
       <div
+        role="dialog"
+        aria-modal="true"
         className="fixed top-0 right-0 z-50 h-full flex flex-col overflow-hidden"
         style={{
           width: isMobile ? "100dvw" : `min(${width}, 100vw)`,
@@ -94,7 +103,7 @@ export function SlideOverHeader({
     <div className="flex items-start justify-between px-6 py-5 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
       <div className="flex items-center gap-2 min-w-0">
         {onBack && (
-          <button onClick={onBack} className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors -ml-1">
+          <button onClick={onBack} aria-label="Back" className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors -ml-1">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="m15 18-6-6 6-6" />
             </svg>
@@ -109,7 +118,8 @@ export function SlideOverHeader({
         {actions}
         <button
           onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 transition-colors"
+          aria-label="Close panel"
+          className="text-gray-400 hover:text-gray-600 transition-colors rounded-md p-1 -m-1"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M18 6 6 18M6 6l12 12" />

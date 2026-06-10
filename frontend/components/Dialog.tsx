@@ -68,6 +68,9 @@ export default function Dialog({
         style={{ pointerEvents: "none" }}
       >
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
           className="flex flex-col w-full rounded-2xl overflow-hidden"
           style={{
             maxWidth: `min(${width}, calc(100vw - 2rem))`,
@@ -84,7 +87,8 @@ export default function Dialog({
             <h2 className="text-base font-bold text-gray-900">{title}</h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors -mr-1"
+              aria-label="Close dialog"
+              className="text-gray-400 hover:text-gray-600 transition-colors -mr-1 rounded-md p-1 -m-1"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M18 6 6 18M6 6l12 12" />

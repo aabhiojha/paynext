@@ -56,6 +56,8 @@ export default function Pagination({ page, totalPages, totalElements, pageSize, 
               onClick={() => onChange(p as number)}
               className={btn + (p === page ? "" : ` ${inactive}`)}
               style={p === page ? { backgroundColor: "var(--primary)", color: "#fff" } : {}}
+              aria-current={p === page ? "page" : undefined}
+              aria-label={`Page ${(p as number) + 1}`}
             >
               {(p as number) + 1}
             </button>

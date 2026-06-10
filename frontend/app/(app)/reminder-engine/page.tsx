@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { apiGet, apiPost } from "@/lib/api";
+import { titleCase } from "@/lib/format";
 import Pagination from "@/components/Pagination";
 
 const PAGE_SIZE = 15;
@@ -217,7 +218,7 @@ export default function ReminderEnginePage() {
           <p className="text-xs text-gray-500 mt-0.5">Due to go out in the next 7 days, not yet sent</p>
         </div>
 
-        <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+        <div className="rounded-xl overflow-hidden overflow-x-auto" style={{ border: "1px solid var(--border)" }}>
           {upcomingLoading ? (
             <div className="flex items-center justify-center py-12 text-gray-400">
               <svg className="animate-spin mr-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
@@ -246,8 +247,8 @@ export default function ReminderEnginePage() {
                     style={{ borderTop: "1px solid var(--border)", backgroundColor: "#f8faf8", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms` }}
                   >
                     <td className="px-4 py-3 text-sm font-medium text-gray-900 max-w-[160px] truncate">{row.customerName}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 max-w-[160px] truncate">{row.productName}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500 max-w-[140px] truncate">{row.planName ?? "—"}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 max-w-[160px] truncate">{titleCase(row.productName)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500 max-w-[140px] truncate">{row.planName ? titleCase(row.planName) : "—"}</td>
                     <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{row.amount}</td>
                     <td className="px-4 py-3"><MilestoneBadge days={row.daysBeforeExpiry} /></td>
                     <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{formatDate(row.reminderDate)}</td>
@@ -295,7 +296,7 @@ export default function ReminderEnginePage() {
                   style={{ borderTop: "1px solid var(--border)", backgroundColor: "#f8faf8", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms` }}
                 >
                   <td className="px-4 py-3 text-sm font-medium text-gray-900 max-w-[160px] truncate">{row.customerName}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 max-w-[160px] truncate">{row.productName}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 max-w-[160px] truncate">{titleCase(row.productName)}</td>
                   <td className="px-4 py-3"><MilestoneBadge days={row.daysBeforeExpiry} /></td>
                   <td className="px-4 py-3"><Badge status={row.status} /></td>
                   <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">

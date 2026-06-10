@@ -16,7 +16,7 @@ const tenantItems = [
     icon: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="22" height="22"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 21c0-1.8638 0-2.7956-.3045-3.5307a4 4 0 0 0-2.1648-2.1648C13.7956 15 12.8638 15 11 15H8c-1.8638 0-2.7957 0-3.5307.3045a4 4 0 0 0-2.1648 2.1648C2 18.2044 2 19.1362 2 21M13.5 7c0 2.2091-1.7909 4-4 4s-4-1.7909-4-4 1.7909-4 4-4 4 1.7909 4 4" /></svg>,
   },
   {
-    label: "Subscript...",
+    label: "Subscriptions",
     href: "/subscriptions",
     icon: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="22" height="22"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M22 10H2m0-1.8v7.6c0 1.1201 0 1.6802.218 2.108.1917.3763.4977.6823.874.874C3.5198 19 4.08 19 5.2 19h13.6c1.1201 0 1.6802 0 2.108-.218a2 2 0 0 0 .874-.874C22 17.4802 22 16.9201 22 15.8V8.2c0-1.1201 0-1.6802-.218-2.108a2 2 0 0 0-.874-.874C20.4802 5 19.9201 5 18.8 5H5.2c-1.1201 0-1.6802 0-2.108.218a2 2 0 0 0-.874.874C2 6.5198 2 7.08 2 8.2" /></svg>,
   },
@@ -66,8 +66,8 @@ export default function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 flex items-center justify-around px-2 py-2 md:hidden z-50"
-      style={{ backgroundColor: "var(--primary)" }}
+      className="fixed bottom-0 left-0 right-0 flex items-center justify-around px-2 pt-2 md:hidden z-50"
+      style={{ backgroundColor: "var(--primary)", paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom))" }}
     >
       {items.map((item) => {
         const isActive =
@@ -80,18 +80,19 @@ export default function BottomNav() {
             href={item.href}
             className="flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-opacity"
             style={{ color: "white", opacity: isActive ? 1 : 0.75 }}
+            aria-current={isActive ? "page" : undefined}
           >
             {item.icon}
-            <span className="text-xs font-medium">{item.label}</span>
+            <span className={`text-[10px] whitespace-nowrap ${isActive ? "font-bold" : "font-medium"}`}>{item.label}</span>
           </Link>
         );
       })}
 
-      <button onClick={handleLogout} className="flex flex-col items-center gap-0.5 px-3 py-1 hover:opacity-1000 transition-opacity">
+      <button onClick={handleLogout} className="flex flex-col items-center gap-0.5 px-3 py-1 opacity-75 hover:opacity-100 transition-opacity">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
         </svg>
-        <span className="text-xs font-medium text-white">Sign out</span>
+        <span className="text-[10px] font-medium text-white whitespace-nowrap">Sign out</span>
       </button>
     </nav>
   );
