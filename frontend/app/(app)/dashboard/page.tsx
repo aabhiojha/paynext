@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { apiGet } from "@/lib/api";
 import { titleCase } from "@/lib/format";
+import ActivityIcon from "@/components/ActivityIcon";
 
 function useCountUp(target: number, duration = 450) {
   const [val, setVal] = useState(0);
@@ -56,9 +57,11 @@ type ReminderStats = {
 type AuditLog = {
   id: number;
   actorEmail: string;
+  actorName: string | null;
   action: string;
   resourceType: string;
   resourceId: number | null;
+  target: string | null;
   createdAt: string;
 };
 
@@ -85,21 +88,30 @@ function relativeTime(iso: string) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-function prettyAction(action: string) {
-  const verb = action.includes(".") ? action.split(".").pop()! : action;
-  return verb.charAt(0) + verb.slice(1).toLowerCase().replace(/_/g, " ");
-}
+// "<actor> <phrase> <target>", e.g. "Putin Prasad Oli paused the subscription for Layne Staley · Github"
+const ACTIVITY_VERBS: Record<string, string> = {
+  CREATED: "created", UPDATED: "updated", DELETED: "deleted",
+  ACTIVATED: "activated", DEACTIVATED: "deactivated", PAUSED: "paused",
+  CANCELLED: "cancelled", AUTO_CANCELLED: "auto-cancelled",
+  SUSPENDED: "suspended", REACTIVATED: "reactivated", ARCHIVED: "archived",
+  DISABLED: "disabled", REVOKED: "revoked", ACCEPTED: "accepted",
+  ASSIGNED: "assigned",
+};
 
-function prettyResource(type: string) {
-  return type.toLowerCase().replace(/_/g, " ");
-}
+const RESOURCE_NOUNS: Record<string, string> = {
+  CUSTOMER: "customer", PRODUCT: "product", CUSTOMER_PRODUCT: "the subscription for",
+  USER: "user", INVITATION: "the invitation for", TENANT: "tenant",
+  PLATFORM_PLAN: "platform plan", TENANT_PLATFORM_PLAN: "platform plan",
+};
 
-function actionColor(action: string): string {
-  if (action.includes("CREAT") || action.includes("ADD") || action.includes("ASSIGN")) return "#24A37D";
-  if (action.includes("DELET") || action.includes("REMOV") || action.includes("CANCEL") || action.includes("ARCHIV")) return "#dc2626";
-  if (action.includes("SUSPEND") || action.includes("PAUS") || action.includes("DISABL")) return "#f59e0b";
-  if (action.includes("LOGIN") || action.includes("LOGOUT")) return "#6366f1";
-  return "#6b7280";
+function activityPhrase(log: AuditLog): string {
+  if (log.action === "PASSWORD_RESET.REQUESTED") return "requested a password reset for";
+  if (log.action === "PASSWORD_RESET.COMPLETED") return "completed a password reset for";
+  if (log.action === "USER.ROLE_CHANGED") return "changed the role of";
+  const suffix = log.action.includes(".") ? log.action.split(".").pop()! : log.action;
+  const verb = ACTIVITY_VERBS[suffix] ?? suffix.toLowerCase().replace(/_/g, " ");
+  const noun = RESOURCE_NOUNS[log.resourceType] ?? log.resourceType.toLowerCase().replace(/_/g, " ");
+  return `${verb} ${noun}`;
 }
 
 function StatCard({
@@ -257,36 +269,6 @@ function ReminderStatusPanel({ stats, loading }: { stats: ReminderStats | null; 
   );
 }
 
-function ActivityIcon({ action }: { action: string }) {
-  const color = actionColor(action);
-  if (action.includes("CREAT") || action.includes("ADD") || action.includes("ASSIGN")) {
-    return (
-      <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: "#dcfce7" }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 5v14M5 12h14" />
-        </svg>
-      </div>
-    );
-  }
-  if (action.includes("DELET") || action.includes("CANCEL") || action.includes("ARCHIV")) {
-    return (
-      <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: "#fee2e2" }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 6 6 18M6 6l12 12" />
-        </svg>
-      </div>
-    );
-  }
-  return (
-    <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: "#f3f4f6" }}>
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z" />
-      </svg>
-    </div>
-  );
-}
-
 function RecentActivity({ logs, loading }: { logs: AuditLog[]; loading: boolean }) {
   if (loading) return <Spinner />;
   if (logs.length === 0) {
@@ -307,12 +289,10 @@ function RecentActivity({ logs, loading }: { logs: AuditLog[]; loading: boolean 
           >
             <ActivityIcon action={log.action} />
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-gray-800">
-                <span className="font-medium">{log.actorEmail}</span>{" "}
-                <span className="text-gray-500">{prettyAction(log.action)} {prettyResource(log.resourceType)}</span>
-                {log.resourceId && (
-                  <span className="text-gray-400 text-xs ml-1">#{log.resourceId}</span>
-                )}
+              <p className="text-sm text-gray-800 leading-snug">
+                <span className="font-medium">{log.actorName || log.actorEmail}</span>{" "}
+                <span className="text-gray-500">{activityPhrase(log)}</span>
+                {log.target && <span className="font-medium"> {log.target}</span>}
               </p>
             </div>
             <span className="text-xs text-gray-400 flex-shrink-0 mt-0.5 tabular-nums">{relativeTime(log.createdAt)}</span>

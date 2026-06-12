@@ -1,30 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { apiGet } from "@/lib/api";
 import Pagination from "@/components/Pagination";
-import {
-  UserCreatedIcon, UserRoleChangedIcon, UserDisabledIcon, UserDeletedIcon,
-  PasswordResetRequestedIcon, PasswordResetCompletedIcon,
-  TenantCreatedIcon, TenantUpdatedIcon, TenantSuspendedIcon, TenantReactivatedIcon, TenantArchivedIcon,
-  CustomerCreatedIcon, CustomerUpdatedIcon, CustomerDeletedIcon,
-  ProductCreatedIcon, ProductUpdatedIcon, ProductDeletedIcon,
-  SubscriptionCreatedIcon, SubscriptionUpdatedIcon, SubscriptionActivatedIcon, SubscriptionPausedIcon,
-  SubscriptionCancelledIcon, SubscriptionAutoCancelledIcon, SubscriptionDeletedIcon,
-  InvitationCreatedIcon, InvitationRevokedIcon, InvitationAcceptedIcon,
-  PlatformPlanCreatedIcon, PlatformPlanUpdatedIcon, PlatformPlanArchivedIcon, TenantPlanAssignedIcon,
-} from "@/components/Icons";
+import ActivityIcon from "@/components/ActivityIcon";
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 20;
 
 type AuditLog = {
   id: number;
   actorId: number;
   actorEmail: string;
+  actorName: string | null;
+  tenantName: string | null;
   action: string;
   resourceType: string;
   resourceId: number | null;
+  target: string | null;
   oldValue: string | null;
   newValue: string | null;
   description: string | null;
@@ -34,318 +27,571 @@ type AuditLog = {
 
 type Page<T> = { content: T[]; page: { totalElements: number; totalPages: number; size: number; number: number } };
 
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
-}
+const HIDE_ACTIONS = new Set(["USER.LOGIN", "USER.LOGOUT", "USER.LOGIN_FAILED"]);
 
-function relativeTime(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return "just now";
-  if (min < 60) return `${min}m ago`;
-  const hrs = Math.floor(min / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
+/* ── Labels ──────────────────────────────────────────────────────────────── */
 
-const ACTION_ICON: Record<string, (props?: any) => React.ReactNode> = {
-  "USER.CREATED":              (p) => <UserCreatedIcon size={16} {...p} />,
-  "USER.ROLE_CHANGED":         (p) => <UserRoleChangedIcon size={16} {...p} />,
-  "USER.DISABLED":             (p) => <UserDisabledIcon size={16} {...p} />,
-  "USER.DELETED":              (p) => <UserDeletedIcon size={16} {...p} />,
-  "PASSWORD_RESET_REQUESTED":  (p) => <PasswordResetRequestedIcon size={16} {...p} />,
-  "PASSWORD_RESET_COMPLETED":  (p) => <PasswordResetCompletedIcon size={16} {...p} />,
-  "TENANT.CREATED":            (p) => <TenantCreatedIcon size={16} {...p} />,
-  "TENANT.UPDATED":            (p) => <TenantUpdatedIcon size={16} {...p} />,
-  "TENANT.SUSPENDED":          (p) => <TenantSuspendedIcon size={16} {...p} />,
-  "TENANT.REACTIVATED":        (p) => <TenantReactivatedIcon size={16} {...p} />,
-  "TENANT.ARCHIVED":           (p) => <TenantArchivedIcon size={16} {...p} />,
-  "CUSTOMER.CREATED":          (p) => <CustomerCreatedIcon size={16} {...p} />,
-  "CUSTOMER.UPDATED":          (p) => <CustomerUpdatedIcon size={16} {...p} />,
-  "CUSTOMER.DELETED":          (p) => <CustomerDeletedIcon size={16} {...p} />,
-  "PRODUCT.CREATED":           (p) => <ProductCreatedIcon size={16} {...p} />,
-  "PRODUCT.UPDATED":           (p) => <ProductUpdatedIcon size={16} {...p} />,
-  "PRODUCT.DELETED":           (p) => <ProductDeletedIcon size={16} {...p} />,
-  "SUBSCRIPTION.CREATED":      (p) => <SubscriptionCreatedIcon size={16} {...p} />,
-  "SUBSCRIPTION.UPDATED":      (p) => <SubscriptionUpdatedIcon size={16} {...p} />,
-  "SUBSCRIPTION.ACTIVATED":    (p) => <SubscriptionActivatedIcon size={16} {...p} />,
-  "SUBSCRIPTION.PAUSED":       (p) => <SubscriptionPausedIcon size={16} {...p} />,
-  "SUBSCRIPTION.CANCELLED":    (p) => <SubscriptionCancelledIcon size={16} {...p} />,
-  "SUBSCRIPTION.AUTO_CANCELLED": (p) => <SubscriptionAutoCancelledIcon size={16} {...p} />,
-  "SUBSCRIPTION.DELETED":      (p) => <SubscriptionDeletedIcon size={16} {...p} />,
-  "INVITATION.CREATED":        (p) => <InvitationCreatedIcon size={16} {...p} />,
-  "INVITATION.REVOKED":        (p) => <InvitationRevokedIcon size={16} {...p} />,
-  "INVITATION.ACCEPTED":       (p) => <InvitationAcceptedIcon size={16} {...p} />,
-  "PLATFORM_PLAN.CREATED":     (p) => <PlatformPlanCreatedIcon size={16} {...p} />,
-  "PLATFORM_PLAN.UPDATED":     (p) => <PlatformPlanUpdatedIcon size={16} {...p} />,
-  "PLATFORM_PLAN.ARCHIVED":    (p) => <PlatformPlanArchivedIcon size={16} {...p} />,
-  "TENANT_PLAN.ASSIGNED":      (p) => <TenantPlanAssignedIcon size={16} {...p} />,
+const ACTION_LABELS: Record<string, string> = {
+  "USER.CREATED": "Create user",
+  "USER.ROLE_CHANGED": "Change user role",
+  "USER.DISABLED": "Disable user",
+  "USER.DELETED": "Delete user",
+  "PASSWORD_RESET.REQUESTED": "Request password reset",
+  "PASSWORD_RESET.COMPLETED": "Complete password reset",
+  "TENANT.CREATED": "Create tenant",
+  "TENANT.UPDATED": "Update tenant",
+  "TENANT.SUSPENDED": "Suspend tenant",
+  "TENANT.REACTIVATED": "Reactivate tenant",
+  "TENANT.ARCHIVED": "Archive tenant",
+  "CUSTOMER.CREATED": "Create customer",
+  "CUSTOMER.UPDATED": "Update customer",
+  "CUSTOMER.DELETED": "Delete customer",
+  "PRODUCT.CREATED": "Create product",
+  "PRODUCT.UPDATED": "Update product",
+  "PRODUCT.DELETED": "Delete product",
+  "PRODUCT.ACTIVATED": "Activate product",
+  "PRODUCT.DEACTIVATED": "Deactivate product",
+  "SUBSCRIPTION.CREATED": "Create subscription",
+  "SUBSCRIPTION.UPDATED": "Update subscription",
+  "SUBSCRIPTION.ACTIVATED": "Activate subscription",
+  "SUBSCRIPTION.PAUSED": "Pause subscription",
+  "SUBSCRIPTION.CANCELLED": "Cancel subscription",
+  "SUBSCRIPTION.AUTO_CANCELLED": "Auto-cancel subscription",
+  "SUBSCRIPTION.DELETED": "Delete subscription",
+  "INVITATION.CREATED": "Create invitation",
+  "INVITATION.REVOKED": "Revoke invitation",
+  "INVITATION.ACCEPTED": "Accept invitation",
+  "PLATFORM_PLAN.CREATED": "Create platform plan",
+  "PLATFORM_PLAN.UPDATED": "Update platform plan",
+  "PLATFORM_PLAN.ARCHIVED": "Archive platform plan",
+  "TENANT_PLAN.ASSIGNED": "Assign platform plan",
 };
 
-type ActionCategory = {
-  label: string;
-  color: string;
-  bg: string;
-  actions: string[];
-};
-
-const ACTION_CATEGORIES: ActionCategory[] = [
-  { label: "Created", color: "#166534", bg: "#dcfce7", actions: [
-    "USER.CREATED", "CUSTOMER.CREATED", "PRODUCT.CREATED",
-    "SUBSCRIPTION.CREATED", "TENANT.CREATED", "INVITATION.CREATED",
-    "PLATFORM_PLAN.CREATED", "TENANT_PLAN.ASSIGNED",
-  ]},
-  { label: "Updated", color: "#1e40af", bg: "#dbeafe", actions: [
-    "USER.ROLE_CHANGED", "CUSTOMER.UPDATED", "PRODUCT.UPDATED",
-    "SUBSCRIPTION.UPDATED", "TENANT.UPDATED", "PLATFORM_PLAN.UPDATED",
-  ]},
-  { label: "Deleted", color: "#991b1b", bg: "#fee2e2", actions: [
-    "USER.DELETED", "CUSTOMER.DELETED", "PRODUCT.DELETED", "SUBSCRIPTION.DELETED",
-  ]},
-  { label: "Status", color: "#854d0e", bg: "#fef9c3", actions: [
-    "SUBSCRIPTION.ACTIVATED", "SUBSCRIPTION.PAUSED",
-    "SUBSCRIPTION.CANCELLED", "SUBSCRIPTION.AUTO_CANCELLED",
-    "TENANT.SUSPENDED", "TENANT.REACTIVATED", "TENANT.ARCHIVED",
-    "USER.DISABLED", "INVITATION.REVOKED", "PLATFORM_PLAN.ARCHIVED",
-  ]},
+const RESOURCE_TYPES: { value: string; label: string }[] = [
+  { value: "CUSTOMER", label: "Customer" },
+  { value: "PRODUCT", label: "Product" },
+  { value: "CUSTOMER_PRODUCT", label: "Subscription" },
+  { value: "USER", label: "User" },
+  { value: "INVITATION", label: "Invitation" },
+  { value: "TENANT", label: "Tenant" },
+  { value: "PLATFORM_PLAN", label: "Platform plan" },
+  { value: "TENANT_PLATFORM_PLAN", label: "Tenant plan" },
 ];
 
-function categoryForAction(action: string): ActionCategory {
-  return ACTION_CATEGORIES.find((c) => c.actions.includes(action)) ?? ACTION_CATEGORIES[0];
+function actionLabel(action: string): string {
+  return ACTION_LABELS[action] ?? action.toLowerCase().replace(/[._]/g, " ");
 }
 
-type DateBucket = "today" | "yesterday" | "this_week" | "this_month" | "older";
+/** Derive the human target ("who/what it happened to") from the description. */
+const TARGET_RULES: { re: RegExp; group: number }[] = [
+  { re: /^Changed role of (\S+) /, group: 1 },
+  { re: /^Invited (\S+) /, group: 1 },
+  { re: /^\S+ (?:subscription for|invitation for|platform plan|customer|product|user|tenant) (.+)$/i, group: 1 },
+];
 
-function dateBucket(iso: string): DateBucket {
+function targetOf(log: AuditLog): string {
+  if (log.target) return log.target;
+  for (const rule of TARGET_RULES) {
+    const m = log.description?.match(rule.re);
+    if (m) return m[rule.group];
+  }
+  const type = log.resourceType.toLowerCase().replace(/_/g, " ");
+  return log.resourceId != null ? `${type} #${log.resourceId}` : type;
+}
+
+function formatTimestamp(iso: string): string {
   const d = new Date(iso);
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today.getTime() - 86400000);
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay());
-  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-
-  if (d >= today) return "today";
-  if (d >= yesterday) return "yesterday";
-  if (d >= startOfWeek) return "this_week";
-  if (d >= startOfMonth) return "this_month";
-  return "older";
+  const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  let h = d.getHours();
+  const ampm = h >= 12 ? "pm" : "am";
+  h = h % 12 || 12;
+  return `${date} ${String(h).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}${ampm}`;
 }
 
-function bucketLabel(bucket: DateBucket): string {
-  switch (bucket) {
-    case "today": return "Today";
-    case "yesterday": return "Yesterday";
-    case "this_week": return "This week";
-    case "this_month": return "This month";
-    case "older": return "Earlier";
+function formatDateShort(ymd: string): string {
+  return ymd.replace(/-/g, "/");
+}
+
+/* ── Field-level change view ─────────────────────────────────────────────── */
+
+// Internal/machine fields that mean nothing to an end user: bookkeeping
+// timestamps and all database ids/foreign keys. Rows whose snapshot contains
+// nothing else (e.g. legacy logs that stored only ids) get no expander.
+const HIDDEN_FIELDS = new Set(["id", "tenantId", "createdAt", "updatedAt"]);
+
+function cleanSnapshot(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(cleanSnapshot);
+  if (value === null || typeof value !== "object") return value;
+  const obj = value as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (HIDDEN_FIELDS.has(k) || k.endsWith("Id")) continue;
+    out[k] = cleanSnapshot(v);
+  }
+  return out;
+}
+
+function humanizeKey(path: string): string {
+  const words = path
+    .split(".")
+    .map((seg) => seg.replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase())
+    .join(" · ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function formatValue(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "—";
+  if (typeof v === "boolean") return v ? "Yes" : "No";
+  if (typeof v === "string") {
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) return formatTimestamp(v);
+    if (/^[A-Z]{2,3}$/.test(v)) return v; // currency codes etc.
+    if (/^[A-Z][A-Z0-9_]*$/.test(v) && v.length > 1) {
+      const t = v.toLowerCase().replace(/_/g, " ");
+      return t.charAt(0).toUpperCase() + t.slice(1);
+    }
+    return v;
+  }
+  return String(v);
+}
+
+/** Flatten nested objects to dot paths; arrays become a comma-joined string. */
+function flatten(value: unknown, prefix = "", out: Record<string, unknown> = {}): Record<string, unknown> {
+  if (Array.isArray(value)) {
+    out[prefix] = value.map((x) => (typeof x === "object" && x !== null ? JSON.stringify(x) : x)).join(", ");
+  } else if (value !== null && typeof value === "object") {
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      flatten(v, prefix ? `${prefix}.${k}` : k, out);
+    }
+  } else {
+    out[prefix] = value;
+  }
+  return out;
+}
+
+function parseSnapshot(raw: string | null): Record<string, unknown> | string | null {
+  if (!raw) return null;
+  try {
+    return flatten(cleanSnapshot(JSON.parse(raw)));
+  } catch {
+    return raw; // not JSON — show verbatim
   }
 }
 
-type Grouped = { bucket: DateBucket; label: string; logs: AuditLog[] };
+type FieldChange = { label: string; from?: string; to?: string; kind: "added" | "removed" | "changed" };
 
-function groupLogs(logs: AuditLog[]): Grouped[] {
-  const groups = new Map<DateBucket, AuditLog[]>();
-  for (const log of logs) {
-    const bucket = dateBucket(log.createdAt);
-    if (!groups.has(bucket)) groups.set(bucket, []);
-    groups.get(bucket)!.push(log);
+function computeChanges(oldRaw: string | null, newRaw: string | null): FieldChange[] | string {
+  const before = parseSnapshot(oldRaw);
+  const after = parseSnapshot(newRaw);
+  if (typeof before === "string" || typeof after === "string") {
+    return [before, after].filter((s) => typeof s === "string").join("\n");
   }
-  const order: DateBucket[] = ["today", "yesterday", "this_week", "this_month", "older"];
-  return order.filter((b) => groups.has(b)).map((bucket) => ({ bucket, label: bucketLabel(bucket), logs: groups.get(bucket)! }));
+  const changes: FieldChange[] = [];
+  const keys = [...new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])];
+  for (const key of keys) {
+    const b = before?.[key];
+    const a = after?.[key];
+    if (before && after) {
+      if ((b ?? null) !== (a ?? null)) changes.push({ label: humanizeKey(key), from: formatValue(b), to: formatValue(a), kind: "changed" });
+    } else if (after) {
+      changes.push({ label: humanizeKey(key), to: formatValue(a), kind: "added" });
+    } else {
+      changes.push({ label: humanizeKey(key), from: formatValue(b), kind: "removed" });
+    }
+  }
+  return changes;
 }
+
+function hasVisibleChanges(log: AuditLog): boolean {
+  if (!log.oldValue && !log.newValue) return false;
+  const changes = computeChanges(log.oldValue, log.newValue);
+  return typeof changes === "string" ? changes.trim().length > 0 : changes.length > 0;
+}
+
+const REMOVED_CHIP = { backgroundColor: "#fee2e2", color: "#991b1b" };
+const ADDED_CHIP = { backgroundColor: "#dcfce7", color: "#166534" };
+
+function ChangeDetails({ log }: { log: AuditLog }) {
+  const changes = useMemo(() => computeChanges(log.oldValue, log.newValue), [log.oldValue, log.newValue]);
+
+  if (typeof changes === "string") {
+    return (
+      <pre className="text-xs font-mono whitespace-pre-wrap break-all rounded-lg px-4 py-3" style={{ border: "1px solid var(--border)", backgroundColor: "var(--color-md-surface)", color: "var(--color-gray-700)" }}>
+        {changes}
+      </pre>
+    );
+  }
+  if (changes.length === 0) {
+    return <p className="text-sm text-gray-400 px-1">No user-visible changes.</p>;
+  }
+  return (
+    <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)", backgroundColor: "var(--color-md-surface)" }}>
+      <table className="text-sm w-full">
+        <tbody>
+          {changes.map((c, i) => (
+            <tr key={c.label} style={i > 0 ? { borderTop: "1px solid var(--border)" } : undefined}>
+              <td className="px-4 py-2 text-gray-500 whitespace-nowrap align-top" style={{ width: 200 }}>{c.label}</td>
+              <td className="px-4 py-2 text-gray-800">
+                {c.kind === "changed" && (
+                  <span className="inline-flex items-center gap-2 flex-wrap">
+                    <span className="px-1.5 py-0.5 rounded" style={REMOVED_CHIP}>{c.from}</span>
+                    <span className="text-gray-400">→</span>
+                    <span className="px-1.5 py-0.5 rounded" style={ADDED_CHIP}>{c.to}</span>
+                  </span>
+                )}
+                {c.kind === "added" && <span className="px-1.5 py-0.5 rounded" style={ADDED_CHIP}>{c.to}</span>}
+                {c.kind === "removed" && <span className="px-1.5 py-0.5 rounded line-through" style={REMOVED_CHIP}>{c.from}</span>}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* ── Filter pill dropdown ────────────────────────────────────────────────── */
+
+function FilterPill({ label, active, children }: { label: string; active: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const container = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const down = (e: MouseEvent) => {
+      if (container.current && !container.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", down);
+    return () => document.removeEventListener("mousedown", down);
+  }, []);
+
+  return (
+    <div ref={container} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full transition-colors"
+        style={{
+          border: `1px solid ${active ? "var(--primary)" : "var(--border)"}`,
+          color: active ? "var(--primary)" : "var(--color-gray-700)",
+          backgroundColor: active ? "var(--color-nav-active)" : "transparent",
+        }}
+      >
+        {label}
+        <svg
+          width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+          style={{ transform: open ? "rotate(180deg)" : undefined, transition: "transform 0.12s" }}
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        <div
+          className="absolute z-30 left-0 mt-2 rounded-2xl py-2 min-w-[230px]"
+          style={{ backgroundColor: "var(--bg-app)", boxShadow: "0 8px 24px rgba(28,27,31,0.14)" }}
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CheckItem({ checked, label, onToggle }: { checked: boolean; label: string; onToggle: () => void }) {
+  return (
+    <button onClick={onToggle} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-left transition-colors hover:bg-md-primary/10">
+      <span
+        className="flex items-center justify-center rounded flex-shrink-0"
+        style={{
+          width: 16, height: 16,
+          border: `1.5px solid ${checked ? "var(--primary)" : "var(--color-md-outline)"}`,
+          backgroundColor: checked ? "var(--primary)" : "transparent",
+        }}
+      >
+        {checked && (
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+        )}
+      </span>
+      <span className="text-gray-800">{label}</span>
+    </button>
+  );
+}
+
+/* ── Timeframe ───────────────────────────────────────────────────────────── */
+
+type Timeframe = { from: string | null; to: string | null }; // YYYY-MM-DD, local
+
+function todayYmd(offsetDays = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+const TIMEFRAME_PRESETS: { label: string; make: () => Timeframe }[] = [
+  { label: "Today", make: () => ({ from: todayYmd(), to: todayYmd() }) },
+  { label: "Last 7 days", make: () => ({ from: todayYmd(-6), to: todayYmd() }) },
+  { label: "Last 30 days", make: () => ({ from: todayYmd(-29), to: todayYmd() }) },
+  { label: "All time", make: () => ({ from: null, to: null }) },
+];
+
+function timeframeLabel(tf: Timeframe): string {
+  if (!tf.from && !tf.to) return "Timeframe: All time";
+  if (tf.from && tf.to && tf.from === tf.to) return `Timeframe: ${formatDateShort(tf.from)}`;
+  return `Timeframe: ${tf.from ? formatDateShort(tf.from) : "…"} – ${tf.to ? formatDateShort(tf.to) : "…"}`;
+}
+
+/* ── Page ────────────────────────────────────────────────────────────────── */
+
+type Filters = {
+  timeframe: Timeframe;
+  actions: string[];
+  actor: string;
+  targets: string[];
+};
+
+const EMPTY_FILTERS: Filters = { timeframe: { from: null, to: null }, actions: [], actor: "", targets: [] };
 
 export default function AuditLogPage() {
   const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
 
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
-  const [actionFilter, setActionFilter] = useState<string[]>([]);
-  const [resourceFilter, setResourceFilter] = useState("");
-  const [detailsOpen, setDetailsOpen] = useState<Set<number>>(new Set());
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
-  const HIDE_ACTIONS = new Set(["USER.LOGIN", "USER.LOGOUT", "USER.LOGIN_FAILED"]);
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [actorQuery, setActorQuery] = useState("");
 
-  const load = (p = page, actions = actionFilter, resource = resourceFilter) => {
+  // setLoading(true) happens in the event handlers (filter/page changes), not
+  // here — react-hooks/set-state-in-effect forbids synchronous setState in effects.
+  useEffect(() => {
     if (!token) return;
-    setLoading(true);
-    const params = new URLSearchParams({ size: String(PAGE_SIZE), page: String(p), sort: "createdAt,desc" });
-    if (actions.length > 0) params.set("actions", actions.join(","));
-    if (resource.trim()) params.set("resourceTypes", resource.trim().toUpperCase().replace(/ /g, "_"));
-    apiGet<Page<AuditLog>>(`/api/v1/audit-logs/tenant?${params}`, token)
+    let cancelled = false;
+    const f = filters;
+    const params = new URLSearchParams({ size: String(PAGE_SIZE), page: String(page), sort: "createdAt,desc" });
+    if (f.actions.length > 0) params.set("actions", f.actions.join(","));
+    if (f.targets.length > 0) params.set("resourceTypes", f.targets.join(","));
+    if (f.actor.trim()) params.set("actorEmail", f.actor.trim());
+    if (f.timeframe.from) params.set("from", new Date(`${f.timeframe.from}T00:00:00`).toISOString());
+    if (f.timeframe.to) params.set("to", new Date(`${f.timeframe.to}T23:59:59.999`).toISOString());
+    const endpoint = isSuperAdmin ? "/api/v1/audit-logs" : "/api/v1/audit-logs/tenant";
+    apiGet<Page<AuditLog>>(`${endpoint}?${params}`, token)
       .then((d) => {
+        if (cancelled) return;
         const filtered = d.content.filter((l) => !HIDE_ACTIONS.has(l.action));
         setLogs(filtered);
         setTotal(d.page.totalElements - (d.content.length - filtered.length));
       })
       .catch(() => {})
-      .finally(() => setLoading(false));
-  };
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [token, isSuperAdmin, page, filters]);
 
-  useEffect(() => { setPage(0); load(0, actionFilter, resourceFilter); }, [token]);
-
-  const grouped = useMemo(() => groupLogs(logs), [logs]);
   const totalPages = Math.ceil(total / PAGE_SIZE);
-  const activeCount = actionFilter.length;
+  const { timeframe, actions: actionFilter, actor: actorFilter, targets: targetFilter } = filters;
+  const hasFilters = actionFilter.length > 0 || targetFilter.length > 0 || !!actorFilter || !!timeframe.from || !!timeframe.to;
 
-  function toggleFilter(cat: ActionCategory) {
-    const next = actionFilter.some((a) => cat.actions.includes(a))
-      ? actionFilter.filter((x) => !cat.actions.includes(x))
-      : [...actionFilter, ...cat.actions];
-    setActionFilter(next);
+  const actionOptions = useMemo(
+    () => Object.entries(ACTION_LABELS).map(([value, label]) => ({ value, label })),
+    []
+  );
+
+  function applyFilters(partial: Partial<Filters>) {
+    setFilters({ ...filters, ...partial });
     setPage(0);
-    load(0, next, resourceFilter);
+    setExpanded(new Set());
+    setLoading(true);
   }
+  const applyTimeframe = (timeframe: Timeframe) => applyFilters({ timeframe });
+  const applyActions = (actions: string[]) => applyFilters({ actions });
+  const applyActor = (actor: string) => applyFilters({ actor });
+  const applyTargets = (targets: string[]) => applyFilters({ targets });
 
-  function clearFilters() {
-    setActionFilter([]);
-    setPage(0);
-    load(0, [], resourceFilter);
-  }
-
-  function toggleDetails(id: number) {
-    setDetailsOpen((prev) => {
+  function toggleExpanded(id: number) {
+    setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   }
 
+  const thCls = "text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap";
+
   return (
-    <div className="px-6 py-8 md:px-10 max-w-5xl mx-auto space-y-6 min-h-full flex flex-col" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
+    <div className="px-6 py-8 md:px-10 max-w-6xl mx-auto space-y-5 min-h-full flex flex-col" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
       {/* Header */}
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Activity log</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {total.toLocaleString()} event{total !== 1 ? "s" : ""} recorded
-            {activeCount > 0 && <span className="text-gray-400"> · {activeCount} filter{activeCount !== 1 ? "s" : ""} active</span>}
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Audit log</h1>
+        <p className="text-sm text-gray-500 mt-0.5">{total.toLocaleString()} event{total !== 1 ? "s" : ""} recorded</p>
       </div>
 
-      {/* Filter chips */}
-      <div className="flex flex-wrap items-center gap-2">
-        {ACTION_CATEGORIES.map((cat) => {
-          const active = cat.actions.some((a) => actionFilter.includes(a));
-          return (
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-2.5">
+        <FilterPill label={timeframeLabel(timeframe)} active={!!timeframe.from || !!timeframe.to}>
+          {TIMEFRAME_PRESETS.map((p) => (
             <button
-              key={cat.label}
-              onClick={() => toggleFilter(cat)}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-all"
-              style={active ? { backgroundColor: cat.bg, color: cat.color } : { border: "1px solid var(--border)", color: "#9ca3af" }}
+              key={p.label}
+              onClick={() => applyTimeframe(p.make())}
+              className="w-full text-left px-4 py-2 text-sm text-gray-800 transition-colors hover:bg-md-primary/10"
             >
-              <span className="rounded-full" style={{ width: 7, height: 7, backgroundColor: cat.color }} />
-              {cat.label}
+              {p.label}
             </button>
-          );
-        })}
-        {activeCount > 0 && (
-          <button
-            onClick={clearFilters}
-            className="text-xs font-semibold px-3 py-1.5 rounded-full text-gray-400 hover:text-gray-600"
-            style={{ border: "1px solid var(--border)" }}
+          ))}
+          <div className="px-4 pt-2 pb-1 mt-1 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Custom range</p>
+            <label className="flex items-center justify-between gap-3 text-sm text-gray-700">
+              From
+              <input
+                type="date"
+                value={timeframe.from ?? ""}
+                max={timeframe.to ?? undefined}
+                onChange={(e) => applyTimeframe({ ...timeframe, from: e.target.value || null })}
+                className="text-sm px-2 py-1 rounded-lg outline-none"
+                style={{ border: "1px solid var(--border)" }}
+              />
+            </label>
+            <label className="flex items-center justify-between gap-3 text-sm text-gray-700">
+              To
+              <input
+                type="date"
+                value={timeframe.to ?? ""}
+                min={timeframe.from ?? undefined}
+                onChange={(e) => applyTimeframe({ ...timeframe, to: e.target.value || null })}
+                className="text-sm px-2 py-1 rounded-lg outline-none"
+                style={{ border: "1px solid var(--border)" }}
+              />
+            </label>
+          </div>
+        </FilterPill>
+
+        <FilterPill label={actionFilter.length > 0 ? `Action (${actionFilter.length})` : "Action"} active={actionFilter.length > 0}>
+          <div className="max-h-72 overflow-y-auto">
+            {actionOptions.map((opt) => (
+              <CheckItem
+                key={opt.value}
+                label={opt.label}
+                checked={actionFilter.includes(opt.value)}
+                onToggle={() =>
+                  applyActions(
+                    actionFilter.includes(opt.value)
+                      ? actionFilter.filter((a) => a !== opt.value)
+                      : [...actionFilter, opt.value]
+                  )
+                }
+              />
+            ))}
+          </div>
+          {actionFilter.length > 0 && (
+            <button
+              onClick={() => applyActions([])}
+              className="w-full text-left px-4 py-2 mt-1 text-sm font-medium transition-colors hover:bg-md-primary/10"
+              style={{ borderTop: "1px solid var(--border)", color: "var(--primary)" }}
+            >
+              Clear
+            </button>
+          )}
+        </FilterPill>
+
+        <FilterPill label={actorFilter ? `Actor: ${actorFilter}` : "Actor"} active={!!actorFilter}>
+          <form
+            className="px-3 py-1"
+            onSubmit={(e) => { e.preventDefault(); applyActor(actorQuery.trim()); }}
           >
-            Clear filters
-          </button>
-        )}
+            <input
+              type="text"
+              value={actorQuery}
+              onChange={(e) => setActorQuery(e.target.value)}
+              placeholder="Filter by email…"
+              className="w-full text-sm px-3 py-2 rounded-lg outline-none bg-md-surface-container-low text-md-on-surface placeholder:text-md-on-surface/50"
+            />
+            <p className="text-xs text-gray-400 mt-1.5 px-1">Press Enter to apply</p>
+          </form>
+          {actorFilter && (
+            <button
+              onClick={() => { setActorQuery(""); applyActor(""); }}
+              className="w-full text-left px-4 py-2 text-sm font-medium transition-colors hover:bg-md-primary/10"
+              style={{ borderTop: "1px solid var(--border)", color: "var(--primary)" }}
+            >
+              Clear
+            </button>
+          )}
+        </FilterPill>
+
+        <FilterPill label={targetFilter.length > 0 ? `Target (${targetFilter.length})` : "Target"} active={targetFilter.length > 0}>
+          {RESOURCE_TYPES.map((rt) => (
+            <CheckItem
+              key={rt.value}
+              label={rt.label}
+              checked={targetFilter.includes(rt.value)}
+              onToggle={() =>
+                applyTargets(
+                  targetFilter.includes(rt.value)
+                    ? targetFilter.filter((t) => t !== rt.value)
+                    : [...targetFilter, rt.value]
+                )
+              }
+            />
+          ))}
+          {targetFilter.length > 0 && (
+            <button
+              onClick={() => applyTargets([])}
+              className="w-full text-left px-4 py-2 mt-1 text-sm font-medium transition-colors hover:bg-md-primary/10"
+              style={{ borderTop: "1px solid var(--border)", color: "var(--primary)" }}
+            >
+              Clear
+            </button>
+          )}
+        </FilterPill>
       </div>
 
-      {/* Log list */}
+      {/* Table */}
       <div className="flex-1 min-h-0 flex flex-col">
-      {loading ? (
-        <div className="flex items-center justify-center py-20 text-gray-400">
-          <svg className="animate-spin mr-2.5" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
-          Loading events…
-        </div>
-      ) : logs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-sm text-gray-400 rounded-xl" style={{ border: "1px solid var(--border)" }}>
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-3 opacity-40">
-            <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" />
-          </svg>
-          {activeCount > 0 ? "No events match the selected filters." : "No events recorded yet."}
-        </div>
-      ) : (
-        <div className="space-y-8 overflow-auto flex-1 min-h-0">
-          {grouped.map((group) => (
-            <section key={group.bucket}>
-              <h2 className="text-sm font-bold text-gray-500 mb-3 sticky top-0 z-20 py-1" style={{ backgroundColor: "var(--bg-app)" }}>{group.label}</h2>
-              <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-                <table className="w-full text-sm">
-                  <thead className="sticky z-10" style={{ top: "1.75rem" }}>
-                    <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide w-full" style={{ backgroundColor: "#f9fafb" }}>Event</th>
-                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style={{ backgroundColor: "#f9fafb" }}>By</th>
-                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style={{ backgroundColor: "#f9fafb" }}>Time</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {group.logs.map((log) => {
-                      const Icon = ACTION_ICON[log.action];
-                      const hasDetails = log.oldValue || log.newValue;
-                      const showDetails = detailsOpen.has(log.id);
-                      return (
-                        <tr key={log.id} style={{ borderTop: "1px solid var(--border)" }}>
-                          <td className="px-4 py-3">
-                            <div className="flex items-start gap-2.5">
-                              <span className="flex-shrink-0 mt-0.5" style={{ color: "var(--primary)" }}>
-                                {Icon ? <Icon /> : null}
-                              </span>
-                              <div className="min-w-0">
-                                <p className="text-sm text-gray-800 leading-snug">
-                                  {log.description ?? (
-                                    <><span className="font-medium">{log.actorEmail}</span><span className="text-gray-400"> · </span><span className="text-gray-500">{log.resourceType.toLowerCase().replace(/_/g, " ")}</span></>
-                                  )}
-                                </p>
-                                {hasDetails && (
-                                  <div className="mt-1">
-                                    <button
-                                      onClick={() => toggleDetails(log.id)}
-                                      className="text-xs text-gray-400 hover:text-gray-600 font-medium transition-colors flex items-center gap-1"
-                                    >
-                                      <svg
-                                        width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-                                        style={{ transform: showDetails ? "rotate(90deg)" : undefined, transition: "transform 0.12s" }}
-                                      >
-                                        <path d="m9 18 6-6-6-6" />
-                                      </svg>
-                                      {showDetails ? "Hide technical details" : "Show technical details"}
-                                    </button>
-                                    {showDetails && (
-                                      <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                        {log.oldValue && (
-                                          <div className="rounded-lg p-2.5 text-xs font-mono break-all" style={{ backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#991b1b" }}>
-                                            <p className="font-semibold mb-1 font-sans text-[11px] text-red-400 uppercase tracking-wide">Previous state</p>
-                                            <pre className="whitespace-pre-wrap">{(() => { try { return JSON.stringify(JSON.parse(log.oldValue!), null, 2); } catch { return log.oldValue; } })()}</pre>
-                                          </div>
-                                        )}
-                                        {log.newValue && (
-                                          <div className="rounded-lg p-2.5 text-xs font-mono break-all" style={{ backgroundColor: "#f0fdf4", border: "1px solid #bbf7d0", color: "#166534" }}>
-                                            <p className="font-semibold mb-1 font-sans text-[11px] text-green-400 uppercase tracking-wide">New state</p>
-                                            <pre className="whitespace-pre-wrap">{(() => { try { return JSON.stringify(JSON.parse(log.newValue!), null, 2); } catch { return log.newValue; } })()}</pre>
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap align-top">{log.actorEmail}</td>
-                          <td className="px-4 py-3 text-sm text-gray-400 whitespace-nowrap align-top" title={formatDateTime(log.createdAt)}>{relativeTime(log.createdAt)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          ))}
-        </div>
-      )}
+        {loading ? (
+          <div className="flex items-center justify-center py-20 text-gray-400">
+            <svg className="animate-spin mr-2.5" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+            Loading events…
+          </div>
+        ) : logs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-sm text-gray-400 rounded-xl" style={{ border: "1px solid var(--border)" }}>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-3 opacity-40">
+              <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" />
+            </svg>
+            {hasFilters ? "No events match the selected filters." : "No events recorded yet."}
+          </div>
+        ) : (
+          <div className="rounded-xl overflow-auto flex-1 min-h-0" style={{ border: "1px solid var(--border)" }}>
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 z-10">
+                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                  <th className={thCls} style={{ backgroundColor: "#f9fafb", width: 36 }} />
+                  <th className={thCls} style={{ backgroundColor: "#f9fafb" }}>Timestamp (local time)</th>
+                  <th className={thCls} style={{ backgroundColor: "#f9fafb" }}>Action</th>
+                  <th className={thCls} style={{ backgroundColor: "#f9fafb" }}>Actor</th>
+                  {isSuperAdmin && <th className={thCls} style={{ backgroundColor: "#f9fafb" }}>Tenant</th>}
+                  <th className={`${thCls} w-full`} style={{ backgroundColor: "#f9fafb" }}>Target</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((log) => {
+                  const hasDiff = hasVisibleChanges(log);
+                  const isOpen = expanded.has(log.id);
+                  return (
+                    <FragmentRow
+                      key={log.id}
+                      log={log}
+                      hasDiff={hasDiff}
+                      isOpen={isOpen}
+                      showTenant={isSuperAdmin}
+                      onToggle={() => toggleExpanded(log.id)}
+                    />
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <Pagination
@@ -353,8 +599,55 @@ export default function AuditLogPage() {
         totalPages={totalPages}
         totalElements={total}
         pageSize={PAGE_SIZE}
-        onChange={(p) => { setPage(p); load(p); }}
+        onChange={(p) => { setPage(p); setExpanded(new Set()); setLoading(true); }}
       />
     </div>
+  );
+}
+
+function FragmentRow({ log, hasDiff, isOpen, showTenant, onToggle }: { log: AuditLog; hasDiff: boolean; isOpen: boolean; showTenant: boolean; onToggle: () => void }) {
+  return (
+    <>
+      <tr
+        style={{ borderTop: "1px solid var(--border)" }}
+        className={hasDiff ? "cursor-pointer transition-colors hover:bg-md-primary/5" : undefined}
+        onClick={hasDiff ? onToggle : undefined}
+      >
+        <td className="pl-3 py-3 align-middle">
+          {hasDiff && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggle(); }}
+              aria-label={isOpen ? "Collapse details" : "Expand details"}
+              aria-expanded={isOpen}
+              className="text-gray-400 hover:text-gray-700 p-1 rounded-full transition-colors"
+            >
+              <svg
+                width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ transform: isOpen ? "rotate(90deg)" : undefined, transition: "transform 0.12s" }}
+              >
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+            </button>
+          )}
+        </td>
+        <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900 align-middle">{formatTimestamp(log.createdAt)}</td>
+        <td className="px-4 py-2.5 text-gray-800 align-middle" style={{ minWidth: 180 }}>
+          <span className="flex items-center gap-2.5">
+            <ActivityIcon action={log.action} />
+            {actionLabel(log.action)}
+          </span>
+        </td>
+        <td className="px-4 py-3 whitespace-nowrap text-gray-700 align-middle">{log.actorName || log.actorEmail}</td>
+        {showTenant && <td className="px-4 py-3 whitespace-nowrap text-gray-700 align-middle">{log.tenantName ?? "—"}</td>}
+        <td className="px-4 py-3 text-gray-700 align-middle">{targetOf(log)}</td>
+      </tr>
+      {isOpen && (
+        <tr>
+          <td colSpan={showTenant ? 6 : 5} className="px-4 pb-4 pt-1">
+            <ChangeDetails log={log} />
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
