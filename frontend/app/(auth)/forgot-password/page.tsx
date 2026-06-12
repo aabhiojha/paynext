@@ -36,7 +36,7 @@ export default function ForgotPasswordPage() {
         <span className="text-2xl font-bold text-gray-900">PayNext</span>
       </div>
 
-      <div className="rounded-2xl p-8" style={{ backgroundColor: "var(--bg-app)", boxShadow: "0 8px 40px rgba(28,27,31,0.12)" }}>
+      <div className="rounded-xl p-8" style={{ backgroundColor: "var(--bg-app)", boxShadow: "0 8px 40px rgba(28,27,31,0.12)" }}>
         {sent ? (
           <>
             <h1 className="text-xl font-bold text-gray-900 mb-1">Check your email</h1>
@@ -45,7 +45,7 @@ export default function ForgotPasswordPage() {
             </p>
             <Link
               href="/login"
-              className="block text-center w-full py-3 text-sm font-medium rounded-full bg-md-primary text-md-on-primary hover:bg-md-primary/90 active:scale-95 transition-all duration-300 ease-emphasized"
+              className="block text-center w-full py-3 text-sm font-medium rounded-lg bg-md-primary text-md-on-primary hover:bg-md-primary/90 active:scale-95 transition-all duration-300 ease-emphasized"
             >
               Back to sign in
             </Link>
@@ -91,7 +91,7 @@ export default function ForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full h-12 text-sm font-medium rounded-full bg-md-primary text-md-on-primary hover:bg-md-primary/90 active:bg-md-primary/80 hover:shadow-md active:scale-95 transition-all duration-300 ease-emphasized disabled:opacity-60 mt-2"
+                className="w-full h-12 text-sm font-medium rounded-lg bg-md-primary text-md-on-primary hover:bg-md-primary/90 active:bg-md-primary/80 hover:shadow-md active:scale-95 transition-all duration-300 ease-emphasized disabled:opacity-60 mt-2"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">

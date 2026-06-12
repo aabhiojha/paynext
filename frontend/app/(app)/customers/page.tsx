@@ -170,7 +170,7 @@ const CUSTOMER_STATUS_COLORS: Record<string, { bg: string; color: string }> = {
 function StatusBadge({ status }: { status: string }) {
   const s = CUSTOMER_STATUS_COLORS[status] ?? { bg: "#9ca3af", color: "#fff" };
   return (
-    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold" style={{ backgroundColor: s.bg, color: s.color }}>
+    <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold" style={{ backgroundColor: s.bg, color: s.color }}>
       {status.charAt(0) + status.slice(1).toLowerCase()}
     </span>
   );
@@ -385,11 +385,11 @@ function SubscriptionModal({
         </div>
 
         <div className="px-6 py-4 flex gap-3 flex-shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
-          <button onClick={close} className="flex-1 py-2 text-sm font-medium rounded-full text-gray-600 hover:bg-md-primary/5 active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid var(--border)" }}>Cancel</button>
+          <button onClick={close} className="flex-1 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-md-primary/5 active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid var(--border)" }}>Cancel</button>
           <button
             onClick={onSubmit}
             disabled={saving || (mode === "create" && !form.productId)}
-            className="flex-1 py-2 text-sm font-medium rounded-full text-white active:scale-95 disabled:opacity-60"
+            className="flex-1 py-2 text-sm font-medium rounded-lg text-white active:scale-95 disabled:opacity-60"
             style={{ backgroundColor: "var(--primary)" }}
           >
             {saving ? "Saving…" : mode === "create" ? "Add Subscription" : "Save Changes"}
@@ -676,7 +676,7 @@ export default function CustomersPage() {
           {isAdmin && (
             <button
               onClick={openCreate}
-              className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-white active:scale-95"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white active:scale-95"
               style={{ backgroundColor: "var(--primary)" }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
@@ -710,7 +710,7 @@ export default function CustomersPage() {
               placeholder="Search customers…"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(0); load(filter, e.target.value, 0); }}
-              className="w-full text-sm pl-9 pr-4 py-2 rounded-full outline-none transition-colors duration-200"
+              className="w-full text-sm pl-9 pr-4 py-2 rounded-lg outline-none transition-colors duration-200"
               style={{ border: "1px solid transparent", backgroundColor: "var(--bg-search)" }}
             />
           </div>
@@ -800,8 +800,8 @@ export default function CustomersPage() {
               <FormFields name={editName} onName={setEditName} email={editEmail} onEmail={setEditEmail} phone={editPhone} onPhone={setEditPhone} address={editAddress} onAddress={setEditAddress} notes={editNotes} onNotes={setEditNotes} error={formError} />
             </div>
             <div className="px-6 py-4 flex gap-3" style={{ borderTop: "1px solid var(--border)" }}>
-              <button onClick={closePanel} className="flex-1 py-2 text-sm font-medium rounded-full text-gray-600 hover:bg-md-primary/5 active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid var(--border)" }}>Cancel</button>
-              <button onClick={createCustomer} disabled={saving} className="flex-1 py-2 text-sm font-medium rounded-full text-white active:scale-95 disabled:opacity-60" style={{ backgroundColor: "var(--primary)" }}>
+              <button onClick={closePanel} className="flex-1 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-md-primary/5 active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid var(--border)" }}>Cancel</button>
+              <button onClick={createCustomer} disabled={saving} className="flex-1 py-2 text-sm font-medium rounded-lg text-white active:scale-95 disabled:opacity-60" style={{ backgroundColor: "var(--primary)" }}>
                 {saving ? "Creating…" : "Create Customer"}
               </button>
             </div>
@@ -833,8 +833,8 @@ export default function CustomersPage() {
                 <div className="px-6 py-5">
                   <FormFields name={editName} onName={setEditName} email={editEmail} onEmail={setEditEmail} phone={editPhone} onPhone={setEditPhone} address={editAddress} onAddress={setEditAddress} notes={editNotes} onNotes={setEditNotes} error={formError} />
                   <div className="flex gap-3 pt-4 mt-4" style={{ borderTop: "1px solid var(--border)" }}>
-                    <button onClick={() => setEditing(false)} className="flex-1 py-2 text-sm font-medium rounded-full text-gray-600 hover:bg-md-primary/5 active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid var(--border)" }}>Cancel</button>
-                    <button onClick={saveEdit} disabled={saving} className="flex-1 py-2 text-sm font-medium rounded-full text-white active:scale-95 disabled:opacity-60" style={{ backgroundColor: "var(--primary)" }}>{saving ? "Saving…" : "Save"}</button>
+                    <button onClick={() => setEditing(false)} className="flex-1 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-md-primary/5 active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid var(--border)" }}>Cancel</button>
+                    <button onClick={saveEdit} disabled={saving} className="flex-1 py-2 text-sm font-medium rounded-lg text-white active:scale-95 disabled:opacity-60" style={{ backgroundColor: "var(--primary)" }}>{saving ? "Saving…" : "Save"}</button>
                   </div>
                 </div>
               ) : (
@@ -851,11 +851,11 @@ export default function CustomersPage() {
                   {/* Action buttons */}
                   {isAdmin && (
                     <div className="px-6 pb-5 pt-2 flex gap-3">
-                      <button onClick={startEdit} className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-white active:scale-95" style={{ backgroundColor: "var(--primary)" }}>
+                      <button onClick={startEdit} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white active:scale-95" style={{ backgroundColor: "var(--primary)" }}>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z" /></svg>
                         Edit customer
                       </button>
-                      <button onClick={deleteCustomer} className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-md-error hover:bg-md-error-container active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid #fecaca" }}>
+                      <button onClick={deleteCustomer} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-md-error hover:bg-md-error-container active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid #fecaca" }}>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>
                         Delete
                       </button>
@@ -870,7 +870,7 @@ export default function CustomersPage() {
                       <h3 className="text-base font-semibold text-gray-900">Subscriptions</h3>
                       <button
                         onClick={openAddSubscription}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-white active:scale-95"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white active:scale-95"
                         style={{ backgroundColor: "var(--primary)" }}
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
@@ -984,7 +984,7 @@ export default function CustomersPage() {
                                                       <td className="px-3 py-2 text-gray-500">{formatDate(r.createdAt)}</td>
                                                       <td className="px-3 py-2 text-gray-500">{r.sentAt ? formatDate(r.sentAt) : "—"}</td>
                                                       <td className="px-3 py-2">
-                                                        <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                                                        <span className="text-xs font-semibold px-2.5 py-1 rounded-lg"
                                                           style={r.status === "SENT" ? { backgroundColor: "#dcfce7", color: "#166534" } : r.status === "FAILED" ? { backgroundColor: "#fee2e2", color: "#991b1b" } : { backgroundColor: "#f3f4f6", color: "#6b7280" }}>
                                                           {r.status.charAt(0) + r.status.slice(1).toLowerCase()}
                                                         </span>

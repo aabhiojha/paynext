@@ -112,7 +112,7 @@ const STATUS_STYLES: Record<string, { bg: string; color: string }> = {
 function StatusBadge({ status }: { status: string }) {
   const s = STATUS_STYLES[status] ?? { bg: "#f3f4f6", color: "#374151" };
   return (
-    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold" style={s}>
+    <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold" style={s}>
       {status.charAt(0) + status.slice(1).toLowerCase()}
     </span>
   );
@@ -173,7 +173,7 @@ function AssignFormFields({ form, onChange, onSearchCustomers, products, plans, 
                   </option>
                 ))}
               </select>
-              <button type="button" onClick={onCreatePlan} className="flex-shrink-0 px-3 py-2 rounded-full text-sm font-medium text-white active:scale-95 whitespace-nowrap" style={{ backgroundColor: "var(--primary)" }}>
+              <button type="button" onClick={onCreatePlan} className="flex-shrink-0 px-3 py-2 rounded-lg text-sm font-medium text-white active:scale-95 whitespace-nowrap" style={{ backgroundColor: "var(--primary)" }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
               </button>
             </div>
@@ -513,7 +513,7 @@ export default function SubscriptionsPage() {
           {isAdmin && (
             <button
               onClick={openAssign}
-              className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-white active:scale-95"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white active:scale-95"
               style={{ backgroundColor: "var(--primary)" }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
@@ -568,7 +568,7 @@ export default function SubscriptionsPage() {
               placeholder="Search customer or product…"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(0); load(filter, e.target.value, 0); }}
-              className="w-full text-sm pl-9 pr-4 py-2 rounded-full outline-none transition-colors duration-200"
+              className="w-full text-sm pl-9 pr-4 py-2 rounded-lg outline-none transition-colors duration-200"
               style={{ border: "1px solid transparent", backgroundColor: "var(--bg-search)" }}
             />
           </div>
@@ -669,8 +669,8 @@ export default function SubscriptionsPage() {
               />
             </div>
             <div className="px-6 py-4 flex gap-3 flex-shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
-              <button onClick={closePanel} className="flex-1 py-2 text-sm font-medium rounded-full text-gray-600 hover:bg-md-primary/5 active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid var(--border)" }}>Cancel</button>
-              <button onClick={submitAssign} disabled={saving} className="flex-1 py-2 text-sm font-medium rounded-full text-white active:scale-95 disabled:opacity-60" style={{ backgroundColor: "var(--primary)" }}>
+              <button onClick={closePanel} className="flex-1 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-md-primary/5 active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid var(--border)" }}>Cancel</button>
+              <button onClick={submitAssign} disabled={saving} className="flex-1 py-2 text-sm font-medium rounded-lg text-white active:scale-95 disabled:opacity-60" style={{ backgroundColor: "var(--primary)" }}>
                 {saving ? "Assigning…" : "Assign"}
               </button>
             </div>
@@ -719,8 +719,8 @@ export default function SubscriptionsPage() {
                       {formError && <p className="text-sm text-red-600">{formError}</p>}
                     </div>
                     <div className="px-5 py-4 flex gap-3" style={{ borderTop: "1px solid var(--border)" }}>
-                      <button onClick={() => { setPlanCreateClosing(true); setTimeout(() => { setPlanCreateOpen(false); setPlanCreateClosing(false); setFormError(null); }, 160); }} className="flex-1 py-2 text-sm font-medium rounded-full text-gray-600 hover:bg-md-primary/5 active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid var(--border)" }}>Cancel</button>
-                      <button onClick={createPlan} disabled={saving || !newPlanName.trim() || !newPlanPrice} className="flex-1 py-2 text-sm font-medium rounded-full text-white active:scale-95 disabled:opacity-60" style={{ backgroundColor: "var(--primary)" }}>
+                      <button onClick={() => { setPlanCreateClosing(true); setTimeout(() => { setPlanCreateOpen(false); setPlanCreateClosing(false); setFormError(null); }, 160); }} className="flex-1 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-md-primary/5 active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid var(--border)" }}>Cancel</button>
+                      <button onClick={createPlan} disabled={saving || !newPlanName.trim() || !newPlanPrice} className="flex-1 py-2 text-sm font-medium rounded-lg text-white active:scale-95 disabled:opacity-60" style={{ backgroundColor: "var(--primary)" }}>
                         {saving ? "Creating…" : "Create"}
                       </button>
                     </div>
@@ -768,19 +768,19 @@ export default function SubscriptionsPage() {
                     <div className="px-6 pb-5 pt-2">
                       <div className="flex items-center gap-2">
                         {/* Primary action */}
-                        <button onClick={startEdit} className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-white active:scale-95" style={{ backgroundColor: "var(--primary)" }}>
+                        <button onClick={startEdit} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white active:scale-95" style={{ backgroundColor: "var(--primary)" }}>
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z" /></svg>
                           Edit dates & notes
                         </button>
 
                         {/* Secondary: status transitions (non-destructive) */}
                         {selected.status === "ACTIVE" && (
-                          <button onClick={() => updateStatus("PAUSED")} className="text-xs px-3 py-2 rounded-full font-medium transition-colors hover:bg-yellow-50" style={{ color: "#854d0e", border: "1px solid #fde68a" }}>
+                          <button onClick={() => updateStatus("PAUSED")} className="text-xs px-3 py-2 rounded-lg font-medium transition-colors hover:bg-yellow-50" style={{ color: "#854d0e", border: "1px solid #fde68a" }}>
                             Pause
                           </button>
                         )}
                         {selected.status === "PAUSED" && (
-                          <button onClick={() => updateStatus("ACTIVE")} className="text-xs px-3 py-2 rounded-full font-medium transition-colors hover:bg-green-50" style={{ color: "#166534", border: "1px solid #bbf7d0" }}>
+                          <button onClick={() => updateStatus("ACTIVE")} className="text-xs px-3 py-2 rounded-lg font-medium transition-colors hover:bg-green-50" style={{ color: "#166534", border: "1px solid #bbf7d0" }}>
                             Resume
                           </button>
                         )}
@@ -789,7 +789,7 @@ export default function SubscriptionsPage() {
                         <div className="relative ml-auto" ref={moreMenuRef}>
                           <button
                             onClick={() => setMoreMenuOpen((o) => !o)}
-                            className="flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-md-primary/10 active:scale-95 transition-all duration-300 ease-emphasized"
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-md-primary/10 active:scale-95 transition-all duration-300 ease-emphasized"
                           >
                             More
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
@@ -906,8 +906,8 @@ export default function SubscriptionsPage() {
                     {formError && <p className="text-sm text-red-600">{formError}</p>}
                   </div>
                   <div className="px-5 py-4 flex gap-3" style={{ borderTop: "1px solid var(--border)" }}>
-                    <button onClick={closeEdit} className="flex-1 py-2 text-sm font-medium rounded-full text-gray-600 hover:bg-md-primary/5 active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid var(--border)" }}>Cancel</button>
-                    <button onClick={saveEdit} disabled={saving} className="flex-1 py-2 text-sm font-medium rounded-full text-white active:scale-95 disabled:opacity-60" style={{ backgroundColor: "var(--primary)" }}>{saving ? "Saving…" : "Save"}</button>
+                    <button onClick={closeEdit} className="flex-1 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-md-primary/5 active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid var(--border)" }}>Cancel</button>
+                    <button onClick={saveEdit} disabled={saving} className="flex-1 py-2 text-sm font-medium rounded-lg text-white active:scale-95 disabled:opacity-60" style={{ backgroundColor: "var(--primary)" }}>{saving ? "Saving…" : "Save"}</button>
                   </div>
                 </div>
               </div>

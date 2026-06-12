@@ -82,7 +82,7 @@ export default function BottomNav() {
             aria-current={isActive ? "page" : undefined}
           >
             <span
-              className={`flex items-center justify-center px-4 py-0.5 rounded-full transition-colors duration-300 ${
+              className={`flex items-center justify-center px-4 py-0.5 rounded-lg transition-colors duration-300 ${
                 isActive ? "bg-md-secondary-container text-md-on-secondary-container" : "text-md-on-surface-variant group-hover:bg-md-primary/10"
               }`}
             >
@@ -96,7 +96,7 @@ export default function BottomNav() {
       })}
 
       <button onClick={handleLogout} className="flex flex-col items-center gap-0.5 px-2 py-1 transition-all duration-300 ease-emphasized active:scale-95 group">
-        <span className="flex items-center justify-center px-4 py-0.5 rounded-full text-md-on-surface-variant group-hover:bg-md-primary/10 transition-colors duration-300">
+        <span className="flex items-center justify-center px-4 py-0.5 rounded-lg text-md-on-surface-variant group-hover:bg-md-primary/10 transition-colors duration-300">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
           </svg>

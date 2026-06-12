@@ -374,9 +374,9 @@ export default function AdminDashboardPage() {
                         {summary.remainders.failureRate.toFixed(1)}%
                       </span>
                     </div>
-                    <div className="w-full rounded-full overflow-hidden" style={{ height: 5, backgroundColor: "#e5e7eb" }}>
+                    <div className="w-full rounded-lg overflow-hidden" style={{ height: 5, backgroundColor: "#e5e7eb" }}>
                       <div
-                        className="h-full rounded-full transition-all duration-700"
+                        className="h-full rounded-lg transition-all duration-700"
                         style={{ width: `${Math.min(summary.remainders.failureRate, 100)}%`, backgroundColor: summary.remainders.failureRate > 5 ? "#ef4444" : "#24A37D" }}
                       />
                     </div>
@@ -421,9 +421,9 @@ export default function AdminDashboardPage() {
                   <span className="text-sm text-gray-700">{b.name}</span>
                   <span className="text-sm font-semibold tabular-nums text-gray-900">{b.tenants}</span>
                 </div>
-                <div className="w-full rounded-full overflow-hidden" style={{ height: 6, backgroundColor: "#e5e7eb" }}>
+                <div className="w-full rounded-lg overflow-hidden" style={{ height: 6, backgroundColor: "#e5e7eb" }}>
                   <div
-                    className="h-full rounded-full transition-all duration-700"
+                    className="h-full rounded-lg transition-all duration-700"
                     style={{ width: tenantTotal > 0 ? `${(b.tenants / tenantTotal) * 100}%` : "0%", backgroundColor: b.color }}
                   />
                 </div>

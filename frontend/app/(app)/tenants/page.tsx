@@ -662,7 +662,7 @@ function CreateTenantModal({
               <button
                 onClick={() => setStep(2)}
                 disabled={!canProceed}
-                className="flex-1 py-2.5 text-sm font-medium rounded-full text-white active:scale-95 transition-opacity"
+                className="flex-1 py-2.5 text-sm font-medium rounded-lg text-white active:scale-95 transition-opacity"
                 style={{ backgroundColor: "var(--primary)", opacity: canProceed ? 1 : 0.45 }}
               >
                 Continue
@@ -687,7 +687,7 @@ function CreateTenantModal({
               <button
                 onClick={() => onSubmit(form)}
                 disabled={saving}
-                className="flex-1 py-2.5 text-sm font-medium rounded-full text-white active:scale-95 transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 text-sm font-medium rounded-lg text-white active:scale-95 transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
                 style={{ backgroundColor: "var(--primary)", opacity: saving ? 0.7 : 1 }}
               >
                 {saving && (
@@ -810,7 +810,7 @@ function EditPlanModal({
           <button
             onClick={() => onSubmit(selectedPlanId, customPrice)}
             disabled={saving}
-            className="flex-1 py-2 text-sm font-medium rounded-full text-white active:scale-95 flex items-center justify-center gap-2"
+            className="flex-1 py-2 text-sm font-medium rounded-lg text-white active:scale-95 flex items-center justify-center gap-2"
             style={{ backgroundColor: "var(--primary)", opacity: saving ? 0.7 : 1 }}
           >
             {saving && <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>}
@@ -907,7 +907,7 @@ function InviteUserModal({
           <button
             onClick={() => onSubmit(email, role)}
             disabled={inviting || !email.trim()}
-            className="flex-1 py-2 text-sm font-medium rounded-full text-white active:scale-95 flex items-center justify-center gap-2"
+            className="flex-1 py-2 text-sm font-medium rounded-lg text-white active:scale-95 flex items-center justify-center gap-2"
             style={{ backgroundColor: "var(--primary)", opacity: inviting || !email.trim() ? 0.6 : 1 }}
           >
             {inviting && <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>}
@@ -1245,7 +1245,7 @@ function TenantSidebar({
                   <button
                     onClick={handleSaveEdit}
                     disabled={actionLoading || !editForm.name || !editForm.email}
-                    className="flex-1 py-2.5 text-sm font-medium rounded-full text-white active:scale-95 transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
+                    className="flex-1 py-2.5 text-sm font-medium rounded-lg text-white active:scale-95 transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
                     style={{ backgroundColor: "var(--primary)", opacity: actionLoading ? 0.7 : 1 }}
                   >
                     {actionLoading && (
@@ -1324,7 +1324,7 @@ function TenantSidebar({
                   <button
                     onClick={handleSuspend}
                     disabled={actionLoading}
-                    className="flex-1 py-2 text-sm font-medium rounded-full text-white active:scale-95 transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
+                    className="flex-1 py-2 text-sm font-medium rounded-lg text-white active:scale-95 transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
                     style={{ backgroundColor: "#dc2626", opacity: actionLoading ? 0.7 : 1 }}
                   >
                     {actionLoading && (
@@ -1362,7 +1362,7 @@ function TenantSidebar({
                   <button
                     onClick={handleArchive}
                     disabled={actionLoading}
-                    className="flex-1 py-2 text-sm font-medium rounded-full text-white active:scale-95 transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
+                    className="flex-1 py-2 text-sm font-medium rounded-lg text-white active:scale-95 transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
                     style={{ backgroundColor: "#6b7280", opacity: actionLoading ? 0.7 : 1 }}
                   >
                     {actionLoading && (

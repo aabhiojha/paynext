@@ -256,9 +256,9 @@ function ReminderStatusPanel({ stats, loading }: { stats: ReminderStats | null; 
                 {successRate ?? "—"}%
               </span>
             </div>
-            <div className="w-full rounded-full overflow-hidden" style={{ height: 5, backgroundColor: "#e5e7eb" }}>
+            <div className="w-full rounded-lg overflow-hidden" style={{ height: 5, backgroundColor: "#e5e7eb" }}>
               <div
-                className="h-full rounded-full transition-all duration-700"
+                className="h-full rounded-lg transition-all duration-700"
                 style={{ width: `${successRate ?? 0}%`, backgroundColor: rateColor }}
               />
             </div>
@@ -410,7 +410,7 @@ export default function DashboardPage() {
             </div>
             {!loading && upcoming.length > 0 && (
               <span
-                className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                className="text-xs font-semibold px-2.5 py-1 rounded-lg"
                 style={{ backgroundColor: "#fff3cd", color: "#92400e" }}
               >
                 {upcoming.length} due

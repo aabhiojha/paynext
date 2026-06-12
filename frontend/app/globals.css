@@ -79,14 +79,12 @@
   --tracking-tight: -.01em;
   --tracking-wider: .05em;
 
-  /* Radius scale lifted to MD3 organic values:
-     rounded-lg → 16px (medium), rounded-xl → 24px (large, default cards),
-     rounded-2xl → 28px (dialogs/sheets), rounded-3xl → 32px (major containers) */
-  --radius-md: .75rem;
-  --radius-lg: 1rem;
-  --radius-xl: 1.5rem;
-  --radius-2xl: 1.75rem;
-  --radius-3xl: 2rem;
+  /* Radius — reduced for a less rounded look */
+  --radius-md: .375rem;
+  --radius-lg: .5rem;
+  --radius-xl: .75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.25rem;
 
   /* Motion — MD3 emphasized easing */
   --ease-emphasized: cubic-bezier(.2, 0, 0, 1);

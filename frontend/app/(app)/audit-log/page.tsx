@@ -267,7 +267,7 @@ function FilterPill({ label, active, children }: { label: string; active: boolea
     <div ref={container} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full transition-colors"
+        className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
         style={{
           border: `1px solid ${active ? "var(--primary)" : "var(--border)"}`,
           color: active ? "var(--primary)" : "var(--color-gray-700)",
@@ -619,7 +619,7 @@ function FragmentRow({ log, hasDiff, isOpen, showTenant, onToggle }: { log: Audi
               onClick={(e) => { e.stopPropagation(); onToggle(); }}
               aria-label={isOpen ? "Collapse details" : "Expand details"}
               aria-expanded={isOpen}
-              className="text-gray-400 hover:text-gray-700 p-1 rounded-full transition-colors"
+              className="text-gray-400 hover:text-gray-700 p-1 rounded-lg transition-colors"
             >
               <svg
                 width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"

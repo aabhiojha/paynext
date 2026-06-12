@@ -71,7 +71,7 @@ export default function Dialog({
           role="dialog"
           aria-modal="true"
           aria-label={title}
-          className="flex flex-col w-full rounded-2xl overflow-hidden"
+          className="flex flex-col w-full rounded-xl overflow-hidden"
           style={{
             maxWidth: `min(${width}, calc(100vw - 2rem))`,
             backgroundColor: "var(--bg-app)",
@@ -88,7 +88,7 @@ export default function Dialog({
             <button
               onClick={onClose}
               aria-label="Close dialog"
-              className="text-md-on-surface-variant hover:bg-md-primary/10 active:scale-95 transition-all duration-200 rounded-full p-2 -m-2 -mr-2"
+              className="text-md-on-surface-variant hover:bg-md-primary/10 active:scale-95 transition-all duration-200 rounded-lg p-2 -m-2 -mr-2"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M18 6 6 18M6 6l12 12" />

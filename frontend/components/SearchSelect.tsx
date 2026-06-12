@@ -91,7 +91,7 @@ export default function SearchSelect({
         <button
           type="button"
           onClick={handleClear}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-md-on-surface-variant hover:bg-md-primary/10 rounded-full p-1 transition-colors"
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-md-on-surface-variant hover:bg-md-primary/10 rounded-lg p-1 transition-colors"
           tabIndex={-1}
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -103,7 +103,7 @@ export default function SearchSelect({
       {/* Dropdown */}
       {open && (
         <div
-          className="absolute z-30 left-0 right-0 mt-1 rounded-2xl overflow-hidden"
+          className="absolute z-30 left-0 right-0 mt-1 rounded-xl overflow-hidden"
           style={{ backgroundColor: "var(--bg-app)", boxShadow: "0 8px 24px rgba(28,27,31,0.14)", top: "100%" }}
         >
           {loading ? (

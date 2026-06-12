@@ -173,7 +173,7 @@ function AcceptInviteContent() {
           </div>
 
           {formError && (
-            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
               {formError}
             </div>
           )}
@@ -181,7 +181,7 @@ function AcceptInviteContent() {
           <button
             type="submit"
             disabled={submitting || !password}
-            className="w-full h-12 text-sm font-medium rounded-full bg-md-primary text-md-on-primary hover:bg-md-primary/90 active:bg-md-primary/80 hover:shadow-md active:scale-95 transition-all duration-300 ease-emphasized disabled:opacity-60 flex items-center justify-center gap-2"
+            className="w-full h-12 text-sm font-medium rounded-lg bg-md-primary text-md-on-primary hover:bg-md-primary/90 active:bg-md-primary/80 hover:shadow-md active:scale-95 transition-all duration-300 ease-emphasized disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {submitting && (
               <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">

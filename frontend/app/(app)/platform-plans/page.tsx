@@ -254,7 +254,7 @@ function PlanModal({
           <button
             onClick={() => { if (form.name && form.price) onSubmit(form); }}
             disabled={saving || !form.name || !form.price}
-            className="flex-1 py-2.5 text-sm font-medium rounded-full text-white active:scale-95 transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 text-sm font-medium rounded-lg text-white active:scale-95 transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
             style={{ backgroundColor: "var(--primary)", opacity: saving ? 0.7 : 1 }}
           >
             {saving && (
@@ -540,7 +540,7 @@ function PlanSidebar({
               <button
                 onClick={() => { if (form.name && form.price) onSave(form); }}
                 disabled={saving || !form.name || !form.price}
-                className="flex-1 py-2.5 text-sm font-medium rounded-full text-white active:scale-95 transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 text-sm font-medium rounded-lg text-white active:scale-95 transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
                 style={{ backgroundColor: "var(--primary)", opacity: saving ? 0.7 : 1 }}
               >
                 {saving && (

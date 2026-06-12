@@ -157,13 +157,13 @@ export default function ProfilePage() {
           <p className="text-sm text-gray-500 truncate">{profile.email}</p>
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <span
-              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
+              className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-semibold"
               style={{ backgroundColor: roleStyle.bg, color: roleStyle.color }}
             >
               {ROLE_LABEL[profile.role] ?? profile.role}
             </span>
             <span
-              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
+              className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-semibold"
               style={{ backgroundColor: statusStyle.bg, color: statusStyle.color }}
             >
               {profile.status.charAt(0) + profile.status.slice(1).toLowerCase()}
@@ -259,7 +259,7 @@ export default function ProfilePage() {
           <div>
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5">Role</p>
             <span
-              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
+              className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-semibold"
               style={{ backgroundColor: roleStyle.bg, color: roleStyle.color }}
             >
               {ROLE_LABEL[profile.role] ?? profile.role}

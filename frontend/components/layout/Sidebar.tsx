@@ -44,7 +44,7 @@ function NavLink({
     <Link
       href={item.href}
       aria-current={isActive ? "page" : undefined}
-      className="flex items-center gap-3 px-3 py-2 rounded-full text-sm font-medium mb-0.5 transition-all duration-300 ease-emphasized hover:bg-md-primary/10 active:scale-95"
+      className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium mb-0.5 transition-all duration-300 ease-emphasized hover:bg-md-primary/10 active:scale-95"
       style={
         isActive
           ? { backgroundColor: "var(--nav-active)", color: "var(--nav-active-text)" }
@@ -130,7 +130,7 @@ export default function Sidebar() {
 
       {/* Role context banner for super admin */}
       {isAdmin && (
-        <div className="mx-3 mb-2 px-3 py-1.5 rounded-full flex items-center gap-2 bg-md-secondary-container">
+        <div className="mx-3 mb-2 px-3 py-1.5 rounded-lg flex items-center gap-2 bg-md-secondary-container">
           <ShieldIcon size={13} color="#1D192B" />
           <span className="text-xs font-medium text-md-on-secondary-container">Platform Super Admin</span>
         </div>
@@ -163,7 +163,7 @@ export default function Sidebar() {
       <div className="px-3 pb-1">
         <Link
           href="/profile"
-          className="flex items-center gap-2.5 px-2.5 py-2 rounded-full transition-all duration-300 ease-emphasized hover:bg-md-primary/10 active:scale-95 group"
+          className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-300 ease-emphasized hover:bg-md-primary/10 active:scale-95 group"
           style={pathname === "/profile" ? { backgroundColor: "var(--nav-active)" } : {}}
         >
           <div
@@ -192,7 +192,7 @@ export default function Sidebar() {
       <div className="px-3 pb-3 pt-0.5">
         <button
           onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2 py-2 rounded-full text-sm font-medium text-gray-600 hover:bg-md-error-container hover:text-md-error transition-all duration-300 ease-emphasized active:scale-95"
+          className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-md-error-container hover:text-md-error transition-all duration-300 ease-emphasized active:scale-95"
           title="Sign out"
         >
           <LogoutIcon size={18} />

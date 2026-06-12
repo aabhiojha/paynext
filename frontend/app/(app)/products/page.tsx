@@ -261,7 +261,7 @@ export default function ProductsPage() {
           {isAdmin && (
             <button
               onClick={() => { setSelected(null); setEditing(true); setEditName(""); setEditDesc(""); setEditPrice(""); setEditCurrency("USD"); setEditCadence("MONTHLY"); setFormError(null); }}
-              className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-white active:scale-95"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white active:scale-95"
               style={{ backgroundColor: "var(--primary)" }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
@@ -297,7 +297,7 @@ export default function ProductsPage() {
               placeholder="Search products…"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(0); load(filter, e.target.value, 0); }}
-              className="w-full text-sm pl-9 pr-4 py-2 rounded-full outline-none transition-colors duration-200"
+              className="w-full text-sm pl-9 pr-4 py-2 rounded-lg outline-none transition-colors duration-200"
               style={{ border: "1px solid transparent", backgroundColor: "var(--bg-search)" }}
             />
           </div>
@@ -392,7 +392,7 @@ export default function ProductsPage() {
               {formError && <p className="text-sm text-red-600">{formError}</p>}
             </div>
             <div className="px-6 py-4 flex gap-3" style={{ borderTop: "1px solid var(--border)" }}>
-              <button onClick={() => setEditing(false)} className="flex-1 py-2 text-sm font-medium rounded-full text-gray-600 hover:bg-md-primary/5 active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid var(--border)" }}>Cancel</button>
+              <button onClick={() => setEditing(false)} className="flex-1 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-md-primary/5 active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid var(--border)" }}>Cancel</button>
               <button onClick={async () => {
                 if (!token || !tid || !editName.trim() || !editPrice) { setFormError("Name and price are required."); return; }
                 setSaving(true); setFormError(null);
@@ -401,7 +401,7 @@ export default function ProductsPage() {
                   load(); setEditing(false);
                 } catch (e) { setFormError(e instanceof Error ? e.message : "Failed to create."); }
                 finally { setSaving(false); }
-              }} disabled={saving} className="flex-1 py-2 text-sm font-medium rounded-full text-white active:scale-95 disabled:opacity-60" style={{ backgroundColor: "var(--primary)" }}>
+              }} disabled={saving} className="flex-1 py-2 text-sm font-medium rounded-lg text-white active:scale-95 disabled:opacity-60" style={{ backgroundColor: "var(--primary)" }}>
                 {saving ? "Creating…" : "Create Product"}
               </button>
             </div>
@@ -441,7 +441,7 @@ export default function ProductsPage() {
                   {selected.description && <SlideOverField label="Description">{selected.description}</SlideOverField>}
                     <SlideOverField label="Status">
                       <span
-                        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
+                        className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-semibold"
                         style={STATUS_STYLE[selected.status] ?? { backgroundColor: "#f3f4f6", color: "#6b7280" }}
                       >
                         {selected.status.charAt(0) + selected.status.slice(1).toLowerCase()}
@@ -456,7 +456,7 @@ export default function ProductsPage() {
                     <div className="px-6 pb-5 pt-2 flex gap-3">
                       <button
                         onClick={startEdit}
-                        className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-white active:scale-95"
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white active:scale-95"
                         style={{ backgroundColor: "var(--primary)" }}
                       >
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z" /></svg>
@@ -464,7 +464,7 @@ export default function ProductsPage() {
                       </button>
                       <button
                         onClick={deleteProduct}
-                        className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-md-error hover:bg-md-error-container active:scale-95 transition-all duration-300 ease-emphasized"
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-md-error hover:bg-md-error-container active:scale-95 transition-all duration-300 ease-emphasized"
                         style={{ border: "1px solid #fecaca" }}
                       >
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>
@@ -496,7 +496,7 @@ export default function ProductsPage() {
                         {isAdmin && (
                           <button
                             onClick={openAddPlan}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium text-white active:scale-95 whitespace-nowrap"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-white active:scale-95 whitespace-nowrap"
                             style={{ backgroundColor: "var(--primary)" }}
                           >
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
@@ -631,8 +631,8 @@ export default function ProductsPage() {
                   </div>
                   {/* Footer */}
                   <div className="px-5 py-4 flex gap-3" style={{ borderTop: "1px solid var(--border)" }}>
-                    <button onClick={closePlanDialog} className="flex-1 py-2 text-sm font-medium rounded-full text-gray-600 hover:bg-md-primary/5 active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid var(--border)" }}>Cancel</button>
-                    <button onClick={savePlan} disabled={saving || !planName.trim() || !planPrice} className="flex-1 py-2 text-sm font-medium rounded-full text-white active:scale-95 disabled:opacity-60" style={{ backgroundColor: "var(--primary)" }}>
+                    <button onClick={closePlanDialog} className="flex-1 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-md-primary/5 active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid var(--border)" }}>Cancel</button>
+                    <button onClick={savePlan} disabled={saving || !planName.trim() || !planPrice} className="flex-1 py-2 text-sm font-medium rounded-lg text-white active:scale-95 disabled:opacity-60" style={{ backgroundColor: "var(--primary)" }}>
                       {saving ? (planDialogMode === "edit" ? "Saving…" : "Adding…") : (planDialogMode === "edit" ? "Save plan" : "Add plan")}
                     </button>
                   </div>
@@ -691,8 +691,8 @@ export default function ProductsPage() {
                     {formError && <p className="text-sm text-red-600">{formError}</p>}
                   </div>
                   <div className="px-5 py-4 flex gap-3" style={{ borderTop: "1px solid var(--border)" }}>
-                    <button onClick={closeProductEdit} className="flex-1 py-2 text-sm font-medium rounded-full text-gray-600 hover:bg-md-primary/5 active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid var(--border)" }}>Cancel</button>
-                    <button onClick={saveProduct} disabled={saving} className="flex-1 py-2 text-sm font-medium rounded-full text-white active:scale-95 disabled:opacity-60" style={{ backgroundColor: "var(--primary)" }}>
+                    <button onClick={closeProductEdit} className="flex-1 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-md-primary/5 active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid var(--border)" }}>Cancel</button>
+                    <button onClick={saveProduct} disabled={saving} className="flex-1 py-2 text-sm font-medium rounded-lg text-white active:scale-95 disabled:opacity-60" style={{ backgroundColor: "var(--primary)" }}>
                       {saving ? "Saving…" : "Save"}
                     </button>
                   </div>

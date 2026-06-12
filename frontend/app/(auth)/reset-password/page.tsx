@@ -56,14 +56,14 @@ function ResetPasswordForm() {
         <span className="text-2xl font-bold text-gray-900">PayNext</span>
       </div>
 
-      <div className="rounded-2xl p-8" style={{ backgroundColor: "var(--bg-app)", boxShadow: "0 8px 40px rgba(28,27,31,0.12)" }}>
+      <div className="rounded-xl p-8" style={{ backgroundColor: "var(--bg-app)", boxShadow: "0 8px 40px rgba(28,27,31,0.12)" }}>
         {success ? (
           <>
             <h1 className="text-xl font-bold text-gray-900 mb-1">Password reset</h1>
             <p className="text-sm text-gray-500 mb-6">Your password has been reset successfully. You can now sign in with your new password.</p>
             <Link
               href="/login"
-              className="block text-center w-full py-3 text-sm font-medium rounded-full bg-md-primary text-md-on-primary hover:bg-md-primary/90 active:scale-95 transition-all duration-300 ease-emphasized"
+              className="block text-center w-full py-3 text-sm font-medium rounded-lg bg-md-primary text-md-on-primary hover:bg-md-primary/90 active:scale-95 transition-all duration-300 ease-emphasized"
             >
               Sign in
             </Link>
@@ -130,20 +130,20 @@ function ResetPasswordForm() {
               )}
 
               <button
-                type="submit"
-                disabled={loading || !token}
-                className="w-full h-12 text-sm font-medium rounded-full bg-md-primary text-md-on-primary hover:bg-md-primary/90 active:bg-md-primary/80 hover:shadow-md active:scale-95 transition-all duration-300 ease-emphasized disabled:opacity-60 mt-2"
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                    </svg>
-                    Resetting…
-                  </span>
-                ) : (
-                  "Reset password"
-                )}
+            type="submit"
+            disabled={loading}
+            className="w-full h-12 text-sm font-medium rounded-lg bg-md-primary text-md-on-primary hover:bg-md-primary/90 active:bg-md-primary/80 hover:shadow-md active:scale-95 transition-all duration-300 ease-emphasized disabled:opacity-60"
+
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                </svg>
+                Resetting…
+              </span>
+            ) : (
+              "Reset password"
+            )}
               </button>
             </form>
           </>

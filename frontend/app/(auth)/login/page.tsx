@@ -72,7 +72,7 @@ export default function LoginPage() {
       </div>
 
       {/* Card */}
-      <div className="rounded-2xl p-8" style={{ backgroundColor: "var(--bg-app)", boxShadow: "0 8px 40px rgba(28,27,31,0.12)" }}>
+      <div className="rounded-xl p-8" style={{ backgroundColor: "var(--bg-app)", boxShadow: "0 8px 40px rgba(28,27,31,0.12)" }}>
         <h1 className="text-xl font-bold text-gray-900 mb-1">Welcome back</h1>
         <p className="text-sm text-gray-500 mb-7">Sign in to your account to continue</p>
 
@@ -143,7 +143,7 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div role="alert" className="flex items-center gap-2 text-sm px-4 py-2.5 rounded-lg bg-md-error-container text-md-on-error-container">
+            <div role="alert" className="flex items-center gap-2 text-sm px-4 py-2.5 rounded-md bg-md-error-container text-md-on-error-container">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
                 <circle cx="12" cy="12" r="10" />
                 <line x1="12" x2="12" y1="8" y2="12" />
@@ -156,7 +156,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-12 text-sm font-medium rounded-full bg-md-primary text-md-on-primary hover:bg-md-primary/90 active:bg-md-primary/80 hover:shadow-md active:scale-95 transition-all duration-300 ease-emphasized disabled:opacity-60 mt-2"
+            className="w-full h-12 text-sm font-medium rounded-lg bg-md-primary text-md-on-primary hover:bg-md-primary/90 active:bg-md-primary/80 hover:shadow-md active:scale-95 transition-all duration-300 ease-emphasized disabled:opacity-60 mt-2"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">

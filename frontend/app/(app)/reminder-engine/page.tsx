@@ -158,7 +158,7 @@ export default function ReminderEnginePage() {
             <button
               onClick={triggerReminders}
               disabled={triggering}
-              className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-white active:scale-95 disabled:opacity-60 transition-opacity"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white active:scale-95 disabled:opacity-60 transition-opacity"
               style={{ backgroundColor: "var(--primary)" }}
             >
               {triggering ? (

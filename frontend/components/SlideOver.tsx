@@ -70,7 +70,7 @@ export default function SlideOver({
       <div
         role="dialog"
         aria-modal="true"
-        className={`fixed top-0 right-0 z-50 h-full flex flex-col overflow-hidden ${isMobile ? "" : "rounded-l-[28px]"}`}
+          className={`fixed top-0 right-0 z-50 h-full flex flex-col overflow-hidden ${isMobile ? "" : "rounded-l-[16px]"}`}
         style={{
           width: isMobile ? "100dvw" : `min(${width}, 100vw)`,
           backgroundColor: "var(--bg-app)",
@@ -102,7 +102,7 @@ export function SlideOverHeader({
     <div className="flex items-start justify-between px-6 py-5 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
       <div className="flex items-center gap-2 min-w-0">
         {onBack && (
-          <button onClick={onBack} aria-label="Back" className="flex-shrink-0 text-md-on-surface-variant hover:bg-md-primary/10 active:scale-95 transition-all duration-200 rounded-full p-1.5 -m-1.5 -ml-2">
+          <button onClick={onBack} aria-label="Back" className="flex-shrink-0 text-md-on-surface-variant hover:bg-md-primary/10 active:scale-95 transition-all duration-200 rounded-lg p-1.5 -m-1.5 -ml-2">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="m15 18-6-6 6-6" />
             </svg>
@@ -118,7 +118,7 @@ export function SlideOverHeader({
         <button
           onClick={onClose}
           aria-label="Close panel"
-          className="text-md-on-surface-variant hover:bg-md-primary/10 active:scale-95 transition-all duration-200 rounded-full p-2 -m-2"
+          className="text-md-on-surface-variant hover:bg-md-primary/10 active:scale-95 transition-all duration-200 rounded-lg p-2 -m-2"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M18 6 6 18M6 6l12 12" />
