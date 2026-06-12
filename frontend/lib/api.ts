@@ -83,7 +83,9 @@ export async function apiPost<T>(path: string, body: unknown, token?: string): P
     let message = "Request failed";
     try {
       const err = await res.json();
-      message = err.message ?? err.error ?? message;
+      if (typeof err.message === "string") message = err.message;
+      else if (typeof err.error?.message === "string") message = err.error.message;
+      else if (typeof err.error === "string") message = err.error;
     } catch {
       // ignore parse failure
     }
@@ -117,7 +119,9 @@ export async function apiPatch<T>(path: string, body: unknown, token?: string): 
     let message = "Request failed";
     try {
       const err = await res.json();
-      message = err.message ?? err.error ?? message;
+      if (typeof err.message === "string") message = err.message;
+      else if (typeof err.error?.message === "string") message = err.error.message;
+      else if (typeof err.error === "string") message = err.error;
     } catch {
       // ignore
     }
