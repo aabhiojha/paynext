@@ -129,10 +129,7 @@ export default function ProfilePage() {
   const avatarInitials = initials(profile.fullName, profile.email);
 
   return (
-    <div
-      className="min-h-screen px-6 py-8 max-w-2xl"
-      style={{ animation: "fade-in-up 0.2s ease-out both" }}
-    >
+    <div className="min-h-screen px-6 py-8 max-w-2xl page-enter">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>

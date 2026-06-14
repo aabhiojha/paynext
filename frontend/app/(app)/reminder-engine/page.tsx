@@ -5,6 +5,9 @@ import { useAuthStore } from "@/store/authStore";
 import { apiGet, apiPost } from "@/lib/api";
 import { titleCase } from "@/lib/format";
 import Pagination from "@/components/Pagination";
+import { useColumnResize } from "@/lib/useColumnResize";
+import ResizeHandle from "@/components/ResizeHandle";
+import TableSkeleton from "@/components/TableSkeleton";
 
 const PAGE_SIZE = 15;
 
@@ -97,6 +100,11 @@ export default function ReminderEnginePage() {
 
   const tid = user?.tenantId;
 
+  const upcomingCols = [150, 150, 130, 100, 100, 130, 130];
+  const { widths: upcomingWidths, onMouseDown: onUpcomingMouseDown } = useColumnResize(upcomingCols);
+  const historyCols = [160, 160, 110, 110, 150, 200];
+  const { widths: historyWidths, onMouseDown: onHistoryMouseDown } = useColumnResize(historyCols);
+
   const load = (f = filter, p = page) => {
     if (!token || !tid) return;
     setLoading(true);
@@ -145,7 +153,7 @@ export default function ReminderEnginePage() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
-    <div className="px-6 py-8 md:px-10 max-w-6xl mx-auto space-y-6 min-h-full flex flex-col" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
+    <div className="px-6 py-8 md:px-10 max-w-6xl mx-auto space-y-6 min-h-full flex flex-col page-enter">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
@@ -202,7 +210,7 @@ export default function ReminderEnginePage() {
             className="text-xs font-semibold px-3 py-1.5 rounded-md transition-all"
             style={
               filter === f
-                ? { backgroundColor: "var(--nav-active)", color: "var(--nav-active-text)" }
+                ? { backgroundColor: "var(--primary)", color: "#fff" }
                 : { color: "#6b7280" }
             }
           >
@@ -220,39 +228,38 @@ export default function ReminderEnginePage() {
 
         <div className="rounded-xl overflow-hidden overflow-x-auto" style={{ border: "1px solid var(--border)" }}>
           {upcomingLoading ? (
-            <div className="flex items-center justify-center py-12 text-gray-400">
-              <svg className="animate-spin mr-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
-              Loading…
-            </div>
+            <TableSkeleton columns={7} rows={4} bordered={false} />
           ) : upcoming.length === 0 ? (
             <div className="flex items-center justify-center py-12 text-sm text-gray-400">
               No reminders due in the next 7 days.
             </div>
           ) : (
-            <table className="w-full">
+            <table style={{ tableLayout: "fixed", width: "100%", minWidth: upcomingWidths.reduce((a, b) => a + b, 0) }}>
+              <colgroup>{upcomingWidths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
               <thead>
                 <tr style={{ backgroundColor: "var(--bg-card)" }}>
                   {["Customer", "Product", "Plan", "Amount", "Milestone", "Reminder Date", "Expires"].map((h, i) => (
-                    <th key={i} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                      {h}
+                    <th key={i} className="relative text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide overflow-hidden">
+                      <span className="truncate block pr-2">{h}</span>
+                      {i < 6 && <ResizeHandle onMouseDown={(e) => onUpcomingMouseDown(i, e)} />}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {upcoming.map((row, i) => (
+                {upcoming.map((row) => (
                   <tr
                     key={`${row.customerProductId}-${row.daysBeforeExpiry}`}
                     className="hover:bg-md-primary/5 transition-colors"
-                    style={{ borderTop: "1px solid var(--border)", backgroundColor: "var(--bg-app)", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms` }}
+                    style={{ borderTop: "1px solid var(--border)", backgroundColor: "var(--bg-app)", animation: "fade-in 0.25s ease-out both" }}
                   >
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900 max-w-[160px] truncate">{row.customerName}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 max-w-[160px] truncate">{titleCase(row.productName)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500 max-w-[140px] truncate">{row.planName ? titleCase(row.planName) : "—"}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{row.amount}</td>
-                    <td className="px-4 py-3"><MilestoneBadge days={row.daysBeforeExpiry} /></td>
-                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{formatDate(row.reminderDate)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{formatDate(row.endsAt)}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 truncate overflow-hidden" title={row.customerName}>{row.customerName}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 truncate overflow-hidden" title={titleCase(row.productName)}>{titleCase(row.productName)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500 truncate overflow-hidden" title={row.planName ? titleCase(row.planName) : undefined}>{row.planName ? titleCase(row.planName) : "—"}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap truncate overflow-hidden">{row.amount}</td>
+                    <td className="px-4 py-3 overflow-hidden"><MilestoneBadge days={row.daysBeforeExpiry} /></td>
+                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap truncate overflow-hidden">{formatDate(row.reminderDate)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap truncate overflow-hidden">{formatDate(row.endsAt)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -262,49 +269,48 @@ export default function ReminderEnginePage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl overflow-hidden flex-1 min-h-0 flex flex-col" style={{ border: "1px solid var(--border)" }}>
+      <div className="rounded-xl overflow-hidden flex flex-col" style={{ border: "1px solid var(--border)" }}>
         <div className="px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
           <h2 className="text-base font-bold text-gray-900">Reminder History</h2>
           <p className="text-xs text-gray-500 mt-0.5">Past reminders that have been sent</p>
         </div>
         {loading ? (
-          <div className="flex items-center justify-center py-16 text-gray-400">
-            <svg className="animate-spin mr-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
-            Loading…
-          </div>
+          <TableSkeleton columns={6} bordered={false} />
         ) : rows.length === 0 ? (
           <div className="flex items-center justify-center py-16 text-sm text-gray-400">
             No reminders found.
           </div>
         ) : (
-          <div className="overflow-auto flex-1 min-h-0">
-          <table className="w-full">
+          <div className="overflow-x-auto">
+          <table style={{ tableLayout: "fixed", width: "100%", minWidth: historyWidths.reduce((a, b) => a + b, 0) }}>
+            <colgroup>{historyWidths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
             <thead className="sticky top-0 z-10">
               <tr>
                 {["Customer", "Product", "Milestone", "Status", "Sent At", ""].map((h, i) => (
-                  <th key={i} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide" style={{ backgroundColor: "var(--bg-card)" }}>
-                    {h}
+                  <th key={i} className="relative text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide overflow-hidden" style={{ backgroundColor: "var(--bg-card)" }}>
+                    <span className="truncate block pr-2">{h}</span>
+                    {i < 5 && <ResizeHandle onMouseDown={(e) => onHistoryMouseDown(i, e)} />}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, i) => (
+              {rows.map((row) => (
                 <tr
                   key={row.id}
                   className="hover:bg-md-primary/5 transition-colors"
-                  style={{ borderTop: "1px solid var(--border)", backgroundColor: "var(--bg-app)", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms` }}
+                  style={{ borderTop: "1px solid var(--border)", backgroundColor: "var(--bg-app)", animation: "fade-in 0.25s ease-out both" }}
                 >
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900 max-w-[160px] truncate">{row.customerName}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 max-w-[160px] truncate">{titleCase(row.productName)}</td>
-                  <td className="px-4 py-3"><MilestoneBadge days={row.daysBeforeExpiry} /></td>
-                  <td className="px-4 py-3"><Badge status={row.status} /></td>
-                  <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900 truncate overflow-hidden" title={row.customerName}>{row.customerName}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 truncate overflow-hidden" title={titleCase(row.productName)}>{titleCase(row.productName)}</td>
+                  <td className="px-4 py-3 overflow-hidden"><MilestoneBadge days={row.daysBeforeExpiry} /></td>
+                  <td className="px-4 py-3 overflow-hidden"><Badge status={row.status} /></td>
+                  <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap truncate overflow-hidden">
                     {row.sentAt ? formatDateTime(row.sentAt) : "—"}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 overflow-hidden">
                     {row.errorMessage && (
-                      <span className="text-xs text-red-500 max-w-[200px] truncate block" title={row.errorMessage}>
+                      <span className="text-xs text-red-500 truncate block" title={row.errorMessage}>
                         {row.errorMessage}
                       </span>
                     )}

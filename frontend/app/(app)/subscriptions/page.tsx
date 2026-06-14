@@ -9,9 +9,12 @@ import {
 } from "@/components/Icons";
 import SlideOver, { SlideOverField } from "@/components/SlideOver";
 import { addCadence, cadenceLabel } from "@/lib/cadence";
-import { titleCase } from "@/lib/format";
+import { titleCase, capitalizeFirst } from "@/lib/format";
+import { useColumnResize } from "@/lib/useColumnResize";
+import ResizeHandle from "@/components/ResizeHandle";
 import SearchSelect, { SearchOption } from "@/components/SearchSelect";
 import Pagination from "@/components/Pagination";
+import { TableSkeletonRows } from "@/components/TableSkeleton";
 
 const PAGE_SIZE = 15;
 
@@ -73,6 +76,24 @@ function formatDate(iso: string) {
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString("en-US", { month: "numeric", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 }
+
+function SortIcon({ dir, active }: { dir: "asc" | "desc"; active: boolean }) {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline ml-1.5" style={{ opacity: active ? 1 : 0.4 }}>
+      {dir === "asc" ? <path d="m7 15 5 5 5-5" /> : <path d="m7 9 5-5 5 5" />}
+    </svg>
+  );
+}
+
+// Header label → backend (JPA) sort property. Sorting is server-side, so these
+// must be real CustomerProductEntity paths (Amount is derived → not sortable).
+const sortFieldMap: Record<string, string> = {
+  Customer: "customer.name",
+  "Product / Plan": "product.name",
+  "Start date": "startsAt",
+  "End date": "endsAt",
+  Status: "status",
+};
 
 function toDateInput(iso: string) {
   return iso ? new Date(iso).toISOString().slice(0, 10) : "";
@@ -248,6 +269,20 @@ export default function SubscriptionsPage() {
   const [loading, setLoading]     = useState(true);
   const [filter, setFilter]       = useState("ALL");
   const [search, setSearch]       = useState("");
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDir, setSortDir]     = useState<"asc" | "desc">("asc");
+
+  // Server-side sort: re-queries the whole dataset so it isn't limited to the page.
+  const handleSort = (field: string) => {
+    const nextDir = sortField === field && sortDir === "asc" ? "desc" : "asc";
+    setSortField(field);
+    setSortDir(nextDir);
+    setPage(0);
+    load(filter, search, 0, field, nextDir);
+  };
+
+  const subsCols = [150, 200, 110, 120, 120, 110, 60];
+  const { widths: subsWidths, onMouseDown: onSubsMouseDown } = useColumnResize(subsCols);
 
   // Stats
   const [activeCount,    setActiveCount]    = useState(0);
@@ -285,10 +320,12 @@ export default function SubscriptionsPage() {
 
   // ── Load list ────────────────────────────────────────────────────────────
 
-  const load = (f = filter, q = search, p = page) => {
+  const load = (f = filter, q = search, p = page, sf = sortField, sd = sortDir) => {
     if (!token || !tid) return;
     setLoading(true);
-    const params = new URLSearchParams({ size: String(PAGE_SIZE), page: String(p), sort: "createdAt,desc" });
+    const sortCol = (sf && sortFieldMap[sf]) || "createdAt";
+    const sortDirection = sf ? sd : "desc";
+    const params = new URLSearchParams({ size: String(PAGE_SIZE), page: String(p), sort: `${sortCol},${sortDirection}` });
     if (f !== "ALL") params.set("status", f);
     if (q.trim()) params.set("search", q.trim());
     apiGet<SpringPage<Subscription>>(`/api/v1/tenants/${tid}/customer-products?${params}`, token)
@@ -502,7 +539,7 @@ export default function SubscriptionsPage() {
 
   return (
     <>
-      <div className="px-6 py-8 md:px-10 max-w-7xl mx-auto space-y-6 min-h-full flex flex-col" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
+      <div className="px-6 py-8 md:px-10 max-w-7xl mx-auto space-y-6 min-h-full flex flex-col page-enter">
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -524,7 +561,7 @@ export default function SubscriptionsPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((s, i) => (
+          {stats.map((s) => (
             <div
               key={s.label}
               className="relative overflow-hidden rounded-xl p-5"
@@ -532,8 +569,6 @@ export default function SubscriptionsPage() {
                 backgroundColor: s.label === "Active" ? "#f3fbf6" : "var(--bg-card)",
                 border: "1px solid var(--border)",
                 borderTop: s.label === "Active" ? "3px solid #22c55e" : "1px solid var(--border)",
-                animation: "fade-in-up 0.2s ease-out both",
-                animationDelay: `${i * 30}ms`,
               }}
             >
               <div className="absolute -right-2 -bottom-2 opacity-10 text-gray-900">{s.icon}</div>
@@ -552,7 +587,7 @@ export default function SubscriptionsPage() {
                 onClick={() => { setFilter(f); setPage(0); load(f, search, 0); }}
                 className="text-xs font-semibold px-3 py-1.5 rounded-md transition-all"
                 style={filter === f
-                  ? { backgroundColor: "var(--nav-active)", color: "var(--nav-active-text)" }
+                  ? { backgroundColor: "var(--primary)", color: "#fff" }
                   : { color: "#6b7280" }}
               >
                 {f === "ALL" ? "All" : f.charAt(0) + f.slice(1).toLowerCase()}
@@ -576,12 +611,7 @@ export default function SubscriptionsPage() {
 
         {/* Table */}
         <div className="flex-1 min-h-0 flex flex-col">
-        {loading ? (
-          <div className="flex items-center justify-center py-16 text-gray-400">
-            <svg className="animate-spin mr-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
-            Loading…
-          </div>
-        ) : rows.length === 0 ? (
+        {!loading && rows.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-gray-400 rounded-xl" style={{ border: "1px dashed var(--border)" }}>
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-3 opacity-40">
               <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
@@ -589,35 +619,52 @@ export default function SubscriptionsPage() {
             <p className="text-sm">No subscriptions found.</p>
           </div>
         ) : (
-          <div className="rounded-xl overflow-hidden flex-1 min-h-0 flex flex-col" style={{ border: "1px solid var(--border)" }}>
-            <div className="overflow-auto flex-1 min-h-0">
-            <table className="w-full text-sm min-w-[640px]">
+          <div className="rounded-xl overflow-auto min-h-0" style={{ border: "1px solid var(--border)" }}>
+            <table style={{ tableLayout: "fixed", width: "100%", minWidth: subsWidths.reduce((a, b) => a + b, 0) }} className="text-sm">
+              <colgroup>{subsWidths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
               <thead className="sticky top-0 z-10">
                 <tr>
-                  {["Customer", "Product / Plan", "Amount", "Start date", "End date", "Status", ""].map((h) => (
-                    <th key={h} className={`px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap ${h === "Amount" ? "text-right" : "text-left"}`} style={{ backgroundColor: "var(--bg-card)" }}>{h}</th>
-                  ))}
+                  {["Customer", "Product / Plan", "Amount", "Start date", "End date", "Status", ""].map((h, i) => {
+                    const sortable = !!sortFieldMap[h];
+                    const active = sortField === h;
+                    return (
+                      <th
+                        key={h}
+                        className={`relative px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap select-none overflow-hidden ${h === "Amount" ? "text-right" : "text-left"}`}
+                        style={{ backgroundColor: "var(--bg-card)", cursor: sortable ? "pointer" : undefined }}
+                        onClick={sortable ? () => handleSort(h) : undefined}
+                      >
+                        <span className={`flex items-center gap-1 pr-2 ${h === "Amount" ? "justify-end" : "justify-between"}`}>
+                          <span className="truncate">{h}</span>
+                          {sortable && <SortIcon dir={active ? sortDir : "asc"} active={active} />}
+                        </span>
+                        {i < 6 && <ResizeHandle onMouseDown={(e) => onSubsMouseDown(i, e)} />}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row, i) => (
+                {loading ? (
+                  <TableSkeletonRows columns={7} rows={rows.length || 10} />
+                ) : rows.map((row) => (
                   <tr
                     key={row.id}
                     className="group cursor-pointer hover:bg-md-primary/5 transition-colors"
-                    style={{ borderTop: "1px solid var(--border)", backgroundColor: selected?.id === row.id ? "var(--nav-active)" : "var(--bg-app)", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms` }}
+                    style={{ borderTop: "1px solid var(--border)", backgroundColor: selected?.id === row.id ? "var(--nav-active)" : "var(--bg-app)", animation: "fade-in 0.25s ease-out both" }}
                     onClick={() => openDetail(row)}
                   >
-                    <td className="px-4 py-3 font-medium text-gray-900">{row.customerName}</td>
-                    <td className="px-4 py-3">
-                      <p className="text-gray-900">{titleCase(row.productName)}</p>
-                      {row.productPlanName && <p className="text-xs text-gray-500">{titleCase(row.productPlanName)}</p>}
+                    <td className="px-4 py-3 font-medium text-gray-900 truncate overflow-hidden" title={row.customerName}>{row.customerName}</td>
+                    <td className="px-4 py-3 overflow-hidden">
+                      <p className="text-gray-900 truncate" title={titleCase(row.productName)}>{titleCase(row.productName)}</p>
+                      {row.productPlanName && <p className="text-xs text-gray-500 truncate" title={titleCase(row.productPlanName)}>{titleCase(row.productPlanName)}</p>}
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold text-gray-900 whitespace-nowrap tabular-nums">
+                    <td className="px-4 py-3 text-right font-semibold text-gray-900 whitespace-nowrap tabular-nums overflow-hidden truncate">
                       {row.currency} {Number(row.amount).toFixed(2)}
                     </td>
-                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{formatDate(row.startsAt)}</td>
-                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{row.endsAt ? formatDate(row.endsAt) : <span className="text-gray-300">—</span>}</td>
-                    <td className="px-4 py-3"><StatusBadge status={row.status} /></td>
+                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap overflow-hidden truncate">{formatDate(row.startsAt)}</td>
+                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap overflow-hidden truncate">{row.endsAt ? formatDate(row.endsAt) : <span className="text-gray-300">—</span>}</td>
+                    <td className="px-4 py-3 overflow-hidden"><StatusBadge status={row.status} /></td>
                     <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                       <button onClick={() => openDetail(row)} className="text-gray-400 hover:text-gray-700 transition-colors p-1 rounded">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
@@ -627,7 +674,6 @@ export default function SubscriptionsPage() {
                 ))}
               </tbody>
             </table>
-            </div>
           </div>
         )}
         </div>
@@ -854,7 +900,7 @@ export default function SubscriptionsPage() {
                                     {SubIcon ? <SubIcon /> : null}
                                   </span>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm text-gray-800 leading-snug">{h.description ?? ACTION_LABEL[h.action] ?? h.action}</p>
+                                    <p className="text-sm text-gray-800 leading-snug">{capitalizeFirst(h.description ?? ACTION_LABEL[h.action] ?? h.action)}</p>
                                     <p className="text-xs text-gray-400 mt-0.5">
                                       {h.actorEmail} · {formatDateTime(h.createdAt)}
                                     </p>

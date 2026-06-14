@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/store/authStore";
 import { apiGet } from "@/lib/api";
+import TableSkeleton from "@/components/TableSkeleton";
 
 function useCountUp(target: number, duration = 450) {
   const [val, setVal] = useState(0);
@@ -98,12 +99,12 @@ function StatCard({
   value,
   sub,
   accent,
-  delay = 0,
 }: {
   label: string;
   value: string;
   sub?: string;
   accent?: string;
+  /** Accepted for call-site compatibility; entrance is handled by the page section reveal. */
   delay?: number;
 }) {
   return (
@@ -112,8 +113,6 @@ function StatCard({
       style={{
         backgroundColor: "var(--bg-card)",
         border: "1px solid var(--border)",
-        animation: "fade-in-up 0.2s ease-out both",
-        animationDelay: `${delay}ms`,
       }}
     >
       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
@@ -170,7 +169,7 @@ function TenantsTable({ rows, loading }: { rows: TenantRow[]; loading: boolean }
   const cols = [200, 180, 110, 130, 40];
   const { widths, onMouseDown } = useColumnResize(cols);
 
-  if (loading) return <Spinner />;
+  if (loading) return <TableSkeleton columns={5} rows={5} />;
   if (rows.length === 0) return (
     <div className="flex items-center justify-center py-10 text-sm text-gray-400 rounded-lg" style={{ border: "1px solid var(--border)" }}>
       No tenants yet.
@@ -195,10 +194,10 @@ function TenantsTable({ rows, loading }: { rows: TenantRow[]; loading: boolean }
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, i) => (
-              <tr key={row.id} className="hover:bg-md-primary/5 transition-colors" style={{ borderTop: "1px solid var(--border)", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms` }}>
-                <td className="px-4 py-2.5 text-sm font-semibold text-gray-900 truncate">{row.name}</td>
-                <td className="px-4 py-2.5 text-sm text-gray-700 truncate">{row.plan ?? <span className="italic text-gray-400">No plan</span>}</td>
+            {rows.map((row) => (
+              <tr key={row.id} className="hover:bg-md-primary/5 transition-colors" style={{ borderTop: "1px solid var(--border)", animation: "fade-in 0.25s ease-out both" }}>
+                <td className="px-4 py-2.5 text-sm font-semibold text-gray-900 truncate" title={row.name}>{row.name}</td>
+                <td className="px-4 py-2.5 text-sm text-gray-700 truncate" title={row.plan ?? undefined}>{row.plan ?? <span className="italic text-gray-400">No plan</span>}</td>
                 <td className="px-4 py-2.5"><StatusBadge status={row.status} /></td>
                 <td className="px-4 py-2.5 text-sm text-gray-500 truncate">{row.joined}</td>
                 <td className="px-4 py-2.5 text-sm text-gray-400 text-center">
@@ -283,7 +282,7 @@ export default function AdminDashboardPage() {
   if (!user || user.role !== "SUPER_ADMIN") return null;
 
   return (
-    <div className="font-sans px-6 py-8 md:px-10 md:py-10 max-w-6xl mx-auto space-y-8" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
+    <div className="font-sans px-6 py-8 md:px-10 md:py-10 max-w-6xl mx-auto space-y-8 page-enter">
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
@@ -441,8 +440,8 @@ export default function AdminDashboardPage() {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { label: "Create Tenant", href: "/tenants",        icon: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="20" height="20"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 21c0-1.8638 0-2.7956-.3045-3.5307a4 4 0 0 0-2.1648-2.1648C13.7956 15 12.8638 15 11 15H8c-1.8638 0-2.7957 0-3.5307.3045a4 4 0 0 0-2.1648 2.1648C2 18.2044 2 19.1362 2 21M13.5 7c0 2.2091-1.7909 4-4 4s-4-1.7909-4-4 1.7909-4 4-4 4 1.7909 4 4m12 0v6m-3-3h6" /></svg> },
-            { label: "Create Plan",   href: "/platform-plans", icon: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="20" height="20"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg> },
+            { label: "Create Tenant", href: "/tenants?action=create",        icon: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="20" height="20"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 21c0-1.8638 0-2.7956-.3045-3.5307a4 4 0 0 0-2.1648-2.1648C13.7956 15 12.8638 15 11 15H8c-1.8638 0-2.7957 0-3.5307.3045a4 4 0 0 0-2.1648 2.1648C2 18.2044 2 19.1362 2 21M13.5 7c0 2.2091-1.7909 4-4 4s-4-1.7909-4-4 1.7909-4 4-4 4 1.7909 4 4m12 0v6m-3-3h6" /></svg> },
+            { label: "Create Plan",   href: "/platform-plans?action=create", icon: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="20" height="20"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg> },
             { label: "All Tenants",   href: "/tenants",        icon: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="20" height="20"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M22 21v-2c0-1.8638-1.2748-3.4299-3-3.874M15.5 3.2908C16.9659 3.8842 18 5.3213 18 7s-1.0341 3.1159-2.5 3.7092M17 21c0-1.8638 0-2.7956-.3045-3.5307a4 4 0 0 0-2.1648-2.1648C13.7956 15 12.8638 15 11 15H8c-1.8638 0-2.7957 0-3.5307.3045a4 4 0 0 0-2.1648 2.1648C2 18.2044 2 19.1362 2 21M13.5 7c0 2.2091-1.7909 4-4 4s-4-1.7909-4-4 1.7909-4 4-4 4 1.7909 4 4" /></svg> },
             { label: "Audit Log",     href: "/audit-log",      icon: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="20" height="20"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m12.7076 18.3639-1.4143 1.4142c-1.9526 1.9527-5.1184 1.9527-7.071 0-1.9526-1.9526-1.9526-5.1184 0-7.071l1.4142-1.4142m12.7279 1.4142 1.4142-1.4142c1.9526-1.9527 1.9526-5.1185 0-7.0711s-5.1184-1.9526-7.071 0L11.2933 5.636m-2.7928 9.8639 7-7" /></svg> },
           ].map((a) => (

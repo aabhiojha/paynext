@@ -6,6 +6,7 @@ import { useAuthStore } from "@/store/authStore";
 import { apiGet, apiPatch, apiPost } from "@/lib/api";
 import SlideOver, { SlideOverField, SlideOverHeader, SlideOverSection } from "@/components/SlideOver";
 import Pagination from "@/components/Pagination";
+import { TableSkeletonRows } from "@/components/TableSkeleton";
 
 const PAGE_SIZE = 15;
 
@@ -245,23 +246,28 @@ function ResizeHandle({ onMouseDown }: { onMouseDown: (e: React.MouseEvent) => v
 }
 
 const colHeaders: { label: string; sortable?: boolean }[] = [
-  { label: "Tenant",    sortable: true },
-  { label: "Email"                     },
-  { label: "Timezone"                  },
-  { label: "Plan",      sortable: true },
-  { label: "Status"                    },
-  { label: "Created",   sortable: true },
-  { label: ""                          },
+  { label: "Tenant",    sortable: true  },
+  { label: "Email",     sortable: true  },
+  { label: "Timezone",  sortable: true  },
+  { label: "Plan"                       }, // derived from active subscription — not sortable server-side
+  { label: "Status",    sortable: true  },
+  { label: "Created",   sortable: true  },
+  { label: ""                           },
 ];
 
-const sortFieldMap: Record<string, keyof Tenant> = {
+// Header label → backend (JPA) sort property. Sorting is done server-side, so
+// these must be real TenantEntity columns, not the mapped display field names.
+const sortFieldMap: Record<string, string> = {
   Tenant: "name",
-  Plan: "planName",
+  Email: "companyEmail",
+  Timezone: "timezone",
+  Status: "status",
   Created: "createdAt",
 };
 
 function TenantsTable({
   data,
+  loading,
   onSuspend,
   onActivate,
   onSelect,
@@ -270,6 +276,7 @@ function TenantsTable({
   onSort,
 }: {
   data: Tenant[];
+  loading: boolean;
   onSuspend: (t: Tenant) => void;
   onActivate: (t: Tenant) => void;
   onSelect: (t: Tenant) => void;
@@ -295,8 +302,8 @@ function TenantsTable({
                     style={{ ...(h.sortable ? { cursor: "pointer" } : {}), backgroundColor: "var(--bg-card)" }}
                     onClick={h.sortable ? () => onSort(h.label) : undefined}
                   >
-                    <span className="truncate flex items-center pr-2">
-                      {h.label}
+                    <span className="flex items-center justify-between gap-1 pr-2">
+                      <span className="truncate">{h.label}</span>
                       {h.sortable && <SortIcon dir={active ? sortDir : "asc"} active={active} />}
                     </span>
                     {i < colHeaders.length - 1 && <ResizeHandle onMouseDown={(e) => onMouseDown(i, e)} />}
@@ -306,14 +313,15 @@ function TenantsTable({
             </tr>
           </thead>
           <tbody>
-              {data.map((row, i) => (
+              {loading ? (
+                <TableSkeletonRows columns={colHeaders.length} rows={data.length || 10} />
+              ) : data.map((row) => (
               <tr
                 key={row.id}
                 className="group bg-md-surface hover:bg-md-primary/5 transition-colors"
                 style={{
                   borderTop: "1px solid var(--border)",
-                  animation: "fade-in 0.15s ease-out both",
-                  animationDelay: `${i * 15}ms`,
+                  animation: "fade-in 0.25s ease-out both",
                   opacity: row.status === "ARCHIVED" ? 0.6 : row.status === "SUSPENDED" ? 0.75 : 1,
                   cursor: "pointer",
                 }}
@@ -321,12 +329,11 @@ function TenantsTable({
               >
                 <td className="px-4 py-3 overflow-hidden">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{row.name}</p>
-                    <p className="text-xs text-gray-400 truncate">#{row.id}</p>
+                    <p className="text-sm font-semibold text-gray-900 truncate" title={row.name}>{row.name}</p>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-600 truncate overflow-hidden">{row.email}</td>
-                <td className="px-4 py-3 text-sm text-gray-600 truncate overflow-hidden">{row.timezone}</td>
+                <td className="px-4 py-3 text-sm text-gray-600 truncate overflow-hidden" title={row.email}>{row.email}</td>
+                <td className="px-4 py-3 text-sm text-gray-600 truncate overflow-hidden" title={row.timezone}>{row.timezone}</td>
                 <td className="px-4 py-3 overflow-hidden">
                   {row.planName ? (
                     <div className="min-w-0">
@@ -873,7 +880,7 @@ function InviteUserModal({
                 <button key={r} type="button" onClick={() => setRole(r)}
                   className="flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors"
                   style={role === r
-                    ? { backgroundColor: "var(--nav-active)", color: "var(--nav-active-text)" }
+                    ? { backgroundColor: "var(--primary)", color: "#fff" }
                     : { color: "#6b7280" }}>
                   {r === "admin" ? "Admin" : "User"}
                 </button>
@@ -1534,21 +1541,12 @@ export default function TenantsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
 
-  const handleSort = useCallback((field: string) => {
-    setSortField((prev) => {
-      if (prev === field) {
-        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-        return field;
-      }
-      setSortDir("asc");
-      return field;
-    });
-  }, []);
-
-  const loadTenants = useCallback((p = 0, status = filterStatus) => {
+  const loadTenants = useCallback((p = 0, status = filterStatus, sf = sortField, sd = sortDir) => {
     if (!token) return;
     setLoading(true);
-    const params = new URLSearchParams({ size: String(PAGE_SIZE), page: String(p), sort: "createdAt,desc" });
+    const sortCol = (sf && sortFieldMap[sf]) || "createdAt";
+    const sortDirection = sf ? sd : "desc";
+    const params = new URLSearchParams({ size: String(PAGE_SIZE), page: String(p), sort: `${sortCol},${sortDirection}` });
     if (status !== "ALL") params.set("status", status);
     apiGet<ApiTenantPage>(`/api/v1/tenants?${params}`, token)
       .then((res) => {
@@ -1559,7 +1557,15 @@ export default function TenantsPage() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [token, filterStatus]);
+  }, [token, filterStatus, sortField, sortDir]);
+
+  // Server-side sort: re-queries the whole dataset, not just the current page.
+  const handleSort = useCallback((field: string) => {
+    const nextDir = sortField === field && sortDir === "asc" ? "desc" : "asc";
+    setSortField(field);
+    setSortDir(nextDir);
+    loadTenants(0, filterStatus, field, nextDir);
+  }, [sortField, sortDir, filterStatus, loadTenants]);
 
   useEffect(() => {
     if (!token) return;
@@ -1586,23 +1592,18 @@ export default function TenantsPage() {
       .finally(() => setLoading(false));
   }, [token]);
 
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("action") === "create") {
+      setShowCreate(true);
+      window.history.replaceState(null, "", "/tenants");
+    }
+  }, []);
+
   const active = data.filter((t) => t.status === "ACTIVE");
   const suspended = data.filter((t) => t.status === "SUSPENDED");
   const onPlans = data.filter((t) => t.planName !== null);
   const filtered =
     filterStatus === "ALL" ? data.filter((t) => t.status !== "ARCHIVED") : data.filter((t) => t.status === filterStatus);
-
-  const sorted = sortField ? [...filtered].sort((a, b) => {
-    const field = sortFieldMap[sortField];
-    if (!field) return 0;
-    const av = a[field];
-    const bv = b[field];
-    if (av == null && bv == null) return 0;
-    if (av == null) return 1;
-    if (bv == null) return -1;
-    const cmp = typeof av === "string" ? av.localeCompare(bv as string) : (av as number) - (bv as number);
-    return sortDir === "asc" ? cmp : -cmp;
-  }) : filtered;
 
   const handleSelectTenant = useCallback((t: Tenant) => {
     setSidebarTenantId(t.id);
@@ -1662,15 +1663,15 @@ export default function TenantsPage() {
   ];
 
   return (
-    <div className="font-sans px-6 py-8 md:px-12 md:py-10 max-w-6xl mx-auto min-h-full flex flex-col" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
+    <div className="font-sans px-6 py-8 md:px-12 md:py-10 max-w-6xl mx-auto min-h-full flex flex-col page-enter">
       <div className="mb-8 border-l-4 pl-5 py-1" style={{ borderColor: "var(--primary)" }}>
         <p className="text-sm mb-1" style={{ color: "var(--primary)" }}>Super Admin</p>
         <h1 className="text-3xl font-bold" style={{ color: "#212529" }}>Tenants</h1>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-        {statCards.map((card, i) => (
-          <div key={card.label} className="rounded-lg p-5" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", animation: "fade-in-up 0.2s ease-out both", animationDelay: `${i * 30}ms` }}>
+        {statCards.map((card) => (
+          <div key={card.label} className="rounded-lg p-5" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
             <p className="text-sm mb-3" style={{ color: "#6c757d" }}>{card.label}</p>
             <p className="text-2xl font-bold tabular-nums" style={{ color: "#212529" }}>{loading ? "—" : card.value}</p>
           </div>
@@ -1682,7 +1683,7 @@ export default function TenantsPage() {
           {(["ALL", "ACTIVE", "SUSPENDED"] as const).map((s) => (
             <button key={s} onClick={() => { setFilterStatus(s); loadTenants(0, s); }} className="text-xs font-semibold px-3 py-1.5 rounded-md transition-colors"
               style={filterStatus === s
-                ? { backgroundColor: "var(--nav-active)", color: "var(--nav-active-text)" }
+                ? { backgroundColor: "var(--primary)", color: "#fff" }
                 : { color: "#6b7280" }}>
               {s === "ALL" ? "All" : s === "ACTIVE" ? "Active" : "Suspended"}
             </button>
@@ -1701,21 +1702,14 @@ export default function TenantsPage() {
       </div>
 
       <div className="flex-1 min-h-0 flex flex-col">
-      {loading ? (
-        <div className="flex items-center justify-center py-20 text-gray-400">
-          <svg className="animate-spin mr-3" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-          </svg>
-          Loading tenants…
-        </div>
-      ) : error ? (
+      {error ? (
         <div className="flex items-center gap-2 text-sm px-4 py-3 rounded-lg" style={{ backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626" }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
             <circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" />
           </svg>
           {error}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : !loading && filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-gray-400">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-3 opacity-40">
             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm12 0v6m-3-3h6" />
@@ -1723,7 +1717,7 @@ export default function TenantsPage() {
           <p className="text-sm">No tenants found</p>
         </div>
       ) : (
-        <TenantsTable data={sorted} onSuspend={handleSuspend} onActivate={handleActivate} onSelect={handleSelectTenant} sortField={sortField} sortDir={sortDir} onSort={handleSort} />
+        <TenantsTable data={filtered} loading={loading} onSuspend={handleSuspend} onActivate={handleActivate} onSelect={handleSelectTenant} sortField={sortField} sortDir={sortDir} onSort={handleSort} />
       )}
       </div>
 

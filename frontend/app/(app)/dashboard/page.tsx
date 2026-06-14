@@ -6,6 +6,9 @@ import { useAuthStore } from "@/store/authStore";
 import { apiGet } from "@/lib/api";
 import { titleCase } from "@/lib/format";
 import ActivityIcon from "@/components/ActivityIcon";
+import ResizeHandle from "@/components/ResizeHandle";
+import { useColumnResize } from "@/lib/useColumnResize";
+import TableSkeleton from "@/components/TableSkeleton";
 
 function useCountUp(target: number, duration = 450) {
   const [val, setVal] = useState(0);
@@ -30,10 +33,6 @@ type TenantSummary = {
   activePlans: number;
   pausedPlans: number;
   cancelledPlans: number;
-};
-
-type RevenueTotals = {
-  totals: { currency: string; totalAmount: number; planCount: number }[];
 };
 
 type ApiUpcoming = {
@@ -119,12 +118,12 @@ function StatCard({
   value,
   sub,
   accent,
-  delay = 0,
 }: {
   label: string;
   value: string;
   sub?: string;
   accent?: string;
+  /** Accepted for call-site compatibility; entrance is handled by the page section reveal. */
   delay?: number;
 }) {
   return (
@@ -133,8 +132,6 @@ function StatCard({
       style={{
         backgroundColor: "var(--bg-card)",
         border: "1px solid var(--border)",
-        animation: "fade-in-up 0.2s ease-out both",
-        animationDelay: `${delay}ms`,
       }}
     >
       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
@@ -161,7 +158,7 @@ function Spinner() {
 }
 
 function RenewalTable({ rows, loading }: { rows: ApiUpcoming[]; loading: boolean }) {
-  if (loading) return <Spinner />;
+  if (loading) return <TableSkeleton columns={4} rows={4} />;
   if (rows.length === 0) {
     return (
       <div className="flex items-center justify-center py-10 text-sm text-gray-400 rounded-lg" style={{ border: "1px solid var(--border)" }}>
@@ -169,14 +166,22 @@ function RenewalTable({ rows, loading }: { rows: ApiUpcoming[]; loading: boolean
       </div>
     );
   }
+  const renewalCols = [160, 140, 130, 120];
+  const { widths: renewalWidths, onMouseDown: onRenewalMouseDown } = useColumnResize(renewalCols);
   return (
     <div className="rounded-lg overflow-hidden overflow-x-auto" style={{ border: "1px solid var(--border)" }}>
-      <table className="w-full">
+      <table style={{ tableLayout: "fixed", width: "100%", minWidth: renewalWidths.reduce((a, b) => a + b, 0) }}>
+        <colgroup>
+          {renewalWidths.map((w, i) => (
+            <col key={i} style={{ width: w }} />
+          ))}
+        </colgroup>
         <thead>
           <tr style={{ backgroundColor: "var(--bg-card)", borderBottom: "1px solid var(--border)" }}>
-            {["Customer", "Plan", "Renewal Date", "Amount"].map((h) => (
-              <th key={h} className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                {h}
+            {["Customer", "Plan", "Renewal Date", "Amount"].map((h, i) => (
+              <th key={h} className="relative text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide overflow-hidden">
+                <span className="truncate block pr-2">{h}</span>
+                {i < 3 && <ResizeHandle onMouseDown={(e) => onRenewalMouseDown(i, e)} />}
               </th>
             ))}
           </tr>
@@ -188,14 +193,13 @@ function RenewalTable({ rows, loading }: { rows: ApiUpcoming[]; loading: boolean
               className="hover:bg-md-primary/5 transition-colors"
               style={{
                 borderTop: i > 0 ? "1px solid var(--border)" : undefined,
-                animation: "fade-in 0.15s ease-out both",
-                animationDelay: `${60 + i * 20}ms`,
+                animation: "fade-in 0.25s ease-out both",
               }}
             >
-              <td className="px-4 py-2.5 text-sm font-medium text-gray-900 max-w-[140px] truncate">{row.customerName}</td>
-              <td className="px-4 py-2.5 text-sm text-gray-600 max-w-[120px] truncate">{titleCase(row.productName)}</td>
-              <td className="px-4 py-2.5 text-sm text-gray-700 whitespace-nowrap">{formatShortDate(row.endsAt)}</td>
-              <td className="px-4 py-2.5 text-sm font-semibold text-gray-900 whitespace-nowrap">
+              <td className="px-4 py-2.5 text-sm font-medium text-gray-900 overflow-hidden truncate" title={row.customerName}>{row.customerName}</td>
+              <td className="px-4 py-2.5 text-sm text-gray-600 overflow-hidden truncate" title={titleCase(row.productName)}>{titleCase(row.productName)}</td>
+              <td className="px-4 py-2.5 text-sm text-gray-700 overflow-hidden truncate">{formatShortDate(row.endsAt)}</td>
+              <td className="px-4 py-2.5 text-sm font-semibold text-gray-900 overflow-hidden truncate">
                 {row.currency} {Number(row.amount).toLocaleString()}
               </td>
             </tr>
@@ -285,7 +289,7 @@ function RecentActivity({ logs, loading }: { logs: AuditLog[]; loading: boolean 
           <div
             key={log.id}
             className="flex items-start gap-3 px-4 py-3 hover:bg-md-primary/5 transition-colors"
-            style={{ animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms`, borderTop: i > 0 ? "1px solid var(--border)" : undefined }}
+            style={{ animation: "fade-in 0.25s ease-out both",borderTop: i > 0 ? "1px solid var(--border)" : undefined }}
           >
             <ActivityIcon action={log.action} />
             <div className="flex-1 min-w-0">
@@ -309,7 +313,6 @@ export default function DashboardPage() {
   const router = useRouter();
 
   const [summary, setSummary] = useState<TenantSummary | null>(null);
-  const [revenue, setRevenue] = useState<RevenueTotals | null>(null);
   const [upcoming, setUpcoming] = useState<ApiUpcoming[]>([]);
   const [reminderStats, setReminderStats] = useState<ReminderStats | null>(null);
   const [activity, setActivity] = useState<AuditLog[]>([]);
@@ -329,14 +332,12 @@ export default function DashboardPage() {
 
     Promise.allSettled([
       apiGet<TenantSummary>(`/api/v1/tenants/${tid}/dashboard/summary`, token),
-      apiGet<RevenueTotals>(`/api/v1/tenants/${tid}/dashboard/revenue`, token),
       apiGet<ApiUpcoming[]>(`/api/v1/tenants/${tid}/dashboard/upcoming-reminders`, token),
       apiGet<ReminderStats>(`/api/v1/tenants/${tid}/dashboard/reminders`, token),
       apiGet<AuditLog[]>(`/api/v1/tenants/${tid}/dashboard/recent-activity`, token),
       apiGet<OverduePlan[]>(`/api/v1/tenants/${tid}/dashboard/overdue`, token),
-    ]).then(([sum, rev, upcomingRes, statsRes, logsRes, overdueRes]) => {
+    ]).then(([sum, upcomingRes, statsRes, logsRes, overdueRes]) => {
       if (sum.status === "fulfilled") setSummary(sum.value);
-      if (rev.status === "fulfilled") setRevenue(rev.value);
       if (upcomingRes.status === "fulfilled") setUpcoming(upcomingRes.value);
       if (statsRes.status === "fulfilled") setReminderStats(statsRes.value);
       if (logsRes.status === "fulfilled") setActivity(logsRes.value);
@@ -347,19 +348,12 @@ export default function DashboardPage() {
   const today = new Date();
   const dateStr = today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 
-  const mrrAmount  = revenue?.totals?.[0] ? Number(revenue.totals[0].totalAmount) : 0;
-  const mrrCurrency = revenue?.totals?.[0]?.currency ?? "USD";
-
   const customerVal = useCountUp(!loading && summary ? summary.totalCustomers : 0);
   const activeVal   = useCountUp(!loading && summary ? summary.activePlans : 0);
   const overdueVal  = useCountUp(!loading ? overdueCount : 0);
-  const revenueVal  = useCountUp(!loading ? mrrAmount : 0);
 
   return (
-    <div
-      className="font-sans px-6 py-8 md:px-10 md:py-10 max-w-6xl mx-auto space-y-8"
-      style={{ animation: "fade-in-up 0.2s ease-out both" }}
-    >
+    <div className="font-sans px-6 py-8 md:px-10 md:py-10 max-w-6xl mx-auto space-y-8 page-enter">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
         <div>
@@ -369,7 +363,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard
           label="Total Customers"
           value={loading ? "—" : customerVal.toLocaleString()}
@@ -389,13 +383,6 @@ export default function DashboardPage() {
           sub={overdueCount > 0 ? "needs attention" : "all clear"}
           accent={overdueCount > 0 ? "#dc2626" : "#24A37D"}
           delay={80}
-        />
-        <StatCard
-          label="Revenue This Month"
-          value={loading ? "—" : `${mrrCurrency} ${revenueVal.toLocaleString()}`}
-          sub={revenue?.totals?.[0] ? `${revenue.totals[0].planCount} active plans` : undefined}
-          accent="#111827"
-          delay={120}
         />
       </div>
 

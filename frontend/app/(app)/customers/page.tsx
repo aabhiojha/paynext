@@ -5,6 +5,7 @@ import { useAuthStore } from "@/store/authStore";
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import SlideOver, { SlideOverField } from "@/components/SlideOver";
 import Pagination from "@/components/Pagination";
+import { TableSkeletonRows } from "@/components/TableSkeleton";
 import { addCadence } from "@/lib/cadence";
 import { titleCase } from "@/lib/format";
 
@@ -176,10 +177,10 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function SortIcon() {
+function SortIcon({ dir, active }: { dir: "asc" | "desc"; active: boolean }) {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline ml-1.5 opacity-40">
-      <path d="m7 15 5 5 5-5" /><path d="m7 9 5-5 5 5" />
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline ml-1.5" style={{ opacity: active ? 1 : 0.4 }}>
+      {dir === "asc" ? <path d="m7 15 5 5 5-5" /> : <path d="m7 9 5-5 5 5" />}
     </svg>
   );
 }
@@ -197,14 +198,22 @@ const ColIcon = {
 
 const TABLE_HEADERS: { label: string; icon?: React.ReactNode; sortable?: boolean }[] = [
   { label: "Name",   icon: ColIcon.text,   sortable: true },
-  { label: "Email",  icon: ColIcon.email                  },
-  { label: "Phone",  icon: ColIcon.text                   },
-  { label: "Status", icon: ColIcon.status                 },
+  { label: "Email",  icon: ColIcon.email,  sortable: true },
+  { label: "Phone",  icon: ColIcon.text,   sortable: true },
+  { label: "Status", icon: ColIcon.status, sortable: true },
   { label: "Joined", icon: ColIcon.date,   sortable: true },
   { label: ""                                              },
 ];
 
 const STATUS_FILTERS = ["ALL", "ACTIVE", "DELETED"] as const;
+
+const sortFieldMap: Record<string, keyof Customer> = {
+  Name: "name",
+  Email: "email",
+  Phone: "phone",
+  Status: "status",
+  Joined: "createdAt",
+};
 
 const inputCls   = "w-full text-sm px-4 h-11 rounded-t-[12px] rounded-b-none outline-none transition-colors duration-200";
 const inputStyle = { borderBottom: "2px solid var(--color-md-outline)", backgroundColor: "var(--bg-search)" };
@@ -416,6 +425,18 @@ export default function CustomersPage() {
   const [loading, setLoading]       = useState(true);
   const [filter, setFilter]         = useState("ALL");
   const [search, setSearch]         = useState("");
+  const [sortField, setSortField]   = useState<string | null>(null);
+  const [sortDir, setSortDir]       = useState<"asc" | "desc">("asc");
+
+  // Server-side sort: toggling a column re-queries the whole dataset, so sorting
+  // reflects every record — not just the rows on the current page.
+  const handleSort = (field: string) => {
+    const nextDir = sortField === field && sortDir === "asc" ? "desc" : "asc";
+    setSortField(field);
+    setSortDir(nextDir);
+    setPage(0);
+    load(filter, search, 0, field, nextDir);
+  };
 
   // Stat counts
   const [activeCount,  setActiveCount]  = useState(0);
@@ -455,10 +476,12 @@ export default function CustomersPage() {
   const [saving,      setSaving]      = useState(false);
   const [formError,   setFormError]   = useState<string | null>(null);
 
-  const load = (f = filter, q = search, p = page) => {
+  const load = (f = filter, q = search, p = page, sf = sortField, sd = sortDir) => {
     if (!token || !tid) return;
     setLoading(true);
-    const params = new URLSearchParams({ size: String(PAGE_SIZE), page: String(p), sort: "createdAt,desc" });
+    const sortCol = (sf && sortFieldMap[sf]) || "createdAt";
+    const sortDirection = sf ? sd : "desc";
+    const params = new URLSearchParams({ size: String(PAGE_SIZE), page: String(p), sort: `${sortCol},${sortDirection}` });
     if (f !== "ALL") params.set("status", f);
     if (q.trim()) params.set("search", q.trim());
     apiGet<SpringPage<Customer>>(`/api/v1/tenants/${tid}/customers?${params}`, token)
@@ -665,7 +688,7 @@ export default function CustomersPage() {
 
   return (
     <>
-      <div className="px-6 py-8 md:px-10 max-w-7xl mx-auto space-y-6 min-h-full flex flex-col" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
+      <div className="px-6 py-8 md:px-10 max-w-7xl mx-auto space-y-6 min-h-full flex flex-col page-enter">
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -694,7 +717,7 @@ export default function CustomersPage() {
                 onClick={() => { setFilter(f); setPage(0); load(f, search, 0); }}
                 className="text-xs font-semibold px-3 py-1.5 rounded-md transition-all"
                 style={filter === f
-                  ? { backgroundColor: "var(--nav-active)", color: "var(--nav-active-text)" }
+                  ? { backgroundColor: "var(--primary)", color: "#fff" }
                   : { color: "#6b7280" }}
               >
                 {f === "ALL" ? "All" : f.charAt(0) + f.slice(1).toLowerCase()}
@@ -718,12 +741,7 @@ export default function CustomersPage() {
 
         {/* Table */}
         <div className="flex-1 min-h-0 flex flex-col">
-        {loading ? (
-          <div className="flex items-center justify-center py-16 text-gray-400">
-            <svg className="animate-spin mr-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
-            Loading…
-          </div>
-        ) : customers.length === 0 ? (
+        {!loading && customers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-gray-400 rounded-xl" style={{ border: "1px dashed var(--border)" }}>
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-3 opacity-40">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
@@ -731,33 +749,45 @@ export default function CustomersPage() {
             <p className="text-sm">No customers found.</p>
           </div>
         ) : (
-          <div className="rounded-xl overflow-hidden flex-1 min-h-0 flex flex-col" style={{ border: "1px solid var(--border)" }}>
-            <div className="overflow-auto flex-1 min-h-0">
+          <div className="rounded-xl overflow-auto min-h-0" style={{ border: "1px solid var(--border)" }}>
               <table style={{ tableLayout: "fixed", width: "100%", minWidth: widths.reduce((a, b) => a + b, 0) }}>
                 <colgroup>{widths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
                 <thead className="sticky top-0 z-10">
                   <tr>
-                    {TABLE_HEADERS.map((h, i) => (
-                      <th key={i} className="relative text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide select-none overflow-hidden" style={{ backgroundColor: "var(--bg-card)" }}>
-                        <span className="truncate flex items-center pr-2">{h.icon}{h.label}{h.sortable && <SortIcon />}</span>
-                        {i < TABLE_HEADERS.length - 1 && <ResizeHandle onMouseDown={(e) => onMouseDown(i, e)} />}
-                      </th>
-                    ))}
+                    {TABLE_HEADERS.map((h, i) => {
+                      const active = sortField === h.label;
+                      return (
+                        <th
+                          key={i}
+                          className="relative text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide select-none overflow-hidden"
+                          style={{ backgroundColor: "var(--bg-card)", cursor: h.sortable ? "pointer" : undefined }}
+                          onClick={h.sortable ? () => handleSort(h.label) : undefined}
+                        >
+                          <span className="flex items-center justify-between gap-1 pr-2">
+                            <span className="truncate flex items-center">{h.icon}{h.label}</span>
+                            {h.sortable && <SortIcon dir={active ? sortDir : "asc"} active={active} />}
+                          </span>
+                          {i < TABLE_HEADERS.length - 1 && <ResizeHandle onMouseDown={(e) => onMouseDown(i, e)} />}
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
-                  {customers.map((c, i) => (
+                  {loading ? (
+                    <TableSkeletonRows columns={6} rows={customers.length || 10} />
+                  ) : customers.map((c) => (
                     <tr
                       key={c.id}
                       className="group cursor-pointer hover:bg-md-primary/5 transition-colors"
-                      style={{ borderTop: "1px solid var(--border)", backgroundColor: selected?.id === c.id ? "var(--nav-active)" : "var(--bg-app)", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms` }}
+                      style={{ borderTop: "1px solid var(--border)", backgroundColor: selected?.id === c.id ? "var(--nav-active)" : "var(--bg-app)", animation: "fade-in 0.25s ease-out both" }}
                       onClick={() => openCustomer(c)}
                     >
-                      <td className="px-4 py-3 text-sm font-semibold text-gray-900 truncate overflow-hidden">{c.name}</td>
+                      <td className="px-4 py-3 text-sm font-semibold text-gray-900 truncate overflow-hidden" title={c.name}>{c.name}</td>
                       <td className="px-4 py-3 text-sm text-gray-500 overflow-hidden"><CopyEmail email={c.email} /></td>
-                      <td className="px-4 py-3 text-sm text-gray-600 truncate overflow-hidden">{c.phone ?? <span className="text-gray-400">—</span>}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600 truncate overflow-hidden" title={c.phone ?? undefined}>{c.phone ?? <span className="text-gray-400">—</span>}</td>
                       <td className="px-4 py-3 overflow-hidden"><StatusBadge status={c.status} /></td>
-                      <td className="px-4 py-3 text-sm text-gray-600 truncate overflow-hidden">{formatDate(c.createdAt)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600 truncate overflow-hidden" title={formatDateTime(c.createdAt)}>{formatDate(c.createdAt)}</td>
                       <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                         <button onClick={() => openCustomer(c)} className="text-gray-400 hover:text-gray-700 transition-colors p-1 rounded">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
@@ -767,7 +797,6 @@ export default function CustomersPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
           </div>
         )}
         </div>
@@ -897,12 +926,12 @@ export default function CustomersPage() {
                               </tr>
                             </thead>
                             <tbody>
-                              {subscriptions.map((s, i) => (
+                              {subscriptions.map((s) => (
                                 <React.Fragment key={s.id}>
                                   <tr
                                     onClick={() => toggleExpand(s.id)}
                                     className="cursor-pointer hover:bg-md-primary/5 transition-colors"
-                                    style={{ borderTop: "1px solid var(--border)", backgroundColor: expandedSubId === s.id ? "var(--nav-active)" : "var(--bg-app)", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms` }}
+                                    style={{ borderTop: "1px solid var(--border)", backgroundColor: expandedSubId === s.id ? "var(--nav-active)" : "var(--bg-app)", animation: "fade-in 0.25s ease-out both" }}
                                   >
                                     <td className="px-4 py-3">
                                       <div className="flex items-center gap-2">

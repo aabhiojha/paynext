@@ -5,8 +5,11 @@ import { useAuthStore } from "@/store/authStore";
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import SlideOver, { SlideOverHeader, SlideOverField } from "@/components/SlideOver";
 import { cadenceLabel, cadenceBadgeStyle } from "@/lib/cadence";
-import { titleCase } from "@/lib/format";
+import { titleCase, capitalizeFirst } from "@/lib/format";
 import Pagination from "@/components/Pagination";
+import { useColumnResize } from "@/lib/useColumnResize";
+import ResizeHandle from "@/components/ResizeHandle";
+import { TableSkeletonRows } from "@/components/TableSkeleton";
 
 const PAGE_SIZE = 15;
 
@@ -48,6 +51,22 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+function SortIcon({ dir, active }: { dir: "asc" | "desc"; active: boolean }) {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline ml-1.5" style={{ opacity: active ? 1 : 0.4 }}>
+      {dir === "asc" ? <path d="m7 15 5 5 5-5" /> : <path d="m7 9 5-5 5 5" />}
+    </svg>
+  );
+}
+
+const sortFieldMap: Record<string, keyof Product> = {
+  Name: "name",
+  Price: "price",
+  Cadence: "billingCadence",
+  Status: "status",
+  Created: "createdAt",
+};
+
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString("en-US", { month: "numeric", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 }
@@ -63,6 +82,17 @@ export default function ProductsPage() {
   const [filter, setFilter] = useState("ALL");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  // Server-side sort: re-queries the whole dataset so it isn't limited to the page.
+  const handleSort = (field: string) => {
+    const nextDir = sortField === field && sortDir === "asc" ? "desc" : "asc";
+    setSortField(field);
+    setSortDir(nextDir);
+    setPage(0);
+    load(filter, search, 0, field, nextDir);
+  };
 
   // Sidebar state
   const [selected, setSelected] = useState<Product | null>(null);
@@ -103,10 +133,12 @@ export default function ProductsPage() {
 
   const tid = user?.tenantId;
 
-  const load = (f = filter, q = search, p = page) => {
+  const load = (f = filter, q = search, p = page, sf = sortField, sd = sortDir) => {
     if (!token || !tid) return;
     setLoading(true);
-    const params = new URLSearchParams({ size: String(PAGE_SIZE), page: String(p), sort: "createdAt,desc" });
+    const sortCol = (sf && sortFieldMap[sf]) || "createdAt";
+    const sortDirection = sf ? sd : "desc";
+    const params = new URLSearchParams({ size: String(PAGE_SIZE), page: String(p), sort: `${sortCol},${sortDirection}` });
     if (f !== "ALL") params.set("status", f);
     if (q.trim()) params.set("search", q.trim());
     apiGet<Page<Product>>(`/api/v1/tenants/${tid}/products?${params}`, token)
@@ -245,13 +277,18 @@ export default function ProductsPage() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const filteredPlans = plans.filter((pl) => pl.name.toLowerCase().includes(planSearch.toLowerCase()));
 
+  const productCols = [220, 140, 130, 120, 130];
+  const { widths: productWidths, onMouseDown: onProductMouseDown } = useColumnResize(productCols);
+  const planCols = [180, 140, 150, 60];
+  const { widths: planWidths, onMouseDown: onPlanMouseDown } = useColumnResize(planCols);
+
   const inputCls = "w-full text-sm px-4 h-11 rounded-t-[12px] rounded-b-none outline-none transition-colors duration-200";
   const inputStyle = { borderBottom: "2px solid var(--color-md-outline)", backgroundColor: "var(--bg-search)" };
   const labelCls = "block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1";
 
   return (
     <>
-      <div className="px-6 py-8 md:px-10 max-w-7xl mx-auto space-y-6 min-h-full flex flex-col" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
+      <div className="px-6 py-8 md:px-10 max-w-7xl mx-auto space-y-6 min-h-full flex flex-col page-enter">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
@@ -280,7 +317,7 @@ export default function ProductsPage() {
                 className="text-xs font-semibold px-3 py-1.5 rounded-md transition-all"
                 style={
                   filter === f
-                    ? { backgroundColor: "var(--nav-active)", color: "var(--nav-active-text)" }
+                    ? { backgroundColor: "var(--primary)", color: "#fff" }
                     : { color: "#6b7280" }
                 }
               >
@@ -305,53 +342,62 @@ export default function ProductsPage() {
 
         {/* Grid */}
         <div className="flex-1 min-h-0 flex flex-col">
-        {loading ? (
-          <div className="flex items-center justify-center py-16 text-gray-400">
-            <svg className="animate-spin mr-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
-            Loading…
-          </div>
-        ) : products.length === 0 ? (
+        {!loading && products.length === 0 ? (
           <div className="flex items-center justify-center py-16 text-sm text-gray-400 rounded-xl" style={{ border: "1px dashed var(--border)" }}>
             No products found.
           </div>
         ) : (
-          <div className="rounded-xl overflow-hidden flex-1 min-h-0 flex flex-col" style={{ border: "1px solid var(--border)" }}>
-            <div className="overflow-auto flex-1 min-h-0">
-            <table className="w-full text-sm">
+          <div className="rounded-xl overflow-auto min-h-0" style={{ border: "1px solid var(--border)" }}>
+            <table style={{ tableLayout: "fixed", width: "100%", minWidth: productWidths.reduce((a, b) => a + b, 0) }} className="text-sm">
+              <colgroup>{productWidths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
               <thead className="sticky top-0 z-10">
                 <tr>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide" style={{ backgroundColor: "var(--bg-card)" }}>Name</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide" style={{ backgroundColor: "var(--bg-card)" }}>Price</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide" style={{ backgroundColor: "var(--bg-card)" }}>Cadence</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide" style={{ backgroundColor: "var(--bg-card)" }}>Status</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide" style={{ backgroundColor: "var(--bg-card)" }}>Created</th>
+                  {["Name", "Price", "Cadence", "Status", "Created"].map((h, i) => {
+                    const sortable = !!sortFieldMap[h];
+                    const active = sortField === h;
+                    return (
+                      <th
+                        key={h}
+                        className="relative text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide select-none overflow-hidden"
+                        style={{ backgroundColor: "var(--bg-card)", cursor: sortable ? "pointer" : undefined }}
+                        onClick={sortable ? () => handleSort(h) : undefined}
+                      >
+                        <span className="flex items-center justify-between gap-1 pr-2">
+                          <span className="truncate">{h}</span>
+                          {sortable && <SortIcon dir={active ? sortDir : "asc"} active={active} />}
+                        </span>
+                        {i < 4 && <ResizeHandle onMouseDown={(e) => onProductMouseDown(i, e)} />}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
-                {products.map((p, i) => (
+                {loading ? (
+                  <TableSkeletonRows columns={5} rows={products.length || 10} />
+                ) : products.map((p) => (
                   <tr
                     key={p.id}
                     onClick={() => openProduct(p)}
                     className="cursor-pointer hover:bg-md-primary/5 transition-colors"
-                    style={{ borderTop: "1px solid var(--border)", backgroundColor: selected?.id === p.id ? "var(--nav-active)" : "var(--bg-app)", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms` }}
+                    style={{ borderTop: "1px solid var(--border)", backgroundColor: selected?.id === p.id ? "var(--nav-active)" : "var(--bg-app)", animation: "fade-in 0.25s ease-out both" }}
                   >
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{titleCase(p.name)}</div>
-                      {p.description && <div className="text-xs text-gray-400 mt-0.5 line-clamp-1">{p.description}</div>}
+                    <td className="px-4 py-3 overflow-hidden">
+                      <div className="font-medium text-gray-900 truncate" title={titleCase(p.name)}>{titleCase(p.name)}</div>
+                      {p.description && <div className="text-xs text-gray-400 mt-0.5 line-clamp-1" title={capitalizeFirst(p.description)}>{capitalizeFirst(p.description)}</div>}
                     </td>
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{p.currency} {Number(p.price).toLocaleString()}</td>
-                    <td className="px-4 py-3"><span className="text-xs font-semibold px-2.5 py-1 rounded" style={cadenceBadgeStyle(p.billingCadence)}>{cadenceLabel(p.billingCadence)}</span></td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap overflow-hidden truncate">{p.currency} {Number(p.price).toLocaleString()}</td>
+                    <td className="px-4 py-3 overflow-hidden"><span className="text-xs font-semibold px-2.5 py-1 rounded" style={cadenceBadgeStyle(p.billingCadence)}>{cadenceLabel(p.billingCadence)}</span></td>
+                    <td className="px-4 py-3 overflow-hidden">
                       <span className="text-xs font-semibold px-2 py-0.5 rounded-md" style={STATUS_STYLE[p.status] ?? { backgroundColor: "#f3f4f6", color: "#6b7280" }}>
                         {p.status.charAt(0) + p.status.slice(1).toLowerCase()}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{formatDate(p.createdAt)}</td>
+                    <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap overflow-hidden truncate" title={formatDateTime(p.createdAt)}>{formatDate(p.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            </div>
           </div>
         )}
         </div>
@@ -438,7 +484,7 @@ export default function ProductsPage() {
               <>
                 {/* Detail rows */}
                 <div className="px-6 py-2">
-                  {selected.description && <SlideOverField label="Description">{selected.description}</SlideOverField>}
+                  {selected.description && <SlideOverField label="Description">{capitalizeFirst(selected.description)}</SlideOverField>}
                     <SlideOverField label="Status">
                       <span
                         className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-semibold"
@@ -513,25 +559,26 @@ export default function ProductsPage() {
                         {filteredPlans.length > 0 ? (
                           <div className="rounded-xl pb-6" style={{ border: "1px solid var(--border)" }}>
                             <div className="overflow-x-auto">
-                            <table className="w-full text-sm min-w-[360px]">
+                            <table style={{ tableLayout: "fixed", width: "100%", minWidth: planWidths.reduce((a, b) => a + b, 0) }} className="text-sm">
+                              <colgroup>{planWidths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
                               <thead>
                                 <tr style={{ backgroundColor: "var(--bg-card)", borderBottom: "1px solid var(--border)" }}>
-                                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Plan</th>
-                                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Price</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Base cadence</th>
+                                  <th className="relative text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide overflow-hidden">Plan<ResizeHandle onMouseDown={(e) => onPlanMouseDown(0, e)} /></th>
+                                  <th className="relative text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide overflow-hidden">Price<ResizeHandle onMouseDown={(e) => onPlanMouseDown(1, e)} /></th>
+                                  <th className="relative text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide overflow-hidden">Base cadence<ResizeHandle onMouseDown={(e) => onPlanMouseDown(2, e)} /></th>
                                   <th className="px-4 py-3"></th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {filteredPlans.map((pl, i) => (
+                                {filteredPlans.map((pl) => (
                                   <tr
                                     key={pl.id}
                                     className="hover:bg-md-primary/5 transition-colors"
-                                    style={{ borderTop: "1px solid var(--border)", backgroundColor: "var(--bg-app)", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms` }}
+                                    style={{ borderTop: "1px solid var(--border)", backgroundColor: "var(--bg-app)", animation: "fade-in 0.25s ease-out both" }}
                                   >
-                                    <td className="px-4 py-3 font-medium text-gray-900">{titleCase(pl.name)}</td>
-                                    <td className="px-4 py-3 text-gray-600">{pl.currency} {Number(pl.price).toFixed(2)}</td>
-                                    <td className="px-4 py-3">
+                                    <td className="px-4 py-3 font-medium text-gray-900 truncate overflow-hidden">{titleCase(pl.name)}</td>
+                                    <td className="px-4 py-3 text-gray-600 truncate overflow-hidden">{pl.currency} {Number(pl.price).toFixed(2)}</td>
+                                    <td className="px-4 py-3 overflow-hidden">
                                       <span className="text-xs font-semibold px-2.5 py-1 rounded" style={cadenceBadgeStyle(pl.billingCadence)}>
                                         {cadenceLabel(pl.billingCadence)}
                                       </span>

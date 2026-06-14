@@ -6,6 +6,9 @@ import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import SlideOver, { SlideOverField } from "@/components/SlideOver";
 import Dialog from "@/components/Dialog";
 import Pagination from "@/components/Pagination";
+import { useColumnResize } from "@/lib/useColumnResize";
+import ResizeHandle from "@/components/ResizeHandle";
+import TableSkeleton, { TableSkeletonRows } from "@/components/TableSkeleton";
 
 const PAGE_SIZE = 15;
 
@@ -43,6 +46,29 @@ function formatDateTime(iso: string) {
     hour: "numeric", minute: "2-digit",
   });
 }
+
+function SortIcon({ dir, active }: { dir: "asc" | "desc"; active: boolean }) {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline ml-1.5" style={{ opacity: active ? 1 : 0.4 }}>
+      {dir === "asc" ? <path d="m7 15 5 5 5-5" /> : <path d="m7 9 5-5 5 5" />}
+    </svg>
+  );
+}
+
+const userSortFieldMap: Record<string, keyof TenantUser> = {
+  User: "fullName",
+  Role: "role",
+  Status: "status",
+  Joined: "createdAt",
+};
+
+const invitationSortFieldMap: Record<string, keyof InvitationItem> = {
+  Email: "email",
+  Role: "role",
+  Status: "status",
+  Sent: "createdAt",
+  Expires: "expiresAt",
+};
 
 const ROLE_COLOR: Record<string, string> = {
   TENANT_ADMIN: "var(--primary)",
@@ -128,6 +154,31 @@ export default function UsersPage() {
 
   const [tab, setTab] = useState<Tab>("users");
 
+  const [userSortField, setUserSortField] = useState<string | null>(null);
+  const [userSortDir, setUserSortDir]     = useState<"asc" | "desc">("asc");
+  // Server-side sort for the (paginated) users list — sorts every record, not
+  // just the rows on the current page. The reload is driven by loadUsers's deps.
+  const handleUserSort = (field: string) => {
+    const nextDir = userSortField === field && userSortDir === "asc" ? "desc" : "asc";
+    setUserSortField(field);
+    setUserSortDir(nextDir);
+  };
+
+  const [invSortField, setInvSortField] = useState<string | null>(null);
+  const [invSortDir, setInvSortDir]     = useState<"asc" | "desc">("asc");
+  const handleInvSort = useCallback((field: string) => {
+    setInvSortField((prev) => {
+      if (prev === field) { setInvSortDir((d) => (d === "asc" ? "desc" : "asc")); return field; }
+      setInvSortDir("asc");
+      return field;
+    });
+  }, []);
+
+  const userCols = [240, 110, 110, 130, 60];
+  const { widths: userWidths, onMouseDown: onUserMouseDown } = useColumnResize(userCols);
+  const invCols = [220, 110, 110, 120, 120, 160];
+  const { widths: invWidths, onMouseDown: onInvMouseDown } = useColumnResize(invCols);
+
   // ── Users list ───────────────────────────────────────────────────────────
   const [users, setUsers]             = useState<TenantUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
@@ -153,8 +204,10 @@ export default function UsersPage() {
   const loadUsers = useCallback((p = 0) => {
     if (!token || !tid) return;
     setUsersLoading(true);
+    const sortCol = (userSortField && userSortFieldMap[userSortField]) || "createdAt";
+    const sortDirection = userSortField ? userSortDir : "desc";
     apiGet<{ content: TenantUser[]; page: { totalElements: number; totalPages: number } }>(
-      `/api/v1/tenants/${tid}/users?size=${PAGE_SIZE}&page=${p}&sort=createdAt,desc`, token
+      `/api/v1/tenants/${tid}/users?size=${PAGE_SIZE}&page=${p}&sort=${sortCol},${sortDirection}`, token
     )
       .then((d) => {
         setUsers(d.content);
@@ -164,7 +217,7 @@ export default function UsersPage() {
       })
       .catch(() => {})
       .finally(() => setUsersLoading(false));
-  }, [token, tid]);
+  }, [token, tid, userSortField, userSortDir]);
 
   const loadInvitations = useCallback(() => {
     if (!token || !tid) return;
@@ -279,7 +332,7 @@ export default function UsersPage() {
 
   return (
     <>
-      <div className="px-6 py-8 md:px-10 max-w-7xl mx-auto space-y-6 min-h-full flex flex-col" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
+      <div className="px-6 py-8 md:px-10 max-w-7xl mx-auto space-y-6 min-h-full flex flex-col page-enter">
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -309,7 +362,7 @@ export default function UsersPage() {
                 onClick={() => setTab(t)}
                 className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all duration-300 ease-emphasized active:scale-95 capitalize"
                 style={tab === t
-                  ? { backgroundColor: "var(--nav-active)", color: "var(--nav-active-text)" }
+                  ? { backgroundColor: "var(--primary)", color: "#fff" }
                   : { color: "#6b7280" }}
               >
                 {t === "invitations" ? `Invitations${pendingInvites > 0 ? ` (${pendingInvites})` : ""}` : "Users"}
@@ -321,12 +374,7 @@ export default function UsersPage() {
         {/* ── Users tab ─────────────────────────────────────────────────────── */}
         {tab === "users" && (
           <div className="flex-1 min-h-0 flex flex-col">
-          {usersLoading ? (
-            <div className="flex items-center justify-center py-16 text-gray-400">
-              <svg className="animate-spin mr-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
-              Loading…
-            </div>
-          ) : users.length === 0 ? (
+          {!usersLoading && users.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-gray-400 rounded-xl" style={{ border: "1px dashed var(--border)" }}>
               <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-3 opacity-40">
                 <path d="M17 21c0-1.8638 0-2.7956-.3045-3.5307a4 4 0 0 0-2.1648-2.1648C13.7956 15 12.8638 15 11 15H8c-1.8638 0-2.7957 0-3.5307.3045a4 4 0 0 0-2.1648 2.1648C2 18.2044 2 19.1362 2 21M13.5 7c0 2.2091-1.7909 4-4 4s-4-1.7909-4-4 1.7909-4 4-4 4 1.7909 4 4" />
@@ -335,36 +383,53 @@ export default function UsersPage() {
             </div>
           ) : (
             <>
-              <div className="rounded-xl overflow-hidden flex-1 min-h-0 flex flex-col" style={{ border: "1px solid var(--border)" }}>
-                <div className="overflow-auto flex-1 min-h-0">
-                  <table className="w-full text-sm min-w-[540px]">
+              <div className="rounded-xl overflow-auto min-h-0" style={{ border: "1px solid var(--border)" }}>
+                  <table style={{ tableLayout: "fixed", width: "100%", minWidth: userWidths.reduce((a, b) => a + b, 0) }} className="text-sm">
+                    <colgroup>{userWidths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
                     <thead className="sticky top-0 z-10">
                       <tr>
-                        {["User", "Role", "Status", "Joined", ""].map((h) => (
-                          <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style={{ backgroundColor: "var(--bg-card)" }}>{h}</th>
-                        ))}
+                        {["User", "Role", "Status", "Joined", ""].map((h, i) => {
+                          const sortable = !!userSortFieldMap[h];
+                          const active = userSortField === h;
+                          return (
+                            <th
+                              key={h}
+                              className="relative text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap select-none overflow-hidden"
+                              style={{ backgroundColor: "var(--bg-card)", cursor: sortable ? "pointer" : undefined }}
+                              onClick={sortable ? () => handleUserSort(h) : undefined}
+                            >
+                              <span className="flex items-center justify-between gap-1 pr-2">
+                                <span className="truncate">{h}</span>
+                                {sortable && <SortIcon dir={active ? userSortDir : "asc"} active={active} />}
+                              </span>
+                              {i < 4 && <ResizeHandle onMouseDown={(e) => onUserMouseDown(i, e)} />}
+                            </th>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody>
-                      {users.map((u, i) => (
+                      {usersLoading ? (
+                        <TableSkeletonRows columns={5} rows={users.length || 10} />
+                      ) : users.map((u) => (
                         <tr
                           key={u.id}
                           className="group cursor-pointer hover:bg-md-primary/5 transition-colors"
-                          style={{ borderTop: "1px solid var(--border)", backgroundColor: selected?.id === u.id ? "var(--nav-active)" : "var(--bg-app)", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms` }}
+                          style={{ borderTop: "1px solid var(--border)", backgroundColor: selected?.id === u.id ? "var(--nav-active)" : "var(--bg-app)", animation: "fade-in 0.25s ease-out both" }}
                           onClick={() => { setSelected(u); setActionError(null); }}
                         >
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 overflow-hidden">
                             <div className="flex items-center gap-3">
                               <Avatar name={u.fullName} email={u.email} role={u.role} />
                               <div className="min-w-0">
-                                <p className="font-medium text-gray-900 truncate">{u.fullName ?? <span className="text-gray-400 italic">No name</span>}</p>
-                                <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                                <p className="font-medium text-gray-900 truncate" title={u.fullName ?? undefined}>{u.fullName ?? <span className="text-gray-400 italic">No name</span>}</p>
+                                <p className="text-xs text-gray-400 truncate" title={u.email}>{u.email}</p>
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3">{roleBadge(u.role)}</td>
-                          <td className="px-4 py-3">{statusBadge(u.status)}</td>
-                          <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{formatDate(u.createdAt)}</td>
+                          <td className="px-4 py-3 overflow-hidden">{roleBadge(u.role)}</td>
+                          <td className="px-4 py-3 overflow-hidden">{statusBadge(u.status)}</td>
+                          <td className="px-4 py-3 text-gray-500 whitespace-nowrap overflow-hidden truncate">{formatDate(u.createdAt)}</td>
                           <td className="px-4 py-3 text-right">
                             <button
                               onClick={(e) => { e.stopPropagation(); setSelected(u); setActionError(null); }}
@@ -377,7 +442,6 @@ export default function UsersPage() {
                       ))}
                     </tbody>
                   </table>
-                </div>
               </div>
               <Pagination
                 page={usersPage}
@@ -394,10 +458,7 @@ export default function UsersPage() {
         {/* ── Invitations tab ───────────────────────────────────────────────── */}
         {tab === "invitations" && (
           invLoading ? (
-            <div className="flex items-center justify-center py-16 text-gray-400">
-              <svg className="animate-spin mr-2" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
-              Loading…
-            </div>
+            <TableSkeleton columns={6} rows={5} />
           ) : invitations.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-gray-400 rounded-xl" style={{ border: "1px dashed var(--border)" }}>
               <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-3 opacity-40">
@@ -417,33 +478,58 @@ export default function UsersPage() {
           ) : (
             <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[560px]">
+                <table style={{ tableLayout: "fixed", width: "100%", minWidth: invWidths.reduce((a, b) => a + b, 0) }} className="text-sm">
+                  <colgroup>{invWidths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
                   <thead>
                     <tr style={{ backgroundColor: "var(--bg-card)" }}>
-                      {["Email", "Role", "Status", "Sent", "Expires", ""].map((h) => (
-                        <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                      ))}
+                      {["Email", "Role", "Status", "Sent", "Expires", ""].map((h, i) => {
+                        const sortable = !!invitationSortFieldMap[h];
+                        const active = invSortField === h;
+                        return (
+                          <th
+                            key={h}
+                            className="relative text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap select-none overflow-hidden"
+                            style={{ cursor: sortable ? "pointer" : undefined }}
+                            onClick={sortable ? () => handleInvSort(h) : undefined}
+                          >
+                            <span className="flex items-center justify-between gap-1 pr-2">
+                              <span className="truncate">{h}</span>
+                              {sortable && <SortIcon dir={active ? invSortDir : "asc"} active={active} />}
+                            </span>
+                            {i < 5 && <ResizeHandle onMouseDown={(e) => onInvMouseDown(i, e)} />}
+                          </th>
+                        );
+                      })}
                     </tr>
                   </thead>
                   <tbody>
-                    {invitations.map((inv, i) => {
+                    {(invSortField ? [...invitations].sort((a, b) => {
+                      const field = invitationSortFieldMap[invSortField];
+                      if (!field) return 0;
+                      const av = a[field];
+                      const bv = b[field];
+                      const cmp = (field === "createdAt" || field === "expiresAt")
+                        ? new Date(av as string).getTime() - new Date(bv as string).getTime()
+                        : String(av).localeCompare(String(bv));
+                      return invSortDir === "asc" ? cmp : -cmp;
+                    }) : invitations).map((inv) => {
                       const isPending = inv.status === "PENDING";
                       return (
                         <tr
                           key={inv.id}
                           className="hover:bg-md-primary/5 transition-colors"
-                          style={{ borderTop: "1px solid var(--border)", backgroundColor: "var(--bg-app)", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms` }}
+                          style={{ borderTop: "1px solid var(--border)", backgroundColor: "var(--bg-app)", animation: "fade-in 0.25s ease-out both" }}
                         >
-                          <td className="px-4 py-3 font-medium text-gray-900">{inv.email}</td>
-                          <td className="px-4 py-3">{roleBadge(inv.role)}</td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 font-medium text-gray-900 truncate overflow-hidden" title={inv.email}>{inv.email}</td>
+                          <td className="px-4 py-3 overflow-hidden">{roleBadge(inv.role)}</td>
+                          <td className="px-4 py-3 overflow-hidden">
                             <span className="text-xs font-semibold" style={{ color: INV_STATUS_COLOR[inv.status] ?? "#6b7280" }}>
                               {inv.status.charAt(0) + inv.status.slice(1).toLowerCase()}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{formatDate(inv.createdAt)}</td>
-                          <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{formatDate(inv.expiresAt)}</td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 text-gray-500 whitespace-nowrap overflow-hidden truncate">{formatDate(inv.createdAt)}</td>
+                          <td className="px-4 py-3 text-gray-500 whitespace-nowrap overflow-hidden truncate">{formatDate(inv.expiresAt)}</td>
+                          <td className="px-4 py-3 overflow-hidden">
                             {isPending && isAdmin && (
                               <div className="flex gap-1.5 justify-end">
                                 <button
@@ -630,7 +716,7 @@ export default function UsersPage() {
                     onClick={() => setInviteRole(r)}
                     className="flex-1 py-1.5 text-xs font-medium rounded-lg transition-all duration-300 ease-emphasized active:scale-95 capitalize"
                     style={inviteRole === r
-                      ? { backgroundColor: "var(--nav-active)", color: "var(--nav-active-text)" }
+                      ? { backgroundColor: "var(--primary)", color: "#fff" }
                       : { color: "#6b7280" }}
                   >
                     {r === "admin" ? "Admin" : "Member"}

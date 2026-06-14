@@ -6,6 +6,8 @@ import { useAuthStore } from "@/store/authStore";
 import { apiGet, apiPost, apiPatch } from "@/lib/api";
 import SlideOver, { SlideOverField, SlideOverHeader, SlideOverSection } from "@/components/SlideOver";
 import { cadenceLabel, CADENCE_LABELS, cadenceBadgeStyle } from "@/lib/cadence";
+import { capitalizeFirst } from "@/lib/format";
+import TableSkeleton from "@/components/TableSkeleton";
 
 function useColumnResize(initialWidths: number[]) {
   const [widths, setWidths] = useState(initialWidths);
@@ -88,10 +90,10 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function SortIcon() {
+function SortIcon({ dir, active }: { dir: "asc" | "desc"; active: boolean }) {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline ml-1.5 opacity-40">
-      <path d="m7 15 5 5 5-5" /><path d="m7 9 5-5 5 5" />
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline ml-1.5" style={{ opacity: active ? 1 : 0.4 }}>
+      {dir === "asc" ? <path d="m7 15 5 5 5-5" /> : <path d="m7 9 5-5 5 5" />}
     </svg>
   );
 }
@@ -126,13 +128,22 @@ const ColIcon = {
 
 const headers: { label: string; icon?: React.ReactNode; sortable?: boolean }[] = [
   { label: "Plan",        icon: ColIcon.text,   sortable: true  },
-  { label: "Description", icon: ColIcon.text                    },
+  { label: "Description", icon: ColIcon.text,   sortable: true  },
   { label: "Price",       icon: ColIcon.dollar, sortable: true  },
-  { label: "Cadence",     icon: ColIcon.text                    },
-  { label: "Status",      icon: ColIcon.status                  },
+  { label: "Cadence",     icon: ColIcon.text,   sortable: true  },
+  { label: "Status",      icon: ColIcon.status, sortable: true  },
   { label: "Created",     icon: ColIcon.text,   sortable: true  },
   { label: ""                                                    },
 ];
+
+const sortFieldMap: Record<string, keyof Plan> = {
+  Plan: "name",
+  Description: "description",
+  Price: "price",
+  Cadence: "billingCadence",
+  Status: "status",
+  Created: "createdAt",
+};
 
 type ModalMode = "create" | "edit";
 
@@ -273,7 +284,19 @@ function PlanModal({
   return createPortal(modal, document.body);
 }
 
-function PlansTable({ data, onSelect }: { data: Plan[]; onSelect: (p: Plan) => void }) {
+function PlansTable({
+  data,
+  onSelect,
+  sortField,
+  sortDir,
+  onSort,
+}: {
+  data: Plan[];
+  onSelect: (p: Plan) => void;
+  sortField: string | null;
+  sortDir: "asc" | "desc";
+  onSort: (field: string) => void;
+}) {
   const cols = [120, 220, 100, 130, 110, 130];
   const { widths, onMouseDown } = useColumnResize(cols);
 
@@ -284,24 +307,35 @@ function PlansTable({ data, onSelect }: { data: Plan[]; onSelect: (p: Plan) => v
           <colgroup>{widths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
           <thead>
             <tr style={{ backgroundColor: "var(--bg-card)" }}>
-              {headers.map((h, i) => (
-                <th key={i} className="relative text-left px-4 py-3 text-sm font-semibold text-gray-700 select-none overflow-hidden">
-                  <span className="truncate flex items-center pr-2">{h.icon}{h.label}{h.sortable && <SortIcon />}</span>
-                  {i < headers.length - 1 && <ResizeHandle onMouseDown={(e) => onMouseDown(i, e)} />}
-                </th>
-              ))}
+              {headers.map((h, i) => {
+                const active = sortField === h.label;
+                return (
+                  <th
+                    key={i}
+                    className="relative text-left px-4 py-3 text-sm font-semibold text-gray-700 select-none overflow-hidden"
+                    style={h.sortable ? { cursor: "pointer" } : undefined}
+                    onClick={h.sortable ? () => onSort(h.label) : undefined}
+                  >
+                    <span className="flex items-center justify-between gap-1 pr-2">
+                      <span className="truncate flex items-center">{h.icon}{h.label}</span>
+                      {h.sortable && <SortIcon dir={active ? sortDir : "asc"} active={active} />}
+                    </span>
+                    {i < headers.length - 1 && <ResizeHandle onMouseDown={(e) => onMouseDown(i, e)} />}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
-            {data.map((row, i) => (
+            {data.map((row) => (
               <tr
                 key={row.id}
                 onClick={() => onSelect(row)}
                 className="group bg-md-surface hover:bg-md-primary/5 transition-colors cursor-pointer"
-                style={{ borderTop: "1px solid var(--border)", animation: "fade-in 0.15s ease-out both", animationDelay: `${i * 15}ms`, opacity: row.status === "ARCHIVED" ? 0.65 : 1 }}
+                style={{ borderTop: "1px solid var(--border)", animation: "fade-in 0.25s ease-out both",opacity: row.status === "ARCHIVED" ? 0.65 : 1 }}
               >
-                <td className="px-4 py-3 text-sm font-semibold text-gray-900 truncate overflow-hidden">{row.name}</td>
-                <td className="px-4 py-3 text-sm text-gray-500 truncate overflow-hidden">{row.description}</td>
+                <td className="px-4 py-3 text-sm font-semibold text-gray-900 truncate overflow-hidden" title={row.name}>{row.name}</td>
+                <td className="px-4 py-3 text-sm text-gray-500 truncate overflow-hidden" title={capitalizeFirst(row.description)}>{capitalizeFirst(row.description)}</td>
                 <td className="px-4 py-3 text-sm font-medium text-gray-900 truncate overflow-hidden">
                   {row.currency} {row.price.toLocaleString()}
                 </td>
@@ -432,7 +466,7 @@ function PlanSidebar({
           <>
             <SlideOverSection>
               <SlideOverField label="Description">
-                {plan.description || <span className="text-gray-400 italic">No description</span>}
+                {plan.description ? capitalizeFirst(plan.description) : <span className="text-gray-400 italic">No description</span>}
               </SlideOverField>
               <SlideOverField label="Price">
                 {plan.currency} {plan.price.toLocaleString()}
@@ -567,6 +601,19 @@ export default function PlatformPlansPage() {
   const [saving, setSaving] = useState(false);
   const [filterStatus, setFilterStatus] = useState<"ALL" | "ACTIVE" | "ARCHIVED">("ALL");
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const handleSort = useCallback((field: string) => {
+    setSortField((prev) => {
+      if (prev === field) {
+        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        return field;
+      }
+      setSortDir("asc");
+      return field;
+    });
+  }, []);
 
   useEffect(() => {
     if (!token) return;
@@ -577,9 +624,27 @@ export default function PlatformPlansPage() {
       .finally(() => setLoading(false));
   }, [token]);
 
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("action") === "create") {
+      setModal({ mode: "create" });
+      window.history.replaceState(null, "", "/platform-plans");
+    }
+  }, []);
+
   const activePlans = data.filter((p) => p.status === "ACTIVE");
   const archivedPlans = data.filter((p) => p.status === "ARCHIVED");
   const filtered = filterStatus === "ALL" ? data : data.filter((p) => p.status === filterStatus);
+
+  const sorted = sortField ? [...filtered].sort((a, b) => {
+    const field = sortFieldMap[sortField];
+    if (!field) return 0;
+    const av = a[field];
+    const bv = b[field];
+    const cmp = field === "createdAt"
+      ? new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      : typeof av === "string" ? av.localeCompare(bv as string) : (av as number) - (bv as number);
+    return sortDir === "asc" ? cmp : -cmp;
+  }) : filtered;
 
   const handleCreate = async (form: FormState) => {
     if (!token) return;
@@ -637,15 +702,15 @@ export default function PlatformPlansPage() {
   ];
 
   return (
-    <div className="font-sans px-6 py-8 md:px-12 md:py-10 max-w-6xl mx-auto" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
+    <div className="font-sans px-6 py-8 md:px-12 md:py-10 max-w-6xl mx-auto page-enter">
       <div className="mb-8 border-l-4 pl-5 py-1" style={{ borderColor: "var(--primary)" }}>
         <p className="text-sm mb-1" style={{ color: "var(--primary)" }}>Super Admin</p>
         <h1 className="text-3xl font-bold" style={{ color: "#212529" }}>Platform Plans</h1>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
-        {statCards.map((card, i) => (
-          <div key={card.label} className="rounded-lg p-5" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", animation: "fade-in-up 0.2s ease-out both", animationDelay: `${i * 30}ms` }}>
+        {statCards.map((card) => (
+          <div key={card.label} className="rounded-lg p-5" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
             <p className="text-sm mb-3" style={{ color: "#6c757d" }}>{card.label}</p>
             <p className="text-2xl font-bold tabular-nums" style={{ color: "#212529" }}>{loading ? "—" : card.value}</p>
           </div>
@@ -657,7 +722,7 @@ export default function PlatformPlansPage() {
           {(["ALL", "ACTIVE", "ARCHIVED"] as const).map((s) => (
             <button key={s} onClick={() => setFilterStatus(s)} className="text-xs font-semibold px-3 py-1.5 rounded-md transition-colors"
               style={filterStatus === s
-                ? { backgroundColor: "var(--nav-active)", color: "var(--nav-active-text)" }
+                ? { backgroundColor: "var(--primary)", color: "#fff" }
                 : { color: "#6b7280" }}>
               {s === "ALL" ? "All" : s === "ACTIVE" ? "Active" : "Archived"}
             </button>
@@ -676,12 +741,7 @@ export default function PlatformPlansPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20 text-gray-400">
-          <svg className="animate-spin mr-3" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-          </svg>
-          Loading plans…
-        </div>
+        <TableSkeleton columns={7} />
       ) : error ? (
         <div className="flex items-center gap-2 text-sm px-4 py-3 rounded-lg" style={{ backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626" }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
@@ -698,8 +758,11 @@ export default function PlatformPlansPage() {
         </div>
       ) : (
         <PlansTable
-          data={filtered}
+          data={sorted}
           onSelect={setSelectedPlan}
+          sortField={sortField}
+          sortDir={sortDir}
+          onSort={handleSort}
         />
       )}
 
