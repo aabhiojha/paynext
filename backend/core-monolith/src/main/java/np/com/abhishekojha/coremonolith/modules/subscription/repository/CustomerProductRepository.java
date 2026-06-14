@@ -38,16 +38,6 @@ public interface CustomerProductRepository extends JpaRepository<CustomerProduct
 
     long countByTenantIdAndStatusAndDeletedAtIsNull(Long tenantId, SubscriptionStatus status);
 
-    @Query("""
-            SELECT cp.product.currency, SUM(cp.product.price), COUNT(cp)
-            FROM CustomerProductEntity cp
-            WHERE cp.tenant.id = :tenantId
-              AND cp.status = 'ACTIVE'
-              AND cp.deletedAt IS NULL
-            GROUP BY cp.product.currency
-            """)
-    List<Object[]> sumRevenueByTenantGroupedByCurrency(@Param("tenantId") Long tenantId);
-
     List<CustomerProductEntity> findAllByTenantIdAndStatusAndDeletedAtIsNullAndEndsAtBefore(
             Long tenantId, SubscriptionStatus status, Instant before);
 

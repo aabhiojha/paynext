@@ -8,7 +8,6 @@ import lombok.RequiredArgsConstructor;
 import np.com.abhishekojha.coremonolith.modules.audit.dto.AuditLogResponse;
 import np.com.abhishekojha.coremonolith.modules.dashboard.dto.OverduePlanResponse;
 import np.com.abhishekojha.coremonolith.modules.dashboard.dto.ReminderStatsResponse;
-import np.com.abhishekojha.coremonolith.modules.dashboard.dto.RevenueByCurrencyResponse;
 import np.com.abhishekojha.coremonolith.modules.dashboard.dto.TenantSummaryResponse;
 import np.com.abhishekojha.coremonolith.modules.dashboard.dto.UpcomingReminderResponse;
 import np.com.abhishekojha.coremonolith.modules.dashboard.service.DashboardService;
@@ -39,13 +38,6 @@ public class TenantDashboardController {
     @GetMapping("/summary")
     public ResponseEntity<TenantSummaryResponse> summary(@PathVariable Long tenantId) {
         return ResponseEntity.ok(dashboardService.getSummary(tenantId));
-    }
-
-    @Operation(summary = "Revenue overview", description = "Total billed amount grouped by currency for active plans")
-    @ApiResponse(responseCode = "200", description = "OK")
-    @GetMapping("/revenue")
-    public ResponseEntity<RevenueByCurrencyResponse> revenue(@PathVariable Long tenantId) {
-        return ResponseEntity.ok(dashboardService.getRevenue(tenantId));
     }
 
     @Operation(summary = "Reminder delivery stats", description = "Sent/failed/skipped counts for a date range (default: last 30 days)")

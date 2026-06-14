@@ -13,7 +13,6 @@ import np.com.abhishekojha.coremonolith.modules.subscription.repository.Customer
 import np.com.abhishekojha.coremonolith.modules.dashboard.dto.superadmin.AdminSummaryResponse;
 import np.com.abhishekojha.coremonolith.modules.dashboard.dto.OverduePlanResponse;
 import np.com.abhishekojha.coremonolith.modules.dashboard.dto.ReminderStatsResponse;
-import np.com.abhishekojha.coremonolith.modules.dashboard.dto.RevenueByCurrencyResponse;
 import np.com.abhishekojha.coremonolith.modules.dashboard.dto.TenantSummaryResponse;
 import np.com.abhishekojha.coremonolith.modules.dashboard.dto.UpcomingReminderResponse;
 import np.com.abhishekojha.coremonolith.modules.dashboard.dto.superadmin.GlobalTenantsSummaryResponse;
@@ -27,7 +26,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -65,20 +63,6 @@ public class DashboardService {
                 customerProductRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, SubscriptionStatus.PAUSED),
                 customerProductRepository.countByTenantIdAndStatusAndDeletedAtIsNull(tenantId, SubscriptionStatus.CANCELLED)
         );
-    }
-
-    public RevenueByCurrencyResponse getRevenue(Long tenantId) {
-        guard.requireTenantAccess(tenantId);
-        log.info("Fetching revenue overview for tenant={}", tenantId);
-        List<Object[]> rows = customerProductRepository.sumRevenueByTenantGroupedByCurrency(tenantId);
-        List<RevenueByCurrencyResponse.CurrencyTotal> totals = rows.stream()
-                .map(row -> new RevenueByCurrencyResponse.CurrencyTotal(
-                        (String) row[0],
-                        (BigDecimal) row[1],
-                        (Long) row[2]
-                ))
-                .toList();
-        return new RevenueByCurrencyResponse(totals);
     }
 
     public ReminderStatsResponse getReminderStats(Long tenantId, LocalDate from, LocalDate to) {
