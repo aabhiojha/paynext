@@ -215,7 +215,8 @@ const sortFieldMap: Record<string, keyof Customer> = {
   Joined: "createdAt",
 };
 
-const inputCls   = "w-full text-sm px-4 h-11 rounded-t-[12px] rounded-b-none outline-none transition-colors duration-200";
+const inputCls    = "w-full text-sm px-4 h-11 rounded-t-[12px] rounded-b-none outline-none transition-colors duration-200";
+const textareaCls = "w-full text-sm px-4 py-2.5 rounded-t-[12px] rounded-b-none outline-none transition-colors duration-200 resize-none leading-relaxed";
 const inputStyle = { borderBottom: "2px solid var(--color-md-outline)", backgroundColor: "var(--bg-search)" };
 const labelCls   = "block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1";
 
@@ -236,8 +237,8 @@ function FormFields({ name, onName, email, onEmail, phone, onPhone, address, onA
         <div><label className={labelCls}>Email *</label><input type="email" className={inputCls} style={inputStyle} value={email} onChange={(e) => onEmail(e.target.value)} placeholder="email@example.com" /></div>
       </div>
       <div><label className={labelCls}>Phone</label><input className={inputCls} style={inputStyle} value={phone} onChange={(e) => onPhone(e.target.value)} placeholder="+977 980000000" /></div>
-      <div><label className={labelCls}>Address</label><textarea rows={2} className={inputCls} style={inputStyle} value={address} onChange={(e) => onAddress(e.target.value)} placeholder="Street, city, country" /></div>
-      <div><label className={labelCls}>Notes</label><textarea rows={3} className={inputCls} style={inputStyle} value={notes} onChange={(e) => onNotes(e.target.value)} placeholder="Internal notes…" /></div>
+      <div><label className={labelCls}>Address</label><textarea rows={2} className={textareaCls} style={inputStyle} value={address} onChange={(e) => onAddress(e.target.value)} placeholder="Street, city, country" /></div>
+      <div><label className={labelCls}>Notes</label><textarea rows={3} className={textareaCls} style={inputStyle} value={notes} onChange={(e) => onNotes(e.target.value)} placeholder="Internal notes…" /></div>
       {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
   );
@@ -415,6 +416,8 @@ export default function CustomersPage() {
   const user  = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
   const isAdmin = user?.role === "TENANT_ADMIN";
+  // Tenant users can create/edit resources; only admins can delete them.
+  const canWrite = isAdmin || user?.role === "TENANT_USER";
   const tid = user?.tenantId;
 
   // List
@@ -696,7 +699,7 @@ export default function CustomersPage() {
             <h1 className="text-2xl font-bold text-gray-900">Customers</h1>
             <p className="text-sm text-gray-500 mt-0.5">{total.toLocaleString()} customers</p>
           </div>
-          {isAdmin && (
+          {canWrite && (
             <button
               onClick={openCreate}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white active:scale-95"
@@ -878,16 +881,18 @@ export default function CustomersPage() {
                   </div>
 
                   {/* Action buttons */}
-                  {isAdmin && (
+                  {canWrite && (
                     <div className="px-6 pb-5 pt-2 flex gap-3">
                       <button onClick={startEdit} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white active:scale-95" style={{ backgroundColor: "var(--primary)" }}>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z" /></svg>
                         Edit customer
                       </button>
-                      <button onClick={deleteCustomer} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-md-error hover:bg-md-error-container active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid #fecaca" }}>
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>
-                        Delete
-                      </button>
+                      {isAdmin && (
+                        <button onClick={deleteCustomer} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-md-error hover:bg-md-error-container active:scale-95 transition-all duration-300 ease-emphasized" style={{ border: "1px solid #fecaca" }}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>
+                          Delete
+                        </button>
+                      )}
                     </div>
                   )}
 

@@ -259,6 +259,8 @@ export default function SubscriptionsPage() {
   const user  = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
   const isAdmin = user?.role === "TENANT_ADMIN";
+  // Tenant users can create/edit resources; only admins can delete them.
+  const canWrite = isAdmin || user?.role === "TENANT_USER";
   const tid = user?.tenantId;
 
   // List
@@ -267,7 +269,11 @@ export default function SubscriptionsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage]           = useState(0);
   const [loading, setLoading]     = useState(true);
-  const [filter, setFilter]       = useState("ALL");
+  const [filter, setFilter]       = useState(() => {
+    if (typeof window === "undefined") return "ALL";
+    const s = new URLSearchParams(window.location.search).get("status");
+    return s && (STATUS_FILTERS as readonly string[]).includes(s) ? s : "ALL";
+  });
   const [search, setSearch]       = useState("");
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDir, setSortDir]     = useState<"asc" | "desc">("asc");
@@ -549,7 +555,7 @@ export default function SubscriptionsPage() {
             <h1 className="text-2xl font-bold text-gray-900">Subscriptions</h1>
             <p className="text-sm text-gray-500 mt-0.5">{total.toLocaleString()} total</p>
           </div>
-          {isAdmin && (
+          {canWrite && (
             <button
               onClick={openAssign}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white active:scale-95"
@@ -820,7 +826,7 @@ export default function SubscriptionsPage() {
                   </div>
 
                   {/* Actions */}
-                  {isAdmin && (
+                  {canWrite && (
                     <div className="px-6 pb-5 pt-2">
                       <div className="flex items-center gap-2">
                         {/* Primary action */}
@@ -841,40 +847,45 @@ export default function SubscriptionsPage() {
                           </button>
                         )}
 
-                        {/* Tertiary: destructive actions, grouped */}
-                        <div className="relative ml-auto" ref={moreMenuRef}>
-                          <button
-                            onClick={() => setMoreMenuOpen((o) => !o)}
-                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-md-primary/10 active:scale-95 transition-all duration-300 ease-emphasized"
-                          >
-                            More
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-                          </button>
-                          {moreMenuOpen && (
-                            <div
-                              className="absolute right-0 top-full mt-1 w-52 rounded-lg overflow-hidden z-10"
-                              style={{ backgroundColor: "var(--bg-app)", boxShadow: "0 8px 24px rgba(28,27,31,0.14)", animation: "fade-in 0.12s ease-out both" }}
+                        {/* Tertiary: destructive actions, grouped. Tenant users can cancel
+                            (a reversible status change); only admins can delete. */}
+                        {(isAdmin || selected.status === "ACTIVE" || selected.status === "PAUSED") && (
+                          <div className="relative ml-auto" ref={moreMenuRef}>
+                            <button
+                              onClick={() => setMoreMenuOpen((o) => !o)}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-md-primary/10 active:scale-95 transition-all duration-300 ease-emphasized"
                             >
-                              {(selected.status === "ACTIVE" || selected.status === "PAUSED") && (
-                                <button
-                                  onClick={() => { updateStatus("CANCELLED"); setMoreMenuOpen(false); }}
-                                  className="w-full text-left flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
-                                >
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6M9 9l6 6" /></svg>
-                                  Cancel subscription
-                                </button>
-                              )}
-                              <button
-                                onClick={() => { setMoreMenuOpen(false); deleteSubscription(); }}
-                                className="w-full text-left flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
-                                style={{ borderTop: "1px solid var(--border)" }}
+                              More
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                            </button>
+                            {moreMenuOpen && (
+                              <div
+                                className="absolute right-0 top-full mt-1 w-52 rounded-lg overflow-hidden z-10"
+                                style={{ backgroundColor: "var(--bg-app)", boxShadow: "0 8px 24px rgba(28,27,31,0.14)", animation: "fade-in 0.12s ease-out both" }}
                               >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>
-                                Delete subscription
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                                {(selected.status === "ACTIVE" || selected.status === "PAUSED") && (
+                                  <button
+                                    onClick={() => { updateStatus("CANCELLED"); setMoreMenuOpen(false); }}
+                                    className="w-full text-left flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                                  >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6M9 9l6 6" /></svg>
+                                    Cancel subscription
+                                  </button>
+                                )}
+                                {isAdmin && (
+                                  <button
+                                    onClick={() => { setMoreMenuOpen(false); deleteSubscription(); }}
+                                    className="w-full text-left flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                                    style={{ borderTop: (selected.status === "ACTIVE" || selected.status === "PAUSED") ? "1px solid var(--border)" : undefined }}
+                                  >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>
+                                    Delete subscription
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

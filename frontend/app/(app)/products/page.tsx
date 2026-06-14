@@ -75,6 +75,8 @@ export default function ProductsPage() {
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
   const isAdmin = user?.role === "TENANT_ADMIN";
+  // Tenant users can create/edit resources; only admins can delete them.
+  const canWrite = isAdmin || user?.role === "TENANT_USER";
 
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
@@ -295,7 +297,7 @@ export default function ProductsPage() {
             <h1 className="text-2xl font-bold text-gray-900">Products &amp; Plans</h1>
             <p className="text-sm text-gray-500 mt-0.5">{total.toLocaleString()} products</p>
           </div>
-          {isAdmin && (
+          {canWrite && (
             <button
               onClick={() => { setSelected(null); setEditing(true); setEditName(""); setEditDesc(""); setEditPrice(""); setEditCurrency("USD"); setEditCadence("MONTHLY"); setFormError(null); }}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white active:scale-95"
@@ -412,7 +414,7 @@ export default function ProductsPage() {
       </div>
 
       {/* Product detail / edit sidebar */}
-      <SlideOver open={!!selected || (isAdmin && editing && !selected)} onClose={() => { setSelected(null); setEditing(false); }} width="50vw">
+      <SlideOver open={!!selected || (canWrite && editing && !selected)} onClose={() => { setSelected(null); setEditing(false); }} width="50vw">
         {editing && !selected ? (
           // Create new product
           <>
@@ -498,7 +500,7 @@ export default function ProductsPage() {
                   </div>
 
                   {/* Action buttons */}
-                  {isAdmin && (
+                  {canWrite && (
                     <div className="px-6 pb-5 pt-2 flex gap-3">
                       <button
                         onClick={startEdit}
@@ -508,14 +510,16 @@ export default function ProductsPage() {
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z" /></svg>
                         Edit product
                       </button>
-                      <button
-                        onClick={deleteProduct}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-md-error hover:bg-md-error-container active:scale-95 transition-all duration-300 ease-emphasized"
-                        style={{ border: "1px solid #fecaca" }}
-                      >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>
-                        Delete product
-                      </button>
+                      {isAdmin && (
+                        <button
+                          onClick={deleteProduct}
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-md-error hover:bg-md-error-container active:scale-95 transition-all duration-300 ease-emphasized"
+                          style={{ border: "1px solid #fecaca" }}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>
+                          Delete product
+                        </button>
+                      )}
                     </div>
                   )}
 
@@ -539,7 +543,7 @@ export default function ProductsPage() {
                             style={{ border: "1px solid transparent", width: "160px", backgroundColor: "var(--bg-search)" }}
                           />
                         </div>
-                        {isAdmin && (
+                        {canWrite && (
                           <button
                             onClick={openAddPlan}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-white active:scale-95 whitespace-nowrap"
@@ -584,7 +588,7 @@ export default function ProductsPage() {
                                       </span>
                                     </td>
                                     <td className="px-4 py-3 text-right relative">
-                                      {isAdmin && (
+                                      {canWrite && (
                                         <>
                                           <button
                                             onClick={(e) => { e.stopPropagation(); setPlanDropdownId(planDropdownId === pl.id ? null : pl.id); }}
@@ -602,10 +606,12 @@ export default function ProductsPage() {
                                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z" /></svg>
                                                 Edit
                                               </button>
-                                              <button onClick={() => deletePlan(pl)} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2">
-                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>
-                                                Delete
-                                              </button>
+                                              {isAdmin && (
+                                                <button onClick={() => deletePlan(pl)} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2">
+                                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>
+                                                  Delete
+                                                </button>
+                                              )}
                                             </div>
                                           )}
                                         </>
