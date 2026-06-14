@@ -91,13 +91,15 @@ export async function apiPost<T>(path: string, body: unknown, token?: string): P
     }
     throw new Error(message);
   }
-  return res.json();
+  const text = await res.text();
+  return text ? JSON.parse(text) : (undefined as T);
 }
 
 export async function apiGet<T>(path: string, token?: string): Promise<T> {
   const res = await request(path, {}, token);
   if (!res.ok) throw new Error("Request failed");
-  return res.json();
+  const text = await res.text();
+  return text ? JSON.parse(text) : (undefined as T);
 }
 
 export async function apiDelete(path: string, token?: string): Promise<void> {

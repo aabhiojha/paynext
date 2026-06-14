@@ -9,3 +9,12 @@ export function titleCase(value: string | null | undefined): string {
     .toLowerCase()
     .replace(/(^|[^a-z0-9])([a-z])/g, (_, sep: string, ch: string) => sep + ch.toUpperCase());
 }
+
+/**
+ * Capitalizes only the first letter of a string, leaving the rest untouched.
+ * Only for display — never feed the result back into the API.
+ */
+export function capitalizeFirst(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
