@@ -5,6 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiPost } from "@/lib/api";
 
+const RESET_PASSWORD_ERROR_MESSAGES: Record<string, string> = {
+  INVALID_TOKEN: "This reset link is invalid. Please request a new one.",
+  TOKEN_EXPIRED: "This reset link has expired. Please request a new one.",
+  TOKEN_ALREADY_USED: "This reset link has already been used. Please request a new one.",
+};
+
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -41,7 +47,8 @@ function ResetPasswordForm() {
       await apiPost("/api/v1/auth/reset-password", { token, newPassword: password });
       setSuccess(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      const message = err instanceof Error ? err.message : "Something went wrong.";
+      setError(RESET_PASSWORD_ERROR_MESSAGES[message] ?? message);
     } finally {
       setLoading(false);
     }
@@ -130,20 +137,20 @@ function ResetPasswordForm() {
               )}
 
               <button
-            type="submit"
-            disabled={loading}
-            className="w-full h-12 text-sm font-medium rounded-lg bg-md-primary text-md-on-primary hover:bg-md-primary/90 active:bg-md-primary/80 hover:shadow-md active:scale-95 transition-all duration-300 ease-emphasized disabled:opacity-60"
-
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                </svg>
-                Resetting…
-              </span>
-            ) : (
-              "Reset password"
-            )}
+                type="submit"
+                disabled={loading}
+                className="w-full h-12 text-sm font-medium rounded-lg bg-md-primary text-md-on-primary hover:bg-md-primary/90 active:bg-md-primary/80 hover:shadow-md active:scale-95 transition-all duration-300 ease-emphasized disabled:opacity-60"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                    </svg>
+                    Resetting…
+                  </span>
+                ) : (
+                  "Reset password"
+                )}
               </button>
             </form>
           </>
