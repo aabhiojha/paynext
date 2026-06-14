@@ -99,27 +99,41 @@ function StatCard({
   value,
   sub,
   accent,
+  href,
 }: {
   label: string;
   value: string;
   sub?: string;
   accent?: string;
+  /** When set, the card becomes a link to the relevant list page. */
+  href?: string;
   /** Accepted for call-site compatibility; entrance is handled by the page section reveal. */
   delay?: number;
 }) {
-  return (
-    <div
-      className="rounded-xl px-5 py-4 flex flex-col gap-1"
-      style={{
-        backgroundColor: "var(--bg-card)",
-        border: "1px solid var(--border)",
-      }}
-    >
+  const inner = (
+    <>
       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
       <p className="text-2xl font-bold tabular-nums leading-tight" style={{ color: accent ?? "#111827" }}>
         {value}
       </p>
       {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+    </>
+  );
+  const cardStyle = { backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" };
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className="rounded-xl px-5 py-4 flex flex-col gap-1 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] focus:outline-none"
+        style={cardStyle}
+      >
+        {inner}
+      </Link>
+    );
+  }
+  return (
+    <div className="rounded-xl px-5 py-4 flex flex-col gap-1" style={cardStyle}>
+      {inner}
     </div>
   );
 }
@@ -316,10 +330,10 @@ export default function AdminDashboardPage() {
           <p className="text-xs text-gray-500 mt-0.5">Platform-wide tenant overview</p>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Total"         value={loading ? "—" : String(totalTenants)}   sub="all time"          delay={0}   />
-          <StatCard label="Active"        value={loading ? "—" : String(activeTenants)}  sub="currently active"  delay={40}  accent="#24A37D" />
-          <StatCard label="Suspended"     value={loading ? "—" : String(suspendedCount)} sub="needs attention"   delay={80}  accent={!loading && summary && summary.tenants.suspended > 0 ? "#e8a020" : undefined} />
-          <StatCard label="New This Week" value={loading ? "—" : String(newThisWeek)}    sub="recently joined"   delay={120} />
+          <StatCard label="Total"         value={loading ? "—" : String(totalTenants)}   sub="all time"          href="/tenants"                  delay={0}   />
+          <StatCard label="Active"        value={loading ? "—" : String(activeTenants)}  sub="currently active"  href="/tenants?status=ACTIVE"    delay={40}  accent="#24A37D" />
+          <StatCard label="Suspended"     value={loading ? "—" : String(suspendedCount)} sub="needs attention"   href="/tenants?status=SUSPENDED" delay={80}  accent={!loading && summary && summary.tenants.suspended > 0 ? "#e8a020" : undefined} />
+          <StatCard label="New This Week" value={loading ? "—" : String(newThisWeek)}    sub="recently joined"   href="/tenants"                  delay={120} />
         </div>
       </div>
 

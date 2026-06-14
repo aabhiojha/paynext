@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuthStore } from "@/store/authStore";
 import { apiGet } from "@/lib/api";
 import { titleCase } from "@/lib/format";
@@ -130,22 +131,19 @@ function StatCard({
   value,
   sub,
   accent,
+  href,
 }: {
   label: string;
   value: string;
   sub?: string;
   accent?: string;
+  /** When set, the card becomes a link to the relevant list page. */
+  href?: string;
   /** Accepted for call-site compatibility; entrance is handled by the page section reveal. */
   delay?: number;
 }) {
-  return (
-    <div
-      className="rounded-xl px-5 py-4 flex flex-col gap-1"
-      style={{
-        backgroundColor: "var(--bg-card)",
-        border: "1px solid var(--border)",
-      }}
-    >
+  const inner = (
+    <>
       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
       <p
         className="text-2xl font-bold tabular-nums leading-tight"
@@ -154,6 +152,23 @@ function StatCard({
         {value}
       </p>
       {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+    </>
+  );
+  const cardStyle = { backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" };
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className="rounded-xl px-5 py-4 flex flex-col gap-1 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] focus:outline-none"
+        style={cardStyle}
+      >
+        {inner}
+      </Link>
+    );
+  }
+  return (
+    <div className="rounded-xl px-5 py-4 flex flex-col gap-1" style={cardStyle}>
+      {inner}
     </div>
   );
 }
@@ -382,6 +397,7 @@ export default function DashboardPage() {
           label="Total Customers"
           value={loading ? "—" : customerVal.toLocaleString()}
           sub={summary ? `${summary.totalProducts} products` : undefined}
+          href="/customers"
           delay={0}
         />
         <StatCard
@@ -389,6 +405,7 @@ export default function DashboardPage() {
           value={loading ? "—" : activeVal.toLocaleString()}
           sub={summary ? `${summary.pausedPlans} paused` : undefined}
           accent="#24A37D"
+          href="/subscriptions?status=ACTIVE"
           delay={40}
         />
         <StatCard
@@ -396,6 +413,7 @@ export default function DashboardPage() {
           value={loading ? "—" : overdueVal.toLocaleString()}
           sub={overdueCount > 0 ? "needs attention" : "all clear"}
           accent={overdueCount > 0 ? "#dc2626" : "#24A37D"}
+          href="/subscriptions"
           delay={80}
         />
       </div>

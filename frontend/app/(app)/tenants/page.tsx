@@ -1533,7 +1533,11 @@ export default function TenantsPage() {
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<"ALL" | "ACTIVE" | "SUSPENDED">("ALL");
+  const [filterStatus, setFilterStatus] = useState<"ALL" | "ACTIVE" | "SUSPENDED">(() => {
+    if (typeof window === "undefined") return "ALL";
+    const s = new URLSearchParams(window.location.search).get("status");
+    return s === "ACTIVE" || s === "SUSPENDED" ? s : "ALL";
+  });
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [sidebarTenantId, setSidebarTenantId] = useState<number | null>(null);
