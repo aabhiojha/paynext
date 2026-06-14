@@ -10,11 +10,13 @@ function actionColor(action: string): string {
 
 /** Colored circular badge for an audit action: green plus (create), red X
     (delete/cancel), amber pause (pause/suspend/disable), gray pencil (rest). */
-export default function ActivityIcon({ action }: { action: string }) {
+export default function ActivityIcon({ action, size = "md" }: { action: string; size?: "sm" | "md" }) {
   const color = actionColor(action);
+  const box = size === "sm" ? "w-5 h-5" : "w-7 h-7";
+  const svg = size === "sm" ? 11 : 13;
   const badge = (bg: string, path: React.ReactNode) => (
-    <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: bg }}>
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <div className={`flex-shrink-0 ${box} rounded-full flex items-center justify-center`} style={{ backgroundColor: bg }}>
+      <svg width={svg} height={svg} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         {path}
       </svg>
     </div>

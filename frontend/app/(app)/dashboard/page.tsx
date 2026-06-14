@@ -61,6 +61,7 @@ type AuditLog = {
   resourceType: string;
   resourceId: number | null;
   target: string | null;
+  description: string | null;
   createdAt: string;
 };
 
@@ -111,6 +112,17 @@ function activityPhrase(log: AuditLog): string {
   const verb = ACTIVITY_VERBS[suffix] ?? suffix.toLowerCase().replace(/_/g, " ");
   const noun = RESOURCE_NOUNS[log.resourceType] ?? log.resourceType.toLowerCase().replace(/_/g, " ");
   return `${verb} ${noun}`;
+}
+
+/**
+ * The plain-English story of an event. The backend already writes a friendly
+ * past-tense description ("Paused subscription for Acme Corp"); fall back to a
+ * reconstructed phrase for older logs that predate descriptions.
+ */
+function describeActivity(log: AuditLog): string {
+  if (log.description && log.description.trim()) return log.description.trim();
+  const phrase = log.target ? `${activityPhrase(log)} ${log.target}` : activityPhrase(log);
+  return phrase.charAt(0).toUpperCase() + phrase.slice(1);
 }
 
 function StatCard({
@@ -284,22 +296,24 @@ function RecentActivity({ logs, loading }: { logs: AuditLog[]; loading: boolean 
   }
   return (
     <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-      <div className="divide-y" style={{ "--tw-divide-opacity": 1 } as React.CSSProperties}>
+      <div>
         {logs.map((log, i) => (
           <div
             key={log.id}
-            className="flex items-start gap-3 px-4 py-3 hover:bg-md-primary/5 transition-colors"
-            style={{ animation: "fade-in 0.25s ease-out both",borderTop: i > 0 ? "1px solid var(--border)" : undefined }}
+            className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-md-primary/5 transition-colors"
+            style={{ animation: "fade-in 0.25s ease-out both", borderTop: i > 0 ? "1px solid rgba(0,0,0,0.05)" : undefined }}
           >
-            <ActivityIcon action={log.action} />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-gray-800 leading-snug">
-                <span className="font-medium">{log.actorName || log.actorEmail}</span>{" "}
-                <span className="text-gray-500">{activityPhrase(log)}</span>
-                {log.target && <span className="font-medium"> {log.target}</span>}
-              </p>
-            </div>
-            <span className="text-xs text-gray-400 flex-shrink-0 mt-0.5 tabular-nums">{relativeTime(log.createdAt)}</span>
+            <ActivityIcon action={log.action} size="sm" />
+            <p className="flex-1 min-w-0 text-[13px] text-gray-800 leading-tight truncate">
+              {describeActivity(log)}
+              <span className="text-gray-400"> · {log.actorName || log.actorEmail}</span>
+            </p>
+            <span
+              className="text-xs text-gray-400 flex-shrink-0 tabular-nums whitespace-nowrap"
+              title={`${formatShortDate(log.createdAt)} · ${new Date(log.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`}
+            >
+              {relativeTime(log.createdAt)}
+            </span>
           </div>
         ))}
       </div>
