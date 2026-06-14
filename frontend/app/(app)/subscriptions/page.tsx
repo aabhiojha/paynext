@@ -531,11 +531,13 @@ export default function SubscriptionsPage() {
   const panelOpen = !!selected || assigning;
 
   const stats = [
-    { label: "Total",     value: total,          icon: STAT_ICONS.total     },
-    { label: "Active",    value: activeCount,    icon: STAT_ICONS.active    },
-    { label: "Paused",    value: pausedCount,    icon: STAT_ICONS.paused    },
-    { label: "Cancelled", value: cancelledCount, icon: STAT_ICONS.cancelled },
+    { label: "Total",     value: total,          icon: STAT_ICONS.total,     filter: "ALL"       },
+    { label: "Active",    value: activeCount,    icon: STAT_ICONS.active,    filter: "ACTIVE"    },
+    { label: "Paused",    value: pausedCount,    icon: STAT_ICONS.paused,    filter: "PAUSED"    },
+    { label: "Cancelled", value: cancelledCount, icon: STAT_ICONS.cancelled, filter: "CANCELLED" },
   ];
+
+  const applyFilter = (f: string) => { setFilter(f); setPage(0); load(f, search, 0); };
 
   return (
     <>
@@ -561,21 +563,29 @@ export default function SubscriptionsPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((s) => (
-            <div
-              key={s.label}
-              className="relative overflow-hidden rounded-xl p-5"
-              style={{
-                backgroundColor: s.label === "Active" ? "#f3fbf6" : "var(--bg-card)",
-                border: "1px solid var(--border)",
-                borderTop: s.label === "Active" ? "3px solid #22c55e" : "1px solid var(--border)",
-              }}
-            >
-              <div className="absolute -right-2 -bottom-2 opacity-10 text-gray-900">{s.icon}</div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{s.label}</p>
-              <p className="text-2xl font-bold text-gray-900 tabular-nums">{loading ? "—" : s.value.toLocaleString()}</p>
-            </div>
-          ))}
+          {stats.map((s) => {
+            const selectedCard = filter === s.filter;
+            return (
+              <button
+                key={s.label}
+                type="button"
+                onClick={() => applyFilter(s.filter)}
+                aria-pressed={selectedCard}
+                title={`Show ${s.label === "Total" ? "all" : s.label.toLowerCase()} subscriptions`}
+                className="relative overflow-hidden rounded-xl p-5 text-left cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] focus:outline-none"
+                style={{
+                  backgroundColor: s.label === "Active" ? "#f3fbf6" : "var(--bg-card)",
+                  border: "1px solid var(--border)",
+                  borderTop: s.label === "Active" ? "3px solid #22c55e" : "1px solid var(--border)",
+                  boxShadow: selectedCard ? "0 0 0 2px var(--primary)" : undefined,
+                }}
+              >
+                <div className="absolute -right-2 -bottom-2 opacity-10 text-gray-900">{s.icon}</div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{s.label}</p>
+                <p className="text-2xl font-bold text-gray-900 tabular-nums">{loading ? "—" : s.value.toLocaleString()}</p>
+              </button>
+            );
+          })}
         </div>
 
         {/* Filter + Search */}
@@ -584,7 +594,7 @@ export default function SubscriptionsPage() {
             {STATUS_FILTERS.map((f) => (
               <button
                 key={f}
-                onClick={() => { setFilter(f); setPage(0); load(f, search, 0); }}
+                onClick={() => applyFilter(f)}
                 className="text-xs font-semibold px-3 py-1.5 rounded-md transition-all"
                 style={filter === f
                   ? { backgroundColor: "var(--primary)", color: "#fff" }
