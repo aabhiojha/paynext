@@ -5,6 +5,9 @@ import { useAuthStore } from "@/store/authStore";
 import { apiGet } from "@/lib/api";
 import Pagination from "@/components/Pagination";
 import ActivityIcon from "@/components/ActivityIcon";
+import { useColumnResize } from "@/lib/useColumnResize";
+import ResizeHandle from "@/components/ResizeHandle";
+import { TableSkeletonRows } from "@/components/TableSkeleton";
 
 const PAGE_SIZE = 20;
 
@@ -110,6 +113,46 @@ function formatTimestamp(iso: string): string {
 
 function formatDateShort(ymd: string): string {
   return ymd.replace(/-/g, "/");
+}
+
+/** Short exact clock label, e.g. "Jun 14, 2:30 PM". */
+function formatClock(iso: string): string {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  return `${date}, ${time}`;
+}
+
+/** Friendly "how long ago" label that business users read at a glance. */
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  const now = Date.now();
+  const sec = Math.round((now - then) / 1000);
+  if (sec < 0) return "Just now";
+  if (sec < 45) return "Just now";
+  const min = Math.round(sec / 60);
+  if (min < 60) return min === 1 ? "1 minute ago" : `${min} minutes ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return hr === 1 ? "1 hour ago" : `${hr} hours ago`;
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const dayDiff = Math.round((startOfToday.getTime() - new Date(iso).setHours(0, 0, 0, 0)) / 86_400_000);
+  const time = new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  if (dayDiff === 1) return `Yesterday at ${time}`;
+  if (dayDiff < 7) return `${dayDiff} days ago`;
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+/**
+ * The one-line, plain-English story of an event — what a non-technical reader
+ * actually wants. The backend already writes friendly past-tense descriptions
+ * ("Created customer Acme Corp"); fall back to action + target for older logs
+ * that predate descriptions.
+ */
+function describeEvent(log: AuditLog): string {
+  if (log.description && log.description.trim()) return log.description.trim();
+  const target = targetOf(log);
+  const verb = actionLabel(log.action);
+  return target ? `${verb}: ${target}` : verb;
 }
 
 /* ── Field-level change view ─────────────────────────────────────────────── */
@@ -334,9 +377,9 @@ const TIMEFRAME_PRESETS: { label: string; make: () => Timeframe }[] = [
 ];
 
 function timeframeLabel(tf: Timeframe): string {
-  if (!tf.from && !tf.to) return "Timeframe: All time";
-  if (tf.from && tf.to && tf.from === tf.to) return `Timeframe: ${formatDateShort(tf.from)}`;
-  return `Timeframe: ${tf.from ? formatDateShort(tf.from) : "…"} – ${tf.to ? formatDateShort(tf.to) : "…"}`;
+  if (!tf.from && !tf.to) return "When: All time";
+  if (tf.from && tf.to && tf.from === tf.to) return `When: ${formatDateShort(tf.from)}`;
+  return `When: ${tf.from ? formatDateShort(tf.from) : "…"} – ${tf.to ? formatDateShort(tf.to) : "…"}`;
 }
 
 /* ── Page ────────────────────────────────────────────────────────────────── */
@@ -417,14 +460,20 @@ export default function AuditLogPage() {
     });
   }
 
-  const thCls = "text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap";
+  const thCls = "relative text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap overflow-hidden";
+
+  const auditCols = isSuperAdmin ? [36, 200, 470, 230, 180] : [36, 200, 540, 240];
+  const { widths: auditWidths, onMouseDown: onAuditMouseDown } = useColumnResize(auditCols);
 
   return (
-    <div className="px-6 py-8 md:px-10 max-w-6xl mx-auto space-y-5 min-h-full flex flex-col" style={{ animation: "fade-in-up 0.2s ease-out both" }}>
+    <div className="px-6 py-8 md:px-10 max-w-6xl mx-auto space-y-5 min-h-full flex flex-col page-enter">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Audit log</h1>
-        <p className="text-sm text-gray-500 mt-0.5">{total.toLocaleString()} event{total !== 1 ? "s" : ""} recorded</p>
+        <h1 className="text-2xl font-bold text-gray-900">Activity log</h1>
+        <p className="text-sm text-gray-500 mt-0.5">
+          A record of every change made {isSuperAdmin ? "across the platform" : "in your account"} — who did what, and when.
+          {total > 0 && <span className="text-gray-400"> · {total.toLocaleString()} event{total !== 1 ? "s" : ""}</span>}
+        </p>
       </div>
 
       {/* Filter bar */}
@@ -466,7 +515,7 @@ export default function AuditLogPage() {
           </div>
         </FilterPill>
 
-        <FilterPill label={actionFilter.length > 0 ? `Action (${actionFilter.length})` : "Action"} active={actionFilter.length > 0}>
+        <FilterPill label={actionFilter.length > 0 ? `Activity (${actionFilter.length})` : "Activity"} active={actionFilter.length > 0}>
           <div className="max-h-72 overflow-y-auto">
             {actionOptions.map((opt) => (
               <CheckItem
@@ -494,7 +543,7 @@ export default function AuditLogPage() {
           )}
         </FilterPill>
 
-        <FilterPill label={actorFilter ? `Actor: ${actorFilter}` : "Actor"} active={!!actorFilter}>
+        <FilterPill label={actorFilter ? `Who: ${actorFilter}` : "Who"} active={!!actorFilter}>
           <form
             className="px-3 py-1"
             onSubmit={(e) => { e.preventDefault(); applyActor(actorQuery.trim()); }}
@@ -519,7 +568,7 @@ export default function AuditLogPage() {
           )}
         </FilterPill>
 
-        <FilterPill label={targetFilter.length > 0 ? `Target (${targetFilter.length})` : "Target"} active={targetFilter.length > 0}>
+        <FilterPill label={targetFilter.length > 0 ? `Category (${targetFilter.length})` : "Category"} active={targetFilter.length > 0}>
           {RESOURCE_TYPES.map((rt) => (
             <CheckItem
               key={rt.value}
@@ -548,12 +597,7 @@ export default function AuditLogPage() {
 
       {/* Table */}
       <div className="flex-1 min-h-0 flex flex-col">
-        {loading ? (
-          <div className="flex items-center justify-center py-20 text-gray-400">
-            <svg className="animate-spin mr-2.5" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
-            Loading events…
-          </div>
-        ) : logs.length === 0 ? (
+        {!loading && logs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-sm text-gray-400 rounded-xl" style={{ border: "1px solid var(--border)" }}>
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-3 opacity-40">
               <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" />
@@ -561,20 +605,22 @@ export default function AuditLogPage() {
             {hasFilters ? "No events match the selected filters." : "No events recorded yet."}
           </div>
         ) : (
-          <div className="rounded-xl overflow-auto flex-1 min-h-0" style={{ border: "1px solid var(--border)" }}>
-            <table className="w-full text-sm">
+          <div className="rounded-xl overflow-auto min-h-0" style={{ border: "1px solid var(--border)" }}>
+            <table style={{ tableLayout: "fixed", width: "100%", minWidth: auditWidths.reduce((a, b) => a + b, 0) }} className="text-sm">
+              <colgroup>{auditWidths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
               <thead className="sticky top-0 z-10">
                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                  <th className={thCls} style={{ backgroundColor: "#f9fafb", width: 36 }} />
-                  <th className={thCls} style={{ backgroundColor: "#f9fafb" }}>Timestamp (local time)</th>
-                  <th className={thCls} style={{ backgroundColor: "#f9fafb" }}>Action</th>
-                  <th className={thCls} style={{ backgroundColor: "#f9fafb" }}>Actor</th>
-                  {isSuperAdmin && <th className={thCls} style={{ backgroundColor: "#f9fafb" }}>Tenant</th>}
-                  <th className={`${thCls} w-full`} style={{ backgroundColor: "#f9fafb" }}>Target</th>
+                  <th className={thCls} style={{ backgroundColor: "#f9fafb" }} />
+                  <th className={thCls} style={{ backgroundColor: "#f9fafb" }}><span className="truncate block pr-2">When</span><ResizeHandle onMouseDown={(e) => onAuditMouseDown(1, e)} /></th>
+                  <th className={thCls} style={{ backgroundColor: "#f9fafb" }}><span className="truncate block pr-2">Activity</span><ResizeHandle onMouseDown={(e) => onAuditMouseDown(2, e)} /></th>
+                  <th className={thCls} style={{ backgroundColor: "#f9fafb" }}><span className="truncate block pr-2">Who</span>{isSuperAdmin && <ResizeHandle onMouseDown={(e) => onAuditMouseDown(3, e)} />}</th>
+                  {isSuperAdmin && <th className={thCls} style={{ backgroundColor: "#f9fafb" }}><span className="truncate block pr-2">Company</span></th>}
                 </tr>
               </thead>
               <tbody>
-                {logs.map((log) => {
+                {loading ? (
+                  <TableSkeletonRows columns={isSuperAdmin ? 5 : 4} rows={logs.length || 10} />
+                ) : logs.map((log) => {
                   const hasDiff = hasVisibleChanges(log);
                   const isOpen = expanded.has(log.id);
                   return (
@@ -613,7 +659,7 @@ function FragmentRow({ log, hasDiff, isOpen, showTenant, onToggle }: { log: Audi
         className={hasDiff ? "cursor-pointer transition-colors hover:bg-md-primary/5" : undefined}
         onClick={hasDiff ? onToggle : undefined}
       >
-        <td className="pl-3 py-3 align-middle">
+        <td className="pl-3 py-3 align-top">
           {hasDiff && (
             <button
               onClick={(e) => { e.stopPropagation(); onToggle(); }}
@@ -630,20 +676,26 @@ function FragmentRow({ log, hasDiff, isOpen, showTenant, onToggle }: { log: Audi
             </button>
           )}
         </td>
-        <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900 align-middle">{formatTimestamp(log.createdAt)}</td>
-        <td className="px-4 py-2.5 text-gray-800 align-middle" style={{ minWidth: 180 }}>
-          <span className="flex items-center gap-2.5">
-            <ActivityIcon action={log.action} />
-            {actionLabel(log.action)}
+        <td className="px-4 py-3 align-top overflow-hidden" title={formatTimestamp(log.createdAt)}>
+          <div className="font-medium text-gray-900 truncate">{relativeTime(log.createdAt)}</div>
+          <div className="text-xs text-gray-400 truncate">{formatClock(log.createdAt)}</div>
+        </td>
+        <td className="px-4 py-3 text-gray-800 align-top overflow-hidden">
+          <span className="flex items-start gap-2.5">
+            <span className="flex-shrink-0 mt-0.5"><ActivityIcon action={log.action} /></span>
+            <span className="leading-snug break-words">{describeEvent(log)}</span>
           </span>
         </td>
-        <td className="px-4 py-3 whitespace-nowrap text-gray-700 align-middle">{log.actorName || log.actorEmail}</td>
-        {showTenant && <td className="px-4 py-3 whitespace-nowrap text-gray-700 align-middle">{log.tenantName ?? "—"}</td>}
-        <td className="px-4 py-3 text-gray-700 align-middle">{targetOf(log)}</td>
+        <td className="px-4 py-3 text-gray-700 align-top overflow-hidden">
+          <div className="font-medium text-gray-800 truncate" title={log.actorName || log.actorEmail}>{log.actorName || log.actorEmail}</div>
+          {log.actorName && <div className="text-xs text-gray-400 truncate" title={log.actorEmail}>{log.actorEmail}</div>}
+        </td>
+        {showTenant && <td className="px-4 py-3 text-gray-700 align-top overflow-hidden truncate" title={log.tenantName ?? undefined}>{log.tenantName ?? "—"}</td>}
       </tr>
       {isOpen && (
         <tr>
-          <td colSpan={showTenant ? 6 : 5} className="px-4 pb-4 pt-1">
+          <td colSpan={showTenant ? 5 : 4} className="px-4 pb-4 pt-1">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 pl-1">What changed</p>
             <ChangeDetails log={log} />
           </td>
         </tr>
