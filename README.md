@@ -137,6 +137,7 @@ All config is via environment variables — see `.env.example` for the full list
 | `JWT_SECRET`              | Signing secret for auth tokens                  |
 | `JWT_EXPIRATION_SECONDS`  | Token lifetime (default 86400 / 1 day)          |
 | `NEXT_PUBLIC_API_URL`     | API base URL the browser calls                  |
+| `API_INTERNAL_URL`        | Internal API origin used by the Next.js proxy   |
 | `FRONTEND_BASE_URL`       | Used for CORS and for building invite/reset links |
 | `SENDGRID_*`              | Email sending credentials and sender identity   |
 
